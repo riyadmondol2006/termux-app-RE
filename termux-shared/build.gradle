@@ -19,11 +19,6 @@ android {
         buildConfigField "String", "TERMUX_PACKAGE_NAME", "\"" + termuxIdentity.packageName + "\""
         buildConfigField "String", "TERMUX_APP_NAME", "\"" + termuxIdentity.appName + "\""
         buildConfigField "String", "TERMUX_GITHUB_REPO_URL", "\"" + termuxIdentity.githubRepoUrl + "\""
-        externalNativeBuild {
-            ndkBuild {
-                cppFlags ''
-            }
-        }
     }
 
     buildTypes {
@@ -39,12 +34,6 @@ android {
 
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    externalNativeBuild {
-        ndkBuild {
-            path = file('src/main/cpp/Android.mk')
-        }
     }
 
     buildFeatures {
@@ -100,4 +89,12 @@ afterEvaluate {
             }
         }
     }
+}
+
+// liblocal-socket.so, built from the Rust crate in src/main/rust.
+apply from: rootProject.file("gradle/rust-jni.gradle")
+rustJni {
+    crateDirectory = file("src/main/rust")
+    cargoLibraryName = "local_socket"
+    libraryName = "local-socket"
 }

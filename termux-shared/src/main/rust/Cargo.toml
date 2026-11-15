@@ -1,0 +1,30 @@
+[package]
+name = "local-socket"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+description = "JNI library for com.termux.shared.net.socket.local.LocalSocketManager: AF_UNIX local sockets"
+license = "MIT"
+publish = false
+
+[lib]
+# Produces liblocal_socket.so, which the Gradle build packages as liblocal-socket.so for
+# System.loadLibrary("local-socket").
+name = "local_socket"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni-sys = "0.4.1"
+libc = { version = "0.2.177", default-features = false }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+debug = false
