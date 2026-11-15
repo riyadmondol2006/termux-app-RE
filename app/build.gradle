@@ -269,6 +269,11 @@ def downloadBootstrap(String arch, String expectedChecksum, String remoteUrl) {
         file.delete()
         throw new GradleException("Wrong checksum for " + remoteUrl + ": expected: " + expectedChecksum + ", actual: " + checksum)
     }
+
+    // The zips are embedded with .incbin, which ndk-build doesn't track as a dependency, so it
+    // would keep a libtermux-bootstrap.so with the previous bootstrap. Touch the source that
+    // includes them to rebuild it.
+    new File(projectDir, "src/main/cpp/termux-bootstrap-zip.S").setLastModified(System.currentTimeMillis())
 }
 
 /**
