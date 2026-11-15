@@ -14,6 +14,12 @@
 #     for example apr-util 1.6.5, a build dependency of git.
 #   - invisible-mirror.net returns a small web page instead of the file, for example for the
 #     dialog sources that termux-tools needs. invisible-island.net is the site it mirrors.
+# - command-not-found builds its database from the Contents-<arch>.gz files of the repositories
+#   in repo.json, of which it only uses files under the build's own prefix, and it needs the
+#   official repository names. It now always uses the official main repository's file list with
+#   the prefix replaced by the build's prefix, so it suggests the same packages as in Termux,
+#   whatever the package name and repo.json. The root and x11 lists are empty, since those
+#   repositories don't exist for other package names.
 #
 # Usage: fix-termux-packages.sh <termux-packages dir>
 
@@ -93,3 +99,32 @@ termux_download() {
 }
 EOF
 echo "termux_download falls back to kernel.googlesource.com, archive.apache.org and invisible-island.net"
+
+### command-not-found database
+CNF=packages/command-not-found/build.sh
+grep -q 'termux_re_upstream_termux_step_pre_configure' "$CNF" && fail "$CNF is already patched"
+cat >> "$CNF" <<'EOF'
+
+# Termux RE: added by apt-repo/fix-termux-packages.sh of the Termux RE app repository. Build the
+# database from the official main repository's file list, with the build's prefix.
+if declare -F termux_step_pre_configure >/dev/null; then eval "termux_re_upstream_$(declare -f termux_step_pre_configure)"; else termux_re_upstream_termux_step_pre_configure() { :; }; fi
+termux_step_pre_configure() {
+	termux_re_upstream_termux_step_pre_configure
+	local dir="$TERMUX_PKG_TMPDIR/termux-re-command-not-found"
+	rm -rf "$dir"
+	mkdir -p "$dir/main/dists/stable" "$dir/empty/dists/stable"
+	termux_download "https://packages-cf.termux.dev/apt/termux-main/dists/stable/Contents-$TERMUX_ARCH.gz" "$dir/official.gz" SKIP_CHECKSUM
+	gzip -dc "$dir/official.gz" | sed "s|^data/data/com\.termux/files/usr/|${TERMUX_PREFIX#/}/|" | gzip -n > "$dir/main/dists/stable/Contents-$TERMUX_ARCH.gz"
+	gzip -n < /dev/null > "$dir/empty/dists/stable/Contents-$TERMUX_ARCH.gz"
+	jq -n --arg main "file://$dir/main" --arg empty "file://$dir/empty" '{
+		"pkg_format": "debian",
+		"packages": {"name": "termux-main", "distribution": "stable", "component": "main", "url": $main},
+		"root-packages": {"name": "termux-root", "distribution": "stable", "component": "main", "url": $empty},
+		"x11-packages": {"name": "termux-x11", "distribution": "stable", "component": "main", "url": $empty}
+	}' > "$dir/repo.json"
+	grep -q 'join(TERMUX_SCRIPTDIR, "repo.json")' "$TERMUX_PKG_SRCDIR/generate-db.js" || \
+		termux_error_exit "generate-db.js no longer reads repo.json from TERMUX_SCRIPTDIR"
+	sed -i "s|join(TERMUX_SCRIPTDIR, \"repo.json\")|\"$dir/repo.json\"|" "$TERMUX_PKG_SRCDIR/generate-db.js"
+}
+EOF
+echo "command-not-found uses the official file list with the build's prefix"
