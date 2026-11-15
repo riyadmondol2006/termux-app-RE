@@ -6,6 +6,8 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.system.Os;
 import android.util.Pair;
 import android.view.WindowManager;
@@ -31,6 +33,7 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -62,6 +65,27 @@ final class TermuxInstaller {
 
     private static final String LOG_TAG = "TermuxInstaller";
 
+    /**
+     * Whether a bootstrap install thread is currently running. Only one install may run at a time,
+     * since a second one would delete the staging and prefix directories the first one is still
+     * extracting to. A second call happens if the activity is recreated while the bootstrap is
+     * being installed, like on MIUI/HyperOS that relaunches the activity right after install.
+     */
+    private static final AtomicBoolean sBootstrapInstallRunning = new AtomicBoolean(false);
+
+    /**
+     * The activity and callbacks of the latest call to {@link #setupBootstrapIfNeeded(Activity, Runnable, Runnable)}.
+     * If the activity is recreated while the bootstrap is being installed, the install thread
+     * reports to the new activity instead of the destroyed one that started it.
+     * These are only changed on the main thread.
+     */
+    private static volatile Activity sLatestActivity;
+    private static volatile Runnable sLatestWhenDone;
+    private static volatile Runnable sLatestWhenFailsafeRequested;
+    private static volatile ProgressDialog sProgressDialog;
+
+    private static final Handler sMainThreadHandler = new Handler(Looper.getMainLooper());
+
     /** Performs bootstrap setup if necessary. */
     static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone) {
         setupBootstrapIfNeeded(activity, whenDone, null);
@@ -75,6 +99,15 @@ final class TermuxInstaller {
      *                              failsafe session instead. If {@code null}, that option is not offered.
      */
     static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone, final Runnable whenFailsafeRequested) {
+        // If the activity was recreated while the bootstrap is being installed, then do not start
+        // another install, just let the running one report to the new activity once done.
+        if (sBootstrapInstallRunning.get()) {
+            Logger.logInfo(LOG_TAG, "The bootstrap install is already running, waiting for it to finish.");
+            updateLatestActivityAndCallbacks(activity, whenDone, whenFailsafeRequested);
+            showProgressDialog(activity);
+            return;
+        }
+
         String bootstrapErrorMessage;
         Error filesDirectoryAccessibleError;
 
@@ -134,7 +167,16 @@ final class TermuxInstaller {
             return;
         }
 
-        final ProgressDialog progress = ProgressDialog.show(activity, null, activity.getString(R.string.bootstrap_installer_body), true, false);
+        if (!sBootstrapInstallRunning.compareAndSet(false, true)) {
+            updateLatestActivityAndCallbacks(activity, whenDone, whenFailsafeRequested);
+            showProgressDialog(activity);
+            return;
+        }
+
+        updateLatestActivityAndCallbacks(activity, whenDone, whenFailsafeRequested);
+        showProgressDialog(activity);
+
+        final Context appContext = activity.getApplicationContext();
         new Thread() {
             @Override
             public void run() {
@@ -146,28 +188,28 @@ final class TermuxInstaller {
                     // Delete prefix staging directory or any file at its destination
                     error = FileUtils.deleteFile("termux prefix staging directory", TERMUX_STAGING_PREFIX_DIR_PATH, true);
                     if (error != null) {
-                        showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+                        onBootstrapInstallFailed(appContext, Error.getErrorMarkdownString(error));
                         return;
                     }
 
                     // Delete prefix directory or any file at its destination
                     error = FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
                     if (error != null) {
-                        showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+                        onBootstrapInstallFailed(appContext, Error.getErrorMarkdownString(error));
                         return;
                     }
 
                     // Create prefix staging directory if it does not already exist and set required permissions
                     error = TermuxFileUtils.isTermuxPrefixStagingDirectoryAccessible(true, true);
                     if (error != null) {
-                        showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+                        onBootstrapInstallFailed(appContext, Error.getErrorMarkdownString(error));
                         return;
                     }
 
                     // Create prefix directory if it does not already exist and set required permissions
                     error = TermuxFileUtils.isTermuxPrefixDirectoryAccessible(true, true);
                     if (error != null) {
-                        showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+                        onBootstrapInstallFailed(appContext, Error.getErrorMarkdownString(error));
                         return;
                     }
 
@@ -193,7 +235,7 @@ final class TermuxInstaller {
 
                                     error = ensureDirectoryExists(new File(newPath).getParentFile());
                                     if (error != null) {
-                                        showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+                                        onBootstrapInstallFailed(appContext, Error.getErrorMarkdownString(error));
                                         return;
                                     }
                                 }
@@ -204,7 +246,7 @@ final class TermuxInstaller {
 
                                 error = ensureDirectoryExists(isDirectory ? targetFile : targetFile.getParentFile());
                                 if (error != null) {
-                                    showBootstrapErrorDialog(activity, whenDone, Error.getErrorMarkdownString(error));
+                                    onBootstrapInstallFailed(appContext, Error.getErrorMarkdownString(error));
                                     return;
                                 }
 
@@ -239,48 +281,112 @@ final class TermuxInstaller {
                     Logger.logInfo(LOG_TAG, "Bootstrap packages installed successfully.");
 
                     // Recreate env file since termux prefix was wiped earlier
-                    TermuxShellEnvironment.writeEnvironmentToFile(activity);
+                    TermuxShellEnvironment.writeEnvironmentToFile(appContext);
 
-                    activity.runOnUiThread(whenDone);
+                    onBootstrapInstallSucceeded();
 
                 } catch (final Exception e) {
-                    showBootstrapErrorDialog(activity, whenDone, Logger.getStackTracesMarkdownString(null, Logger.getStackTracesStringArray(e)));
+                    onBootstrapInstallFailed(appContext, Logger.getStackTracesMarkdownString(null, Logger.getStackTracesStringArray(e)));
 
-                } finally {
-                    activity.runOnUiThread(() -> {
-                        try {
-                            progress.dismiss();
-                        } catch (RuntimeException e) {
-                            // Activity already dismissed - ignore.
-                        }
-                    });
+                } catch (final Throwable t) {
+                    // Do not leave sBootstrapInstallRunning set forever, like for an OutOfMemoryError.
+                    sMainThreadHandler.post(TermuxInstaller::finishBootstrapInstall);
+                    throw t;
                 }
             }
         }.start();
     }
 
-    public static void showBootstrapErrorDialog(Activity activity, Runnable whenDone, String message) {
+    /** Must be called on the main thread. */
+    private static void updateLatestActivityAndCallbacks(Activity activity, Runnable whenDone, Runnable whenFailsafeRequested) {
+        sLatestActivity = activity;
+        sLatestWhenDone = whenDone;
+        sLatestWhenFailsafeRequested = whenFailsafeRequested;
+    }
+
+    /** Show the install progress dialog on {@code activity}, replacing one shown on a previous activity. Must be called on the main thread. */
+    private static void showProgressDialog(Activity activity) {
+        dismissProgressDialog();
+        try {
+            sProgressDialog = ProgressDialog.show(activity, null, activity.getString(R.string.bootstrap_installer_body), true, false);
+        } catch (WindowManager.BadTokenException e) {
+            // Activity already finished - ignore.
+        }
+    }
+
+    /** Must be called on the main thread. */
+    private static void dismissProgressDialog() {
+        ProgressDialog progressDialog = sProgressDialog;
+        sProgressDialog = null;
+        if (progressDialog == null) return;
+        try {
+            progressDialog.dismiss();
+        } catch (RuntimeException e) {
+            // Activity already dismissed - ignore.
+        }
+    }
+
+    /**
+     * Reset the install state once the install thread is done. Must be called on the main thread.
+     *
+     * @return Returns the latest activity, which may be {@code null}.
+     */
+    private static Activity finishBootstrapInstall() {
+        Activity activity = sLatestActivity;
+        dismissProgressDialog();
+        sLatestActivity = null;
+        sLatestWhenDone = null;
+        sLatestWhenFailsafeRequested = null;
+        sBootstrapInstallRunning.set(false);
+        return activity;
+    }
+
+    /**
+     * Run the latest whenDone callback on the main thread. This is done on the main thread, where
+     * {@link #setupBootstrapIfNeeded(Activity, Runnable, Runnable)} is called, so that an activity
+     * recreated while the install is finishing either gets its callback run here or sees the
+     * installed prefix itself.
+     */
+    private static void onBootstrapInstallSucceeded() {
+        sMainThreadHandler.post(() -> {
+            Runnable whenDone = sLatestWhenDone;
+            finishBootstrapInstall();
+            if (whenDone != null)
+                whenDone.run();
+        });
+    }
+
+    private static void onBootstrapInstallFailed(Context context, String message) {
         Logger.logErrorExtended(LOG_TAG, "Bootstrap Error:\n" + message);
 
         // Send a notification with the exception so that the user knows why bootstrap setup failed
-        sendBootstrapCrashReportNotification(activity, message);
+        sendBootstrapCrashReportNotification(context, message);
 
-        activity.runOnUiThread(() -> {
-            try {
-                new AlertDialog.Builder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
-                    .setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
-                        dialog.dismiss();
-                        activity.finish();
-                    })
-                    .setPositiveButton(R.string.bootstrap_error_try_again, (dialog, which) -> {
-                        dialog.dismiss();
-                        FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
-                        TermuxInstaller.setupBootstrapIfNeeded(activity, whenDone);
-                    }).show();
-            } catch (WindowManager.BadTokenException e1) {
-                // Activity already dismissed - ignore.
-            }
+        sMainThreadHandler.post(() -> {
+            Runnable whenDone = sLatestWhenDone;
+            Runnable whenFailsafeRequested = sLatestWhenFailsafeRequested;
+            Activity activity = finishBootstrapInstall();
+            if (activity != null)
+                showBootstrapErrorDialog(activity, whenDone, whenFailsafeRequested);
         });
+    }
+
+    /** Must be called on the main thread. */
+    private static void showBootstrapErrorDialog(Activity activity, Runnable whenDone, Runnable whenFailsafeRequested) {
+        try {
+            new AlertDialog.Builder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
+                .setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
+                    dialog.dismiss();
+                    activity.finish();
+                })
+                .setPositiveButton(R.string.bootstrap_error_try_again, (dialog, which) -> {
+                    dialog.dismiss();
+                    FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
+                    TermuxInstaller.setupBootstrapIfNeeded(activity, whenDone, whenFailsafeRequested);
+                }).show();
+        } catch (WindowManager.BadTokenException e1) {
+            // Activity already dismissed - ignore.
+        }
     }
 
     private static void showBootstrapPackageNameMismatchDialog(Activity activity, Runnable whenFailsafeRequested) {
@@ -312,14 +418,14 @@ final class TermuxInstaller {
         });
     }
 
-    private static void sendBootstrapCrashReportNotification(Activity activity, String message) {
+    private static void sendBootstrapCrashReportNotification(Context context, String message) {
         final String title = TermuxConstants.TERMUX_APP_NAME + " Bootstrap Error";
 
         // Add info of all install Termux plugin apps as well since their target sdk or installation
         // on external/portable sd card can affect Termux app files directory access or exec.
-        TermuxCrashUtils.sendCrashReportNotification(activity, LOG_TAG,
+        TermuxCrashUtils.sendCrashReportNotification(context, LOG_TAG,
             title, null, "## " + title + "\n\n" + message + "\n\n" +
-                TermuxUtils.getTermuxDebugMarkdownString(activity),
+                TermuxUtils.getTermuxDebugMarkdownString(context),
             true, false, TermuxUtils.AppInfoMode.TERMUX_AND_PLUGIN_PACKAGES, true);
     }
 
