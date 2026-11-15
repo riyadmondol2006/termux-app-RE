@@ -1,0 +1,174 @@
+name: Build
+
+# Builds, tests and uploads APKs on every push and pull request. Pushing a "v*" tag also
+# publishes a GitHub release with the signed release APKs.
+#
+# Release APKs are signed with the KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and
+# KEY_PASSWORD repository secrets. Builds without them (like pull requests from forks)
+# produce unsigned release APKs.
+
+on:
+  push:
+    branches: [ '**' ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v7
+
+      - name: Setup java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Setup Rust
+        if: hashFiles('rust-toolchain.toml') != ''
+        run: |
+          # Installs the toolchain and Android targets pinned in rust-toolchain.toml.
+          rustup toolchain install
+          rustup show
+
+      - name: Set build variables
+        id: vars
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+            GITHUB_SHA="${{ github.event.pull_request.head.sha }}" # Do not use the merge commit
+          fi
+
+          VERSION_NAME="$(sed -n -E 's/^\s+versionName = "([^"]+)"$/\1/p' app/build.gradle | head -n 1)"
+          test -n "$VERSION_NAME" || { echo "Failed to read versionName from app/build.gradle"; exit 1; }
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+            APK_VERSION_TAG="v$TAG_VERSION_NAME"
+            echo "IS_RELEASE=true" >> "$GITHUB_ENV"
+          else
+            # The "+" build metadata keeps semantic versioning precedence intact.
+            TAG_VERSION_NAME="$VERSION_NAME+${GITHUB_SHA:0:7}"
+            APK_VERSION_TAG="v$TAG_VERSION_NAME"
+            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
+          fi
+          echo "TERMUX_APP_VERSION_NAME=$TAG_VERSION_NAME" >> "$GITHUB_ENV"
+          echo "APK_VERSION_TAG=$APK_VERSION_TAG" >> "$GITHUB_ENV"
+
+          # Use the newest bootstrap release made by the build_bootstraps workflow for the
+          # app's package name, if there is one. Otherwise the official bootstrap is used.
+          PACKAGE_NAME="$(sed -n 's/^termuxPackageName=//p' gradle.properties)"
+          echo "PACKAGE_NAME=$PACKAGE_NAME" >> "$GITHUB_ENV"
+          BOOTSTRAP_TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+            --jq "[.[] | select(.tagName | startswith(\"bootstrap-$PACKAGE_NAME-\"))] | sort_by(.createdAt) | last | .tagName // empty" || true)"
+          if [ -n "$BOOTSTRAP_TAG" ]; then
+            echo "Using bootstrap release '$BOOTSTRAP_TAG'"
+            echo "TERMUX_BOOTSTRAP_URL=https://github.com/$GITHUB_REPOSITORY/releases/download/$BOOTSTRAP_TAG" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No 'bootstrap-$PACKAGE_NAME-*' release found, building with the official bootstrap. It only works for package name com.termux. Run the 'Build bootstraps' workflow to make one."
+          fi
+
+      - name: Setup release signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 secret is not available, release APKs will be unsigned."
+            echo "IS_SIGNED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          {
+            echo "TERMUX_RELEASE_KEYSTORE_FILE=$KEYSTORE_FILE"
+            echo "TERMUX_RELEASE_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "TERMUX_RELEASE_KEY_ALIAS=$KEY_ALIAS"
+            echo "TERMUX_RELEASE_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "IS_SIGNED=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: ./gradlew test
+
+      - name: Build APKs
+        env:
+          TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS: "1"
+        run: |
+          export TERMUX_APK_VERSION_TAG="$APK_VERSION_TAG-release"
+          ./gradlew assembleRelease
+          export TERMUX_APK_VERSION_TAG="$APK_VERSION_TAG-debug"
+          ./gradlew assembleDebug
+
+      - name: Collect APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="$RUNNER_TEMP/apks"
+          mkdir -p "$OUT_DIR"
+          for build_type in release debug; do
+            for abi in universal arm64-v8a armeabi-v7a x86_64 x86; do
+              apk="app/build/outputs/apk/$build_type/termux-app_$APK_VERSION_TAG-${build_type}_$abi.apk"
+              test -f "$apk" || { echo "Missing $apk"; ls "app/build/outputs/apk/$build_type"; exit 1; }
+              suffix=""
+              if [ "$build_type" == "release" ] && [ "$IS_SIGNED" != "true" ]; then suffix="-unsigned"; fi
+              cp "$apk" "$OUT_DIR/termux-re_$APK_VERSION_TAG-${build_type}${suffix}_$abi.apk"
+            done
+          done
+          (cd "$OUT_DIR" && sha256sum *.apk > sha256sums.txt && cat sha256sums.txt)
+          if [ "$IS_SIGNED" == "true" ]; then
+            APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner"
+            "$APKSIGNER" verify --print-certs "$OUT_DIR"/*-release_universal.apk | grep -v "^WARNING" | head -n 3
+          fi
+          echo "OUT_DIR=$OUT_DIR" >> "$GITHUB_ENV"
+
+      - name: Upload release APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: termux-re_${{ env.APK_VERSION_TAG }}-release
+          path: |
+            ${{ env.OUT_DIR }}/*-release*.apk
+            ${{ env.OUT_DIR }}/sha256sums.txt
+
+      - name: Upload debug APKs
+        uses: actions/upload-artifact@v7
+        with:
+          name: termux-re_${{ env.APK_VERSION_TAG }}-debug
+          path: |
+            ${{ env.OUT_DIR }}/*-debug_*.apk
+            ${{ env.OUT_DIR }}/sha256sums.txt
+
+      - name: Publish GitHub release
+        if: env.IS_RELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$IS_SIGNED" != "true" ]; then
+            echo "Refusing to publish a release with unsigned APKs. Add the signing secrets."
+            exit 1
+          fi
+          PRERELEASE=""
+          if [[ "$APK_VERSION_TAG" == *-* ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "${GITHUB_REF#refs/tags/}" --repo "$GITHUB_REPOSITORY" \
+            --title "Termux RE $APK_VERSION_TAG" --generate-notes $PRERELEASE \
+            "$OUT_DIR"/*-release_*.apk "$OUT_DIR"/sha256sums.txt

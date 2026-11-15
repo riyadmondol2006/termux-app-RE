@@ -2,13 +2,15 @@ name: "Validate Gradle Wrapper"
 
 on:
   push:
-    branches:
-      - master
-      - android-10
+    paths:
+      - 'gradle/wrapper/**'
+      - 'gradlew'
+      - 'gradlew.bat'
   pull_request:
-    branches:
-      - master
-      - android-10
+    paths:
+      - 'gradle/wrapper/**'
+      - 'gradlew'
+      - 'gradlew.bat'
   workflow_dispatch:
 
 jobs:
@@ -16,5 +18,5 @@ jobs:
     name: "Validation"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: gradle/actions/wrapper-validation@v6
