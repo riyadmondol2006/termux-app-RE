@@ -1,40 +1,16 @@
-apply plugin: 'com.android.library'
-apply plugin: 'maven-publish'
+plugins {
+    id "com.android.library"
+    id "maven-publish"
+}
 
 android {
     namespace = "com.termux.shared"
 
-    compileSdkVersion project.properties.compileSdkVersion.toInteger()
+    compileSdk = project.properties.compileSdkVersion.toInteger()
     ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
 
-    dependencies {
-        implementation "androidx.appcompat:appcompat:1.6.1"
-        implementation "androidx.annotation:annotation:1.9.0"
-        implementation "androidx.core:core:1.13.1"
-        implementation "com.google.android.material:material:1.12.0"
-        implementation "com.google.guava:guava:24.1-jre"
-        implementation "io.noties.markwon:core:$markwonVersion"
-        implementation "io.noties.markwon:ext-strikethrough:$markwonVersion"
-        implementation "io.noties.markwon:linkify:$markwonVersion"
-        implementation "io.noties.markwon:recycler:$markwonVersion"
-        implementation "org.lsposed.hiddenapibypass:hiddenapibypass:6.1"
-
-        implementation "androidx.window:window:1.1.0"
-
-        // Do not increment version higher than 2.5 or there
-        // will be runtime exceptions on android < 8
-        // due to missing classes like java.nio.file.Path.
-        implementation "commons-io:commons-io:2.5"
-
-        implementation project(":terminal-view")
-
-        implementation "com.termux:termux-am-library:v2.0.0"
-    }
-
     defaultConfig {
-        compileSdkVersion project.properties.compileSdkVersion.toInteger()
-        minSdkVersion project.properties.minSdkVersion.toInteger()
-        targetSdkVersion project.properties.targetSdkVersion.toInteger()
+        minSdk = project.properties.minSdkVersion.toInteger()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             ndkBuild {
@@ -45,22 +21,22 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled = false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
     compileOptions {
         // Flag to enable support for the new language APIs
-        coreLibraryDesugaringEnabled true
+        coreLibraryDesugaringEnabled = true
 
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     externalNativeBuild {
         ndkBuild {
-            path file('src/main/cpp/Android.mk')
+            path = file('src/main/cpp/Android.mk')
         }
     }
 
@@ -74,12 +50,26 @@ android {
 }
 
 dependencies {
-    testImplementation "junit:junit:4.13.2"
-    androidTestImplementation "androidx.test.ext:junit:1.1.5"
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
+    implementation libs.androidx.appcompat
+    implementation libs.androidx.annotation
+    implementation libs.androidx.core
+    implementation libs.material
+    implementation libs.guava
+    implementation libs.bundles.markwon
+    implementation libs.hiddenapibypass
+    implementation libs.androidx.window
+    // Pinned, see gradle/libs.versions.toml.
+    implementation libs.commons.io
+    implementation libs.termux.am.library
+
+    implementation project(":terminal-view")
+
+    testImplementation libs.junit
+    androidTestImplementation libs.androidx.test.junit
+    coreLibraryDesugaring libs.desugar.jdk.libs
 }
 
-task sourceJar(type: Jar) {
+def sourceJar = tasks.register("sourceJar", Jar) {
     from android.sourceSets.main.java.srcDirs
     archiveClassifier = "sources"
 }

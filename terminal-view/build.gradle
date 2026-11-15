@@ -1,31 +1,27 @@
-apply plugin: 'com.android.library'
-apply plugin: 'maven-publish'
+plugins {
+    id "com.android.library"
+    id "maven-publish"
+}
 
 android {
     namespace "com.termux.view"
-    compileSdkVersion project.properties.compileSdkVersion.toInteger()
-
-    dependencies {
-        implementation "androidx.annotation:annotation:1.9.0"
-        api project(":terminal-emulator")
-    }
+    compileSdk = project.properties.compileSdkVersion.toInteger()
 
     defaultConfig {
-        minSdkVersion project.properties.minSdkVersion.toInteger()
-        targetSdkVersion project.properties.targetSdkVersion.toInteger()
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        minSdk = project.properties.minSdkVersion.toInteger()
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled = false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     publishing {
@@ -38,10 +34,13 @@ android {
 }
 
 dependencies {
-    testImplementation "junit:junit:4.13.2"
+    implementation libs.androidx.annotation
+    api project(":terminal-emulator")
+
+    testImplementation libs.junit
 }
 
-task sourceJar(type: Jar) {
+def sourceJar = tasks.register("sourceJar", Jar) {
     from android.sourceSets.main.java.srcDirs
     archiveClassifier = "sources"
 }

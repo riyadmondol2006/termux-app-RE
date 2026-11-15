@@ -8,43 +8,26 @@ ext {
     // crash at startup.
     // Bootstrap of a different variant must not be manually installed by the user after app installation
     // by replacing $PREFIX since app code is dependant on the variant used to build the APK.
-    // Currently supported values are: [ "apt-android-7" "apt-android-5" ]
+    // Currently supported values are: [ "apt-android-7" ]. The "apt-android-5" variant was dropped
+    // along with Android 5/6 support (minSdk 24): its frozen 2022 bootstrap refuses to run on
+    // Android 7+ and its APKs only produced "bootstrap variant not compatible" errors.
     packageVariant = System.getenv("TERMUX_PACKAGE_VARIANT") ?: "apt-android-7" // Default: "apt-android-7"
 }
 
 android {
-    namespace "com.termux"
+    namespace = "com.termux"
 
-    compileSdkVersion project.properties.compileSdkVersion.toInteger()
+    compileSdk = project.properties.compileSdkVersion.toInteger()
     ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
     def appVersionName = System.getenv("TERMUX_APP_VERSION_NAME") ?: ""
-    def apkVersionTag = System.getenv("TERMUX_APK_VERSION_TAG") ?: ""
     def splitAPKsForDebugBuilds = System.getenv("TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS") ?: "1"
     def splitAPKsForReleaseBuilds = System.getenv("TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS") ?: "0" // F-Droid does not support split APKs #1904
 
-    dependencies {
-        implementation "androidx.annotation:annotation:1.9.0"
-        implementation "androidx.core:core:1.13.1"
-        implementation "androidx.drawerlayout:drawerlayout:1.2.0"
-        implementation "androidx.preference:preference:1.2.1"
-        implementation "androidx.viewpager:viewpager:1.0.0"
-        implementation "com.google.android.material:material:1.12.0"
-        implementation "com.google.guava:guava:24.1-jre"
-        implementation "io.noties.markwon:core:$markwonVersion"
-        implementation "io.noties.markwon:ext-strikethrough:$markwonVersion"
-        implementation "io.noties.markwon:linkify:$markwonVersion"
-        implementation "io.noties.markwon:recycler:$markwonVersion"
-        implementation 'com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava'
-
-        implementation project(":terminal-view")
-        implementation project(":termux-shared")
-    }
-
     defaultConfig {
-        minSdkVersion project.properties.minSdkVersion.toInteger()
-        targetSdkVersion project.properties.targetSdkVersion.toInteger()
-        versionCode 118
-        versionName "0.118.0"
+        minSdk = project.properties.minSdkVersion.toInteger()
+        targetSdk = project.properties.targetSdkVersion.toInteger()
+        versionCode = 118
+        versionName = "0.118.0"
 
         if (appVersionName) versionName = appVersionName
         validateVersionName(versionName)
@@ -68,47 +51,47 @@ android {
 
         splits {
             abi {
-                enable ((gradle.startParameter.taskNames.any { it.contains("Debug") } && splitAPKsForDebugBuilds == "1") ||
+                enable = ((gradle.startParameter.taskNames.any { it.contains("Debug") } && splitAPKsForDebugBuilds == "1") ||
                     (gradle.startParameter.taskNames.any { it.contains("Release") } && splitAPKsForReleaseBuilds == "1"))
-                reset ()
+                reset()
                 include 'x86', 'x86_64', 'armeabi-v7a', 'arm64-v8a'
-                universalApk true
+                universalApk = true
             }
         }
     }
 
     signingConfigs {
         debug {
-            storeFile file('testkey_untrusted.jks')
-            keyAlias 'alias'
-            storePassword 'xrj45yWGLbsO7W0v'
-            keyPassword 'xrj45yWGLbsO7W0v'
+            storeFile = file('testkey_untrusted.jks')
+            keyAlias = 'alias'
+            storePassword = 'xrj45yWGLbsO7W0v'
+            keyPassword = 'xrj45yWGLbsO7W0v'
         }
     }
 
     buildTypes {
         release {
-            minifyEnabled true
-            shrinkResources false // Reproducible builds
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled = true
+            shrinkResources = false // Reproducible builds
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
 
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
         }
     }
 
     compileOptions {
         // Flag to enable support for the new language APIs
-        coreLibraryDesugaringEnabled true
+        coreLibraryDesugaringEnabled = true
 
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     externalNativeBuild {
         ndkBuild {
-            path "src/main/cpp/Android.mk"
+            path = file("src/main/cpp/Android.mk")
         }
     }
 
@@ -122,38 +105,54 @@ android {
         }
     }
 
-    packagingOptions {
+    packaging {
         jniLibs {
-            useLegacyPackaging true
-        }
-    }
-
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            if (variant.buildType.name == "debug") {
-                def abi = output.getFilter(com.android.build.OutputFile.ABI)
-                outputFileName = new File("termux-app_" + (apkVersionTag ? apkVersionTag : project.ext.packageVariant + "-" + "debug") + "_" + (abi ? abi : "universal") + ".apk")
-            } else if (variant.buildType.name == "release") {
-                def abi = output.getFilter(com.android.build.OutputFile.ABI)
-                outputFileName = new File("termux-app_" + (apkVersionTag ? apkVersionTag : project.ext.packageVariant + "-" + "release") + "_" + (abi ? abi : "universal") + ".apk")
-            }
+            useLegacyPackaging = true
         }
     }
 
     buildFeatures {
-        buildConfig true
+        buildConfig = true
     }
 }
 
 dependencies {
-    testImplementation "junit:junit:4.13.2"
-    testImplementation "org.robolectric:robolectric:4.10"
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
+    implementation libs.androidx.annotation
+    implementation libs.androidx.core
+    implementation libs.androidx.drawerlayout
+    implementation libs.androidx.preference
+    implementation libs.androidx.viewpager
+    implementation libs.material
+    implementation libs.guava
+    implementation libs.bundles.markwon
+    implementation libs.guava.listenablefuture.empty
+
+    implementation project(":terminal-view")
+    implementation project(":termux-shared")
+
+    testImplementation libs.junit
+    testImplementation libs.robolectric
+    coreLibraryDesugaring libs.desugar.jdk.libs
 }
 
-task versionName {
+// Name APKs "termux-app_<tag>_<abi>.apk", where <tag> is TERMUX_APK_VERSION_TAG if set,
+// otherwise "<packageVariant>-<buildType>".
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        def apkVersionTag = System.getenv("TERMUX_APK_VERSION_TAG") ?: ""
+        variant.outputs.each { output ->
+            def abiFilter = output.filters.find { it.filterType.name() == "ABI" }
+            def abi = abiFilter ? abiFilter.identifier : "universal"
+            def tag = apkVersionTag ?: (project.ext.packageVariant + "-" + variant.buildType)
+            output.outputFileName.set("termux-app_" + tag + "_" + abi + ".apk")
+        }
+    }
+}
+
+tasks.register("versionName") {
+    def versionName = android.defaultConfig.versionName
     doLast {
-        print android.defaultConfig.versionName
+        print versionName
     }
 }
 
@@ -215,7 +214,7 @@ clean {
     }
 }
 
-task downloadBootstraps() {
+def downloadBootstraps = tasks.register("downloadBootstraps") {
     doLast {
         def packageVariant = project.ext.packageVariant
         if (packageVariant == "apt-android-7") {
@@ -224,20 +223,14 @@ task downloadBootstraps() {
             downloadBootstrap("arm", "a38f4d3b2f735f83be2bf54eff463e86dc32a3e2f9f861c1557c4378d249c018", version)
             downloadBootstrap("i686", "f5bc0b025b9f3b420b5fcaeefc064f888f5f22a0d6fd7090f4aac0c33eb3555b", version)
             downloadBootstrap("x86_64", "b7fd0f2e3a4de534be3144f9f91acc768630fc463eaf134ab2e64c545e834f7a", version)
-        } else if (packageVariant == "apt-android-5") {
-            def version = "2022.04.28-r6" + "+" + packageVariant
-            downloadBootstrap("aarch64", "913609d439415c828c5640be1b0561467e539cb1c7080662decaaca2fb4820e7", version)
-            downloadBootstrap("arm", "26bfb45304c946170db69108e5eb6e3641aad751406ce106c80df80cad2eccf8", version)
-            downloadBootstrap("i686", "46dcfeb5eef67ba765498db9fe4c50dc4690805139aa0dd141a9d8ee0693cd27", version)
-            downloadBootstrap("x86_64", "615b590679ee6cd885b7fd2ff9473c845e920f9b422f790bb158c63fe42b8481", version)
         } else {
             throw new GradleException("Unsupported TERMUX_PACKAGE_VARIANT \"" + packageVariant + "\"")
         }
     }
 }
 
-afterEvaluate {
-    android.applicationVariants.all { variant ->
-        variant.javaCompileProvider.get().dependsOn(downloadBootstraps)
-    }
+// The bootstrap zips are embedded into libtermux-bootstrap.so by the ndk-build, so they must
+// exist before any variant starts building.
+tasks.named("preBuild").configure {
+    dependsOn downloadBootstraps
 }
