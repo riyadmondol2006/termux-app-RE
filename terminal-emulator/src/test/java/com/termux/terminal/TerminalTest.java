@@ -136,6 +136,27 @@ public class TerminalTest extends TerminalTestCase {
 		assertEquals("hi", mOutput.getOutputAndClear());
 	}
 
+	/** Pasting only escape and C1 control characters should not write anything (termux/termux-app#5119). */
+	public void testPasteOnlyEscapeAndC1Characters() {
+		withTerminalSized(5, 5);
+		mTerminal.paste("\u001B\u0085\u009B\u001B");
+		assertEquals("", mOutput.getOutputAndClear());
+		mTerminal.paste("");
+		assertEquals("", mOutput.getOutputAndClear());
+		assertEquals(0, mOutput.emptyWrites);
+
+		// No empty bracketed paste markers.
+		enterString("\033[?2004h");
+		mTerminal.paste("\u001B\u009F");
+		assertEquals("", mOutput.getOutputAndClear());
+		assertEquals(0, mOutput.emptyWrites);
+
+		// Characters other than escape and C1 control characters should still be pasted.
+		mTerminal.paste("\u001Ba\u0085");
+		assertEquals("\033[200~" + "a" + "\033[201~", mOutput.getOutputAndClear());
+		assertEquals(0, mOutput.emptyWrites);
+	}
+
 	public void testSelectGraphics() {
 		selectGraphicsTestRun(';');
 		selectGraphicsTestRun(':');

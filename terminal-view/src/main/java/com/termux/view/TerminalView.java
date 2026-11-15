@@ -1086,8 +1086,9 @@ public final class TerminalView extends View {
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void autofill(AutofillValue value) {
-        if (value.isText()) {
-            mTermSession.write(value.getTextValue().toString());
+        if (value.isText() && mTermSession != null) {
+            CharSequence text = value.getTextValue();
+            if (!TextUtils.isEmpty(text)) mTermSession.write(text.toString());
         }
 
         resetAutoFill();
