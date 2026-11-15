@@ -4,6 +4,7 @@ import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.graphics.Point;
+import android.os.Build;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract.Document;
@@ -11,14 +12,25 @@ import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
 import android.webkit.MimeTypeMap;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+
 import com.termux.R;
+import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxConstants;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.DirectoryIteratorException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 
 /**
  * A document provider for the Storage Access Framework which exposes the files in the
@@ -32,6 +44,8 @@ import java.util.LinkedList;
  * - http://developer.android.com/guide/topics/providers/document-provider.html#43
  */
 public class TermuxDocumentsProvider extends DocumentsProvider {
+
+    private static final String LOG_TAG = "TermuxDocumentsProvider";
 
     private static final String ALL_MIME_TYPES = "*/*";
 
@@ -90,7 +104,7 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
     public Cursor queryChildDocuments(String parentDocumentId, String[] projection, String sortOrder) throws FileNotFoundException {
         final MatrixCursor result = new MatrixCursor(projection != null ? projection : DEFAULT_DOCUMENT_PROJECTION);
         final File parent = getFileForDocId(parentDocumentId);
-        for (File file : parent.listFiles()) {
+        for (File file : listFiles(parent)) {
             includeFile(result, null, file);
         }
         return result;
@@ -177,7 +191,7 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
             }
             if (isInsideHome) {
                 if (file.isDirectory()) {
-                    Collections.addAll(pending, file.listFiles());
+                    pending.addAll(listFiles(file));
                 } else {
                     if (file.getName().toLowerCase().contains(query)) {
                         includeFile(result, null, file);
@@ -192,6 +206,57 @@ public class TermuxDocumentsProvider extends DocumentsProvider {
     @Override
     public boolean isChildDocument(String parentDocumentId, String documentId) {
         return documentId.startsWith(parentDocumentId);
+    }
+
+    /**
+     * List the files in a directory.
+     *
+     * {@link File#listFiles()} converts file names with {@code NewStringUTF()}, which aborts the
+     * app if a file name is not valid UTF-8 and CheckJNI is enabled, like for debuggable apps,
+     * and returns {@code null} if the directory cannot be read. On Android {@code >= 8}, the
+     * file names are read with {@link Files#newDirectoryStream(Path)} instead, which decodes them
+     * in Java, and entries that cannot be accessed by their decoded name are skipped.
+     *
+     * @param directory The directory to list.
+     * @return Returns the files in the directory, which is empty if it could not be read.
+     */
+    @NonNull
+    private static List<File> listFiles(@NonNull File directory) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            return listFilesWithDirectoryStream(directory);
+
+        File[] files = directory.listFiles();
+        if (files == null) return new ArrayList<>();
+        List<File> fileList = new ArrayList<>(files.length);
+        Collections.addAll(fileList, files);
+        return fileList;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    @NonNull
+    private static List<File> listFilesWithDirectoryStream(@NonNull File directory) {
+        List<File> fileList = new ArrayList<>();
+        try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(directory.toPath())) {
+            for (Path path : directoryStream) {
+                File file;
+                try {
+                    // A file name that is not valid UTF-8 is decoded with replacement chars, so
+                    // the file cannot be accessed by its decoded name, so skip it.
+                    file = new File(directory, path.getFileName().toString());
+                    if (!Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                        Logger.logWarn(LOG_TAG, "Skipping file that cannot be accessed by its name in \"" + directory + "\", like if its name is not valid UTF-8");
+                        continue;
+                    }
+                } catch (Exception e) {
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Skipping file in \"" + directory + "\" that failed to be read", e);
+                    continue;
+                }
+                fileList.add(file);
+            }
+        } catch (IOException | DirectoryIteratorException | SecurityException e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to list files in \"" + directory + "\"", e);
+        }
+        return fileList;
     }
 
     /**

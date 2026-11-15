@@ -166,6 +166,11 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             setTerminalCursorBlinkerState(true);
             mTerminalCursorBlinkerStateAlreadySet = true;
         }
+
+        // The window background is set from the emulator colors, which could not be done when the
+        // session was attached if its emulator had not been created yet, like for a session
+        // created by a widget or url opener before the activity was laid out.
+        mTermuxTerminalSessionActivityClient.updateBackgroundColor();
     }
 
 

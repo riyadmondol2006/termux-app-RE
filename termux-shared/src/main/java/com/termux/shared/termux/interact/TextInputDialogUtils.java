@@ -25,7 +25,9 @@ public final class TextInputDialogUtils {
         input.setSingleLine();
         if (initialText != null) {
             input.setText(initialText);
-            Selection.setSelection(input.getText(), initialText.length());
+            // The text may have been truncated, like by the 5000 chars limit Android sets for
+            // single line EditText, so use the length of the text actually set.
+            Selection.setSelection(input.getText(), input.getText().length());
         }
 
         final AlertDialog[] dialogHolder = new AlertDialog[1];

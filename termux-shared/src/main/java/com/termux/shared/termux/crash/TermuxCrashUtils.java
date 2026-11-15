@@ -161,7 +161,12 @@ public class TermuxCrashUtils implements CrashHandler.CrashHandlerClient {
         new Thread() {
             @Override
             public void run() {
-                notifyAppCrashFromCrashLogFileInner(context, logTagParam);
+                // Failing to notify of a previous crash must not crash the app again
+                try {
+                    notifyAppCrashFromCrashLogFileInner(context, logTagParam);
+                } catch (Exception e) {
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Failed to notify app crash from crash log file", e);
+                }
             }
         }.start();
     }
@@ -363,8 +368,16 @@ public class TermuxCrashUtils implements CrashHandler.CrashHandlerClient {
 
         // Send the notification
         NotificationManager notificationManager = NotificationUtils.getNotificationManager(termuxPackageContext);
-        if (notificationManager != null)
-            notificationManager.notify(nextNotificationId, builder.build());
+        if (notificationManager != null) {
+            // This may be called from a background thread, like for a crash log file, so do not
+            // crash the app if the notification cannot be sent, like a SecurityException thrown
+            // if the notification is for a plugin package that does not belong to the app uid.
+            try {
+                notificationManager.notify(nextNotificationId, builder.build());
+            } catch (Exception e) {
+                Logger.logStackTraceWithMessage(logTag, "Failed to send \"" + title + "\" notification", e);
+            }
+        }
     }
 
     /**

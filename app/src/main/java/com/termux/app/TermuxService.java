@@ -198,7 +198,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         // we unset clients here as well if it failed, so that we do not leave service and session
         // clients with references to the activity.
         if (mTermuxTerminalSessionActivityClient != null)
-            unsetTermuxTerminalSessionClient();
+            unsetTermuxTerminalSessionClient(null);
         return false;
     }
 
@@ -286,6 +286,11 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             if (!processResult)
                 mShellManager.mTermuxSessions.remove(termuxSessions.get(i));
         }
+
+        // Notify {@link TermuxSessionsListViewController} that sessions list has been updated if
+        // activity is in foreground, otherwise its ListView will throw an IllegalStateException.
+        if (mTermuxTerminalSessionActivityClient != null)
+            mTermuxTerminalSessionActivityClient.termuxSessionListNotifyUpdated();
 
 
         for (int i = 0; i < termuxTasks.size(); i++) {
@@ -775,8 +780,20 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** This should be called when {@link TermuxActivity} has been destroyed and in {@link #onUnbind(Intent)}
      * so that the {@link TermuxService} and {@link TerminalSession} and {@link TerminalEmulator}
      * clients do not hold an activity references.
+     *
+     * @param owner The {@link TermuxTerminalSessionActivityClient} of the {@link TermuxActivity} that
+     *              is being destroyed. The client is only unset if it is still the current one,
+     *              since a new {@link TermuxActivity} may already have set its own client before
+     *              the {@link TermuxActivity#onDestroy()} of the old one is called, like if
+     *              the activity is quickly relaunched after being exited. If {@code null}, the
+     *              client is always unset.
      */
-    public synchronized void unsetTermuxTerminalSessionClient() {
+    public synchronized void unsetTermuxTerminalSessionClient(@Nullable TermuxTerminalSessionActivityClient owner) {
+        if (owner != null && owner != mTermuxTerminalSessionActivityClient) {
+            Logger.logInfo(LOG_TAG, "Ignoring call to unsetTermuxTerminalSessionClient() since the client is owned by another activity");
+            return;
+        }
+
         for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++)
             mShellManager.mTermuxSessions.get(i).getTerminalSession().updateTerminalSessionClient(mTermuxTerminalSessionServiceClient);
 
