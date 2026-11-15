@@ -780,6 +780,13 @@ public final class TerminalView extends View {
             return true;
         } else if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH) {
             return super.onKeyDown(keyCode, event);
+        } else if (KeyEvent.isModifierKey(keyCode)) {
+            // Modifier keys, like a hardware keyboard shift key, do not produce any input themselves,
+            // so do not read (and consume) the extra keys CTRL/ALT/SHIFT/FN buttons for them below.
+            // Otherwise pressing a modifier key would clear the extra keys buttons that are active
+            // before the key to be modified is pressed. The modifier state is part of the
+            // meta state of the next key event.
+            return super.onKeyDown(keyCode, event);
         }
 
         final int metaState = event.getMetaState();
@@ -961,6 +968,9 @@ public final class TerminalView extends View {
             return true;
         } else if (event.isSystem()) {
             // Let system key events through.
+            return super.onKeyUp(keyCode, event);
+        } else if (KeyEvent.isModifierKey(keyCode)) {
+            // Modifier keys are not handled in onKeyDown() either.
             return super.onKeyUp(keyCode, event);
         }
 
