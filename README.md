@@ -117,10 +117,11 @@ To host the repository in a fork: generate a signing key (`gpg --quick-gen-key "
 
 #### Building locally
 
-To build bootstraps or packages yourself, configure a termux-packages checkout with the same script and build with its Docker image:
+To build bootstraps or packages yourself, configure a termux-packages checkout with the same scripts and build with its Docker image. [`apt-repo/fix-termux-packages.sh`](apt-repo/fix-termux-packages.sh) works around build problems: a bootstrap package that is now a subpackage, and source downloads from git.kernel.org, which often time out from GitHub's runners (the workflows also retry builds that failed to download sources).
 
 ```sh
 git clone https://github.com/termux/termux-packages.git
+apt-repo/fix-termux-packages.sh termux-packages
 apt-repo/patch-termux-packages.sh termux-packages com.termux.re https://riyadmondol2006.github.io/termux-app-RE/apt/termux-main
 cd termux-packages
 ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures aarch64

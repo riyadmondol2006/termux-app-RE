@@ -6,9 +6,10 @@
 # - Packages whose current version is already in the repository are skipped unless forced.
 # - Once the repository exists, dependencies are downloaded from it (`build-package.sh -I`) when
 #   it has the exact version termux-packages wants, and built otherwise.
-# - Packages are built one at a time, so one that fails doesn't stop the others. No package is
-#   started after the deadline, and a running build is stopped at it, so whatever was built in
-#   time can still be uploaded before the job time limit.
+# - Packages are built one at a time, so one that fails doesn't stop the others. A build that
+#   failed to download sources is tried again. No package is started after the deadline, and a
+#   running build is stopped at it, so whatever was built in time can still be uploaded before
+#   the job time limit.
 #
 # Built .deb files end up in output/. Writes a summary in markdown to $SUMMARY_FILE if set and
 # exits with 1 if a package failed or was not built in time.
@@ -24,6 +25,8 @@ fi
 ARCH="$1" REPO_URL="${2%/}" DEADLINE="$3" FORCE="$4"
 shift 4
 SUMMARY_FILE="${SUMMARY_FILE:-/dev/null}"
+RUNNER_TEMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$RUNNER_TEMP_DIR"' EXIT
 
 [ -f build-package.sh ] || { echo "Run this in a termux-packages checkout" >&2; exit 1; }
 
@@ -77,11 +80,21 @@ for pkg in "${PACKAGES[@]}"; do
 		NOT_STARTED+=("$pkg")
 		continue
 	fi
-	echo "::group::Building $pkg $version for $ARCH"
 	start=$(date +%s)
-	timeout --kill-after=120 "$remaining" ./scripts/run-docker.sh ./build-package.sh "${BUILD_ARGS[@]}" "$pkg" < /dev/null
-	status=$?
-	echo "::endgroup::"
+	# A build that failed to download sources is tried again. It resumes, build-package.sh skips
+	# the dependencies that were built already.
+	for attempt in 1 2 3 4; do
+		echo "::group::Building $pkg $version for $ARCH$([ "$attempt" -gt 1 ] && echo ", attempt $attempt")"
+		timeout --kill-after=120 "$remaining" ./scripts/run-docker.sh ./build-package.sh "${BUILD_ARGS[@]}" "$pkg" < /dev/null 2>&1 | tee "$RUNNER_TEMP_DIR/build.log"
+		status=${PIPESTATUS[0]}
+		echo "::endgroup::"
+		[ "$status" -eq 0 ] || [ "$status" -eq 124 ] && break
+		grep -qE "^Failed to download |Failed to download package repository metadata" "$RUNNER_TEMP_DIR/build.log" || break
+		remaining=$(( DEADLINE - $(date +%s) - 120 ))
+		[ "$attempt" -lt 4 ] && [ "$remaining" -gt 600 ] || break
+		echo "::warning::Building $pkg for $ARCH failed to download sources, trying again in 2 minutes"
+		sleep 120
+	done
 	minutes=$(( ($(date +%s) - start) / 60 ))
 	if [ "$status" -eq 0 ]; then
 		echo "Built $pkg $version in $minutes min"

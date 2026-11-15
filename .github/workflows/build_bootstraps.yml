@@ -122,6 +122,7 @@ jobs:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
         run: |
           set -euo pipefail
+          ./termux-app-re/apt-repo/fix-termux-packages.sh termux-packages
           if [ -n "$REPO_URL" ]; then
             ./termux-app-re/apt-repo/patch-termux-packages.sh termux-packages "$PACKAGE_NAME" "$REPO_URL"
             exit 0
@@ -134,7 +135,15 @@ jobs:
       - name: Build bootstrap
         if: inputs.source == 'build'
         working-directory: termux-packages
-        run: ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}"
+        # Source downloads sometimes fail on GitHub's runners. Another attempt resumes in the same
+        # container: packages that were built already are not built again.
+        run: |
+          for attempt in 1 2 3 4; do
+            ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}" < /dev/null && exit 0
+            echo "::warning::Building the bootstrap failed (attempt $attempt)"
+            [ "$attempt" -lt 4 ] && sleep 120
+          done
+          exit 1
 
       - name: Generate bootstrap from the package repository
         if: inputs.source == 'repository'
