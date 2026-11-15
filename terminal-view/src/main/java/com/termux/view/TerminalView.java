@@ -382,17 +382,12 @@ public final class TerminalView extends View {
                 stopTextSelectionMode();
                 final int textLengthInChars = text.length();
                 for (int i = 0; i < textLengthInChars; i++) {
-                    char firstChar = text.charAt(i);
-                    int codePoint;
-                    if (Character.isHighSurrogate(firstChar)) {
-                        if (++i < textLengthInChars) {
-                            codePoint = Character.toCodePoint(firstChar, text.charAt(i));
-                        } else {
-                            // At end of string, with no low surrogate following the high:
-                            codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
-                        }
-                    } else {
-                        codePoint = firstChar;
+                    // Only combine a high surrogate with a directly following low surrogate. A lone
+                    // high or low surrogate, like sent by some keyboards, is returned as is.
+                    int codePoint = Character.codePointAt(text, i);
+                    i += Character.charCount(codePoint) - 1;
+                    if (codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE) {
+                        codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
                     }
 
                     // Check onKeyDown() for details.

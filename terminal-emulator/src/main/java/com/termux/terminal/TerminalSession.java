@@ -181,11 +181,15 @@ public final class TerminalSession extends TerminalOutput {
         if (mShellPid > 0 && count > 0) mTerminalToProcessIOQueue.write(data, offset, count);
     }
 
-    /** Write the Unicode code point to the terminal encoded in UTF-8. */
+    /**
+     * Write the Unicode code point to the terminal encoded in UTF-8. Invalid code points, like lone
+     * surrogates, are written as {@link TerminalEmulator#UNICODE_REPLACEMENT_CHAR}.
+     */
     public void writeCodePoint(boolean prependEscape, int codePoint) {
-        if (codePoint > 1114111 || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+        if (codePoint < 0 || codePoint > 1114111 || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
             // 1114111 (= 2**16 + 1024**2 - 1) is the highest code point, [0xD800,0xDFFF] is the surrogate range.
-            throw new IllegalArgumentException("Invalid code point: " + codePoint);
+            // Do not throw since this is called on the main thread for user input and would crash the app.
+            codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
         }
 
         int bufferPosition = 0;
