@@ -1,29 +1,29 @@
 name: Build bootstraps
 
-# Builds bootstrap archives for a custom app package name (default: com.termux.re) from
-# termux-packages sources and publishes them as a "bootstrap-<package name>-<run number>"
+# Makes bootstrap archives for the app package name (termuxPackageName in gradle.properties) from
+# the Termux RE package repository and publishes them as a "bootstrap-<package name>-<run number>"
 # GitHub release with a SHA256SUMS file. The Build workflow picks up the newest such release
 # automatically, and local builds can use it with
 #   ./gradlew assembleDebug -PtermuxBootstrapUrl=https://github.com/<owner>/<repo>/releases/download/<tag>
 #
-# Termux binaries hardcode /data/data/<package name>/files/usr, so the official bootstrap only
-# works for com.termux, and so do the official package repositories. For the app's own package
-# name (termuxPackageName in gradle.properties), termux-packages is configured with
-# apt-repo/patch-termux-packages.sh, so the bootstrap uses and trusts the Termux RE package
-# repository, and the built packages are published in it with the Publish packages workflow.
-# Bootstraps for other package names keep the official repositories, whose packages won't work.
+# Termux binaries hardcode /data/data/<package name>/files/usr, so the official bootstrap and
+# repositories only work for com.termux. The bootstraps are assembled with termux-packages'
+# generate-bootstraps.sh, like the official ones, from the Termux RE repository: the bootstrap
+# packages and their runtime dependencies, with apt using and trusting that repository (see
+# apt-repo/patch-termux-packages.sh). Each archive is checked with apt-repo/check-bootstrap.py.
 #
-# With source "build", each architecture builds all bootstrap packages from source in the
-# termux-packages Docker image, which takes a few hours. With source "repository", the bootstraps
-# are assembled from the packages in the Termux RE package repository with termux-packages'
-# generate-bootstraps.sh, which takes minutes. To point an existing bootstrap release at the
-# repository without rebuilding it, use the Repackage bootstraps workflow.
+# With source "build", every bootstrap package is first built from source in the termux-packages
+# Docker image with build-bootstraps.sh and published in the repository, which takes about an
+# hour. Its own archives are not used: they contain every package built, build dependencies too.
+# With source "repository", the bootstraps are assembled from what the repository has, which takes
+# minutes. To point an existing bootstrap release at the repository without rebuilding it, use
+# the Repackage bootstraps workflow.
 
 on:
   workflow_dispatch:
     inputs:
       package_name:
-        description: 'App package name to build the bootstraps for'
+        description: 'App package name, must be termuxPackageName of gradle.properties'
         default: 'com.termux.re'
         required: true
       architectures:
@@ -35,14 +35,10 @@ on:
         default: 'master'
         required: true
       source:
-        description: 'build: build the packages from source (hours), repository: use the packages in the Termux RE package repository (minutes)'
+        description: 'build: build and publish the packages first (about an hour), repository: use the packages in the Termux RE package repository (minutes)'
         type: choice
         options: [build, repository]
         default: build
-      publish_packages:
-        description: 'Publish the built packages in the Termux RE package repository'
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -51,8 +47,8 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      architectures: ${{ steps.matrix.outputs.architectures }}
-      repo_url: ${{ steps.matrix.outputs.repo_url }}
+      architectures: ${{ steps.inputs.outputs.architectures }}
+      repo_url: ${{ steps.inputs.outputs.repo_url }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v7
@@ -61,33 +57,32 @@ jobs:
           persist-credentials: false
 
       - name: Validate inputs
-        id: matrix
+        id: inputs
         shell: bash
         env:
           PACKAGE_NAME: ${{ inputs.package_name }}
           ARCHITECTURES: ${{ inputs.architectures }}
-          SOURCE: ${{ inputs.source }}
         run: |
           set -euo pipefail
           if ! [[ "$PACKAGE_NAME" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]]; then
             echo "Invalid package name '$PACKAGE_NAME'"; exit 1
           fi
+          # The Termux RE package repository has packages for the app package name only.
+          if [ "$PACKAGE_NAME" != "$(sed -n 's/^termuxPackageName=//p' gradle.properties)" ]; then
+            echo "'$PACKAGE_NAME' is not termuxPackageName of gradle.properties, the package repository is built for that"; exit 1
+          fi
           for arch in ${ARCHITECTURES//,/ }; do
             case "$arch" in aarch64|arm|i686|x86_64) ;; *) echo "Invalid architecture '$arch'"; exit 1 ;; esac
           done
-          echo "architectures=$(jq -cn --arg a "$ARCHITECTURES" '$a | split(",")')" >> "$GITHUB_OUTPUT"
-          # The Termux RE package repository has packages for the app's package name only.
-          if [ "$PACKAGE_NAME" == "$(sed -n 's/^termuxPackageName=//p' gradle.properties)" ]; then
-            OWNER="${GITHUB_REPOSITORY%%/*}"
-            echo "repo_url=https://${OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/apt/termux-main" >> "$GITHUB_OUTPUT"
-          elif [ "$SOURCE" == "repository" ]; then
-            echo "The Termux RE package repository only has packages for the app package name"; exit 1
-          else
-            echo "::warning::'$PACKAGE_NAME' is not the app package name, the bootstrap will use the official repositories, whose packages don't work with it."
-          fi
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          {
+            echo "architectures=$(jq -cn --arg a "$ARCHITECTURES" '$a | split(",")')"
+            echo "repo_url=https://${OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/apt/termux-main"
+          } >> "$GITHUB_OUTPUT"
 
   build:
     needs: setup
+    if: inputs.source == 'build'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
@@ -96,7 +91,6 @@ jobs:
         arch: ${{ fromJSON(needs.setup.outputs.architectures) }}
     steps:
       - name: Free disk space
-        if: inputs.source == 'build'
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           sudo docker image prune --all --force
@@ -115,86 +109,133 @@ jobs:
           repository: termux/termux-packages
           ref: ${{ inputs.termux_packages_ref }}
           path: termux-packages
+          persist-credentials: false
 
-      - name: Set app package name
+      - name: Configure termux-packages
         env:
           PACKAGE_NAME: ${{ inputs.package_name }}
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
         run: |
-          set -euo pipefail
           ./termux-app-re/apt-repo/fix-termux-packages.sh termux-packages
-          if [ -n "$REPO_URL" ]; then
-            ./termux-app-re/apt-repo/patch-termux-packages.sh termux-packages "$PACKAGE_NAME" "$REPO_URL"
-            exit 0
-          fi
-          cd termux-packages
-          sed -i -E "s/^TERMUX_APP__PACKAGE_NAME=\"[^\"]*\"$/TERMUX_APP__PACKAGE_NAME=\"$PACKAGE_NAME\"/" scripts/properties.sh
-          grep -qx "TERMUX_APP__PACKAGE_NAME=\"$PACKAGE_NAME\"" scripts/properties.sh || {
-            echo "Failed to set TERMUX_APP__PACKAGE_NAME in scripts/properties.sh"; exit 1; }
+          ./termux-app-re/apt-repo/patch-termux-packages.sh termux-packages "$PACKAGE_NAME" "$REPO_URL"
+          echo "termux-packages $(git -C termux-packages rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Build bootstrap
-        if: inputs.source == 'build'
+      - name: Build packages
         working-directory: termux-packages
         # Source downloads sometimes fail on GitHub's runners. Another attempt resumes in the same
-        # container: packages that were built already are not built again. The archive is written
-        # to output/, see apt-repo/fix-termux-packages.sh.
+        # container: packages that were built already are not built again.
         run: |
           for attempt in 1 2 3 4; do
-            if ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}" < /dev/null; then
-              mv "output/bootstrap-${{ matrix.arch }}.zip" .
-              exit 0
-            fi
-            echo "::warning::Building the bootstrap failed (attempt $attempt)"
+            ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}" < /dev/null && exit 0
+            echo "::warning::Building the bootstrap packages failed (attempt $attempt)"
             [ "$attempt" -lt 4 ] && sleep 120
           done
           exit 1
 
-      - name: Generate bootstrap from the package repository
-        if: inputs.source == 'repository'
-        working-directory: termux-packages
-        env:
-          REPO_URL: ${{ needs.setup.outputs.repo_url }}
-        run: |
-          set -euo pipefail
-          # generate-bootstraps.sh doesn't check signatures, check that the index it reads is signed.
-          curl -fsSL -o "$RUNNER_TEMP/InRelease" "$REPO_URL/dists/stable/InRelease?nocache=$RANDOM$RANDOM"
-          gpgv --keyring ../termux-app-re/apt-repo/termux-re.gpg --output "$RUNNER_TEMP/Release" "$RUNNER_TEMP/InRelease"
-          INDEX="main/binary-${{ matrix.arch }}/Packages"
-          EXPECTED="$(awk -v f="$INDEX" '/^SHA256:/ { s = 1; next } /^[^ ]/ { s = 0 } s && $3 == f { print $1 }' "$RUNNER_TEMP/Release")"
-          ACTUAL="$(curl -fsSL "$REPO_URL/dists/stable/$INDEX?nocache=$RANDOM$RANDOM" | sha256sum | cut -d' ' -f1)"
-          [ -n "$EXPECTED" ] && [ "$EXPECTED" == "$ACTUAL" ] || { echo "$INDEX does not match the signed Release file"; exit 1; }
-          ./scripts/generate-bootstraps.sh --repository "$REPO_URL" --architectures "${{ matrix.arch }}"
-
-      - name: Check bootstrap prefix
-        working-directory: termux-packages
-        env:
-          PACKAGE_NAME: ${{ inputs.package_name }}
-        run: |
-          set -euo pipefail
-          ls -l bootstrap-*.zip
-          unzip -p "bootstrap-${{ matrix.arch }}.zip" bin/login | head -n 1 | grep -q "^#!/data/data/$PACKAGE_NAME/files/usr/" || {
-            echo "bootstrap-${{ matrix.arch }}.zip was not built for $PACKAGE_NAME"; exit 1; }
-          unzip -p "bootstrap-${{ matrix.arch }}.zip" etc/apt/sources.list
-
       - name: Collect packages
-        if: inputs.source == 'build' && needs.setup.outputs.repo_url != ''
         # Artifact file names can't contain ":", which versions with an epoch have. The file
         # names don't matter, the repository is built from the package metadata.
         run: |
           mkdir debs
           for deb in termux-packages/output/*.deb; do
-            [ -e "$deb" ] && cp "$deb" "debs/$(basename "$deb" | tr ':' '_')"
+            cp "$deb" "debs/$(basename "$deb" | tr ':' '_')"
           done
           ls debs | wc -l
 
       - name: Upload packages
-        if: inputs.source == 'build' && needs.setup.outputs.repo_url != ''
         uses: actions/upload-artifact@v7
         with:
           name: debs-${{ matrix.arch }}
           path: debs/*.deb
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    needs: [setup, build]
+    # Publish what was built even if an architecture failed, Build bootstraps with source
+    # "repository" can use it later.
+    if: ${{ !cancelled() && inputs.source == 'build' }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/publish_packages.yml
+    with:
+      artifact_pattern: debs-*
+    secrets: inherit
+
+  assemble:
+    needs: [setup, build, publish]
+    # Runs after all packages were built and published, or right away with source "repository".
+    if: ${{ !cancelled() && needs.setup.result == 'success' && (inputs.source == 'repository' || (needs.build.result == 'success' && needs.publish.result == 'success')) }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.setup.outputs.architectures) }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Clone termux-packages
+        uses: actions/checkout@v7
+        with:
+          repository: termux/termux-packages
+          ref: ${{ inputs.termux_packages_ref }}
+          path: termux-packages
+          persist-credentials: false
+
+      - name: Configure termux-packages
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          REPO_URL: ${{ needs.setup.outputs.repo_url }}
+        run: ./apt-repo/patch-termux-packages.sh termux-packages "$PACKAGE_NAME" "$REPO_URL"
+
+      - name: Wait for the published repository
+        env:
+          REPO_URL: ${{ needs.setup.outputs.repo_url }}
+        # generate-bootstraps.sh reads the repository without checking signatures, and GitHub
+        # Pages serves the previous deployment for a few minutes. Wait until the index it reads
+        # is the one in the signed Release file, and keep that index for the check.
+        run: |
+          set -euo pipefail
+          INDEX="main/binary-${{ matrix.arch }}/Packages"
+          for attempt in $(seq 1 30); do
+            curl -fsSL -o "$RUNNER_TEMP/InRelease" "$REPO_URL/dists/stable/InRelease?nocache=$RANDOM$RANDOM"
+            gpgv --keyring apt-repo/termux-re.gpg --output "$RUNNER_TEMP/Release" "$RUNNER_TEMP/InRelease"
+            EXPECTED="$(awk -v f="$INDEX" '/^SHA256:/ { s = 1; next } /^[^ ]/ { s = 0 } s && $3 == f { print $1 }' "$RUNNER_TEMP/Release")"
+            curl -fsSL -o "$RUNNER_TEMP/Packages" "$REPO_URL/dists/stable/$INDEX"
+            if [ -n "$EXPECTED" ] && [ "$EXPECTED" == "$(sha256sum < "$RUNNER_TEMP/Packages" | cut -d' ' -f1)" ]; then
+              echo "$INDEX matches the signed Release file"; exit 0
+            fi
+            echo "$INDEX does not match the signed Release file yet"
+            sleep 30
+          done
+          exit 1
+
+      - name: Assemble bootstrap
+        working-directory: termux-packages
+        env:
+          REPO_URL: ${{ needs.setup.outputs.repo_url }}
+        run: ./scripts/generate-bootstraps.sh --repository "$REPO_URL" --architectures "${{ matrix.arch }}"
+
+      - name: Check bootstrap
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          REPO_URL: ${{ needs.setup.outputs.repo_url }}
+        run: |
+          set -euo pipefail
+          # Compare the package list with the official bootstrap the app builds with by default.
+          VERSION="$(sed -n -E 's/^\s*def version = "([^"]+)" \+ "%2B" \+ "apt.android-7"$/\1/p' app/build.gradle)"
+          OFFICIAL=()
+          if [ -n "$VERSION" ] && curl -fsSL -o "$RUNNER_TEMP/official-bootstrap-${{ matrix.arch }}.zip" \
+              "https://github.com/termux/termux-packages/releases/download/bootstrap-$VERSION%2Bapt.android-7/bootstrap-${{ matrix.arch }}.zip"; then
+            OFFICIAL=("$RUNNER_TEMP/official-bootstrap-${{ matrix.arch }}.zip")
+          fi
+          python3 -I apt-repo/check-bootstrap.py "termux-packages/bootstrap-${{ matrix.arch }}.zip" "$PACKAGE_NAME" "$REPO_URL" \
+            apt-repo/termux-re.gpg "$RUNNER_TEMP/Packages" "${OFFICIAL[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload bootstrap
         uses: actions/upload-artifact@v7
@@ -204,7 +245,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [setup, build]
+    needs: [setup, assemble]
+    if: ${{ !cancelled() && needs.assemble.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Download bootstraps
@@ -228,26 +270,12 @@ jobs:
           sha256sum bootstrap-*.zip > SHA256SUMS
           cat SHA256SUMS
           TAG="bootstrap-$PACKAGE_NAME-$GITHUB_RUN_NUMBER"
-          if [ "$SOURCE" == "repository" ]; then
-            NOTES="Bootstrap archives for package name \`$PACKAGE_NAME\` assembled from the packages in the Termux RE package repository \`$REPO_URL\`"
-          else
-            NOTES="Bootstrap archives built for package name \`$PACKAGE_NAME\` from termux/termux-packages \`$PACKAGES_REF\`"
-            if [ -n "$REPO_URL" ]; then NOTES+=", using the Termux RE package repository \`$REPO_URL\`"; fi
+          NOTES="Bootstrap archives for package name \`$PACKAGE_NAME\`, assembled from the Termux RE package repository \`$REPO_URL\`"
+          if [ "$SOURCE" == "build" ]; then
+            NOTES+=" after building their packages from termux/termux-packages \`$PACKAGES_REF\`"
           fi
           # Not the latest release: that is the newest app release.
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
             --title "Bootstrap for $PACKAGE_NAME ($GITHUB_RUN_NUMBER)" \
             --notes "$NOTES, by run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
             bootstrap-*.zip SHA256SUMS
-
-  publish:
-    needs: [setup, build]
-    if: ${{ inputs.source == 'build' && inputs.publish_packages && needs.setup.outputs.repo_url != '' }}
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    uses: ./.github/workflows/publish_packages.yml
-    with:
-      artifact_pattern: debs-*
-    secrets: inherit
