@@ -19,9 +19,6 @@
 #   earlier termux-tools version are deleted when it is upgraded.
 #
 # The package build steps are wrapped, not replaced, so upstream changes to them still apply.
-# patch-bootstrap.py writes the same files into existing bootstrap archives, from the same
-# templates in files/, so a bootstrap and the packages in the repository never disagree, which
-# also keeps dpkg from asking about changed configuration files on upgrades.
 #
 # Usage: patch-termux-packages.sh <termux-packages dir> <app package name> <repository url>
 

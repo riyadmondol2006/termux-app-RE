@@ -16,13 +16,21 @@ Layout, the same as the official Termux repositories:
     dists/stable/Contents-<arch>.gz              (which package has which file)
     pool/main/<arch>/<package>_<version>_<arch>.deb
 
+Only the packages that were asked for (the roots) and what they need at runtime (Depends and
+Pre-Depends) are kept: builds from source also produce build-only dependencies and -static
+packages, which would not fit in the 1 GB that GitHub Pages allows. The roots are the packages
+of apt-repo/packages.txt, those given with --root and those of earlier publishes, which are kept
+in roots.txt in the repository. Build-only dependencies that are missing are built again when
+needed.
+
 Like aptly, which hosts the official repositories, "all" architecture packages are listed in the
 Packages index of every architecture and there is no binary-all index. termux-packages'
 build-package.sh -i/-I expects that.
 
 Usage:
     apt-repo.py --url <published repository url> --keyring <public key> --out <dir>
-                [--new <dir with .deb files>]... [--remove <package>]... [--expect-existing]
+                [--new <dir with .deb files>]... [--root <package>]... [--root-file <file>]...
+                [--remove <package>]... [--expect-existing]
                 [--index-page <file> --package-name <name> --app-repo-url <url>]
 """
 
@@ -264,6 +272,45 @@ def write_contents(path, debs, file_lists):
         f.write(("".join(line + "\n" for line in lines)).encode("utf-8"))
 
 
+def dependency_names(deb):
+    """Returns the alternatives of each runtime dependency of a package, as lists of names."""
+    groups = []
+    for name in ("Pre-Depends", "Depends"):
+        for group in (field(deb.control, name) or "").split(","):
+            alternatives = [a.strip().split(" ")[0].split(":")[0].split("(")[0] for a in group.split("|")]
+            alternatives = [a for a in alternatives if a]
+            if alternatives:
+                groups.append(alternatives)
+    return groups
+
+
+def runtime_closure(selected, roots):
+    """Returns the keys of the selected packages that the roots need at runtime, on any architecture."""
+    keep = set()
+    for arch in ARCHITECTURES:
+        index = {key[0]: key for key, deb in selected.items() if deb.architecture in (arch, "all")}
+        provides = {}
+        for name, key in index.items():
+            for provided in (field(selected[key].control, "Provides") or "").split(","):
+                provided = provided.strip().split(" ")[0]
+                if provided:
+                    provides.setdefault(provided, name)
+        resolve = lambda name: name if name in index else provides.get(name)
+        todo = [r for r in (resolve(root) for root in roots) if r]
+        seen = set()
+        while todo:
+            name = todo.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+            keep.add(index[name])
+            for alternatives in dependency_names(selected[index[name]]):
+                found = next((r for r in (resolve(a) for a in alternatives) if r), None)
+                if found:
+                    todo.append(found)
+    return keep
+
+
 def write_compressed(path, data):
     with open(path, "wb") as f:
         f.write(data)
@@ -343,6 +390,9 @@ def main():
     parser.add_argument("--out", required=True, help="directory to write the repository to, must not exist")
     parser.add_argument("--new", action="append", default=[], help="directory with newly built .deb files")
     parser.add_argument("--remove", action="append", default=[], help="package to remove from the repository")
+    parser.add_argument("--root", action="append", default=[], help="package to keep with its runtime dependencies")
+    parser.add_argument("--root-file", action="append", default=[],
+                        help="file with packages to keep with their runtime dependencies, # starts a comment")
     parser.add_argument("--expect-existing", action="store_true",
                         help="fail if no repository is published at --url")
     parser.add_argument("--origin", default="Termux RE")
@@ -374,6 +424,15 @@ def main():
         current = selected.get(key)
         if current is None or version_compare(deb.version, current.version) > 0:
             selected[key] = deb
+    roots = set(args.root)
+    for path in args.root_file:
+        with open(path, encoding="utf-8") as f:
+            roots.update(re.sub(r"#.*", "", f.read()).split())
+    published_roots = fetch(url + "/roots.txt")
+    if published_roots is not None:
+        roots.update(published_roots.decode("utf-8").split())
+    roots.difference_update(args.remove)
+
     for name in args.remove:
         removed = [key for key in selected if key[0] == name]
         if not removed:
@@ -395,6 +454,17 @@ def main():
                 del selected[key]
         else:
             del selected[(package, "all")]
+
+    needed = runtime_closure(selected, roots)
+    for key in sorted(set(selected) - needed):
+        if selected[key].source == "published":
+            log("Removing %s %s (%s), no package in the repository needs it" % (key[0], selected[key].version, key[1]))
+        else:
+            log("Not adding %s %s (%s), no package in the repository needs it" % (key[0], selected[key].version, key[1]))
+        del selected[key]
+    missing = sorted(r for r in roots if not any(key[0] == r for key in selected))
+    if missing:
+        log("Packages asked for that are not in the repository: " + " ".join(missing))
 
     keep = list(selected.values())
     download_published(url, [d for d in keep if d.source == "published"], workdir)
@@ -424,6 +494,9 @@ def main():
         write_contents(os.path.join(dist_dir, "Contents-%s.gz" % arch), debs, file_lists)
         log("%s: %d packages" % (arch, len(debs)))
     write_release(dist_dir, args.origin)
+
+    with open(os.path.join(args.out, "roots.txt"), "w", encoding="utf-8") as f:
+        f.write("".join(root + "\n" for root in sorted(roots)))
 
     if args.index_page:
         write_index_page(keep, args.index_page, url, args.keyring, args.package_name, args.app_repo_url)

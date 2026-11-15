@@ -11,8 +11,10 @@
 #   running build is stopped at it, so whatever was built in time can still be uploaded before
 #   the job time limit.
 #
-# Built .deb files end up in output/. Writes a summary in markdown to $SUMMARY_FILE if set and
-# exits with 1 if a package failed or was not built in time.
+# Built .deb files end up in output/. Writes a summary in markdown to $SUMMARY_FILE and the
+# packages that were asked for to $ROOTS_FILE if set: those named, and for a package all its
+# subpackages except -static ones. The repository keeps them with their runtime dependencies.
+# Exits with 1 if a package failed or was not built in time.
 #
 # Usage: build-packages.sh <arch> <repository url> <deadline as unix time> <force: true|false> <package>...
 
@@ -25,6 +27,7 @@ fi
 ARCH="$1" REPO_URL="${2%/}" DEADLINE="$3" FORCE="$4"
 shift 4
 SUMMARY_FILE="${SUMMARY_FILE:-/dev/null}"
+ROOTS_FILE="${ROOTS_FILE:-/dev/null}"
 RUNNER_TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$RUNNER_TEMP_DIR"' EXIT
 
@@ -54,7 +57,17 @@ for name in "$@"; do
 	fi
 	if [ -z "$pkg" ]; then
 		UNKNOWN+=("$name")
-	elif [[ " ${PACKAGES[*]} " != *" $pkg "* ]]; then
+		continue
+	fi
+	echo "$name" >> "$ROOTS_FILE"
+	if [ "$pkg" = "$name" ]; then
+		for subpackage in "packages/$pkg"/*.subpackage.sh; do
+			[ -e "$subpackage" ] || continue
+			subpackage="$(basename "$subpackage" .subpackage.sh)"
+			[[ "$subpackage" == *-static ]] || echo "$subpackage" >> "$ROOTS_FILE"
+		done
+	fi
+	if [[ " ${PACKAGES[*]} " != *" $pkg "* ]]; then
 		[ "$pkg" != "$name" ] && echo "Building $name through $pkg"
 		PACKAGES+=("$pkg")
 	fi

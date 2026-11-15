@@ -73,7 +73,7 @@ The amber and slate colors of the icon are used on Android 11 and older, and whe
 Termux packages are compiled with their install prefix hardcoded: `/data/data/<package name>/files/usr`. It appears in binaries, scripts, shebangs and configuration files, and can't be changed after the fact. The *bootstrap* is the minimal set of packages (shell, coreutils, `apt`, …) that the app embeds and extracts on first launch. That has these consequences:
 
 - The official bootstrap and the official package repositories only work in an app whose package name is `com.termux`. Packages from them don't work in Termux RE, and packages built for Termux RE don't work in Termux.
-- A `com.termux.re` build needs bootstrap archives built for `com.termux.re`. This repository's *Build bootstraps* workflow ([`build_bootstraps.yml`](.github/workflows/build_bootstraps.yml)) makes them and publishes them as a `bootstrap-com.termux.re-<n>` GitHub release. Start it by hand from the Actions tab. It builds the bootstrap packages from source with [termux-packages](https://github.com/termux/termux-packages), publishes them in the Termux RE package repository (below), and then assembles the bootstrap from that repository with termux-packages' `generate-bootstraps.sh`, like the official bootstraps, so it has the same packages as the repository, without build dependencies. That takes about an hour; with *source* set to `repository` it skips the build and takes minutes. Every archive is checked with [`apt-repo/check-bootstrap.py`](apt-repo/check-bootstrap.py) and compared with the official bootstrap in the job summary. After that, every CI build embeds the newest such release automatically.
+- A `com.termux.re` build needs bootstrap archives built for `com.termux.re`. This repository's *Build bootstraps* workflow ([`build_bootstraps.yml`](.github/workflows/build_bootstraps.yml)) makes them and publishes them on this repository's GitHub Pages site, next to the package repository, as `https://riyadmondol2006.github.io/termux-app-RE/bootstrap/<id>/bootstrap-<arch>.zip` with a `SHA256SUMS` file signed with the repository key; [`bootstrap/latest`](https://riyadmondol2006.github.io/termux-app-RE/bootstrap/latest) holds the newest id, and the two newest are kept. Start it by hand from the Actions tab. It builds the bootstrap packages from source with [termux-packages](https://github.com/termux/termux-packages), publishes them in the Termux RE package repository (below), and then assembles the bootstrap from that repository with termux-packages' `generate-bootstraps.sh`, like the official bootstraps, so it has the same packages as the repository, without build dependencies. That takes about an hour; with *source* set to `repository` it skips the build and takes minutes. Every archive is checked with [`apt-repo/check-bootstrap.py`](apt-repo/check-bootstrap.py) and compared with the official bootstrap in the job summary. After that, every CI build embeds the newest bootstrap automatically, after checking the signature of its `SHA256SUMS`.
 - Until then, builds embed the official bootstrap. A `com.termux.re` build then doesn't extract it (its programs couldn't run), but explains why on first launch and offers a failsafe session running Android's `/system/bin/sh`.
 - `pkg install` needs an apt repository of packages built for `com.termux.re`. Termux RE has one, see below.
 
@@ -93,7 +93,7 @@ Termux RE's bootstrap is set up to use it, so `pkg install python` just works:
 - Its signing key is installed by the `termux-keyring` package and trusted by apt. The key's fingerprint is `4F9F 3AF3 6023 DC4C 4E24 E464 3F73 0223 6E98 D269`, its public part is [`apt-repo/termux-re.asc`](apt-repo/termux-re.asc). The repository is signed in CI with the private key in the `APT_SIGNING_KEY` repository secret.
 - Every mirror that `pkg` and `termux-change-repo` can choose from (`$PREFIX/etc/termux/mirrors`) points at it, so mirror selection never switches to the official repositories.
 
-The repository also has the `apt`, `termux-keyring` and `termux-tools` packages built with these settings, so upgrading them keeps them. The changes are made by [`apt-repo/patch-termux-packages.sh`](apt-repo/patch-termux-packages.sh) in the termux-packages checkout that the *Build bootstraps* and *Build packages* workflows build from. A bootstrap release built before that can be set up the same way without rebuilding it, with the *Repackage bootstraps* workflow ([`repackage_bootstraps.yml`](.github/workflows/repackage_bootstraps.yml)), which publishes it as a new `bootstrap-com.termux.re-<n>-r<m>` release.
+The repository also has the `apt`, `termux-keyring` and `termux-tools` packages built with these settings, so upgrading them keeps them. The changes are made by [`apt-repo/patch-termux-packages.sh`](apt-repo/patch-termux-packages.sh) in the termux-packages checkout that the *Build bootstraps* and *Build packages* workflows build from.
 
 #### Adding packages
 
@@ -114,7 +114,7 @@ Run the *Build packages* workflow ([`build_packages.yml`](.github/workflows/buil
 - **command-not-found** suggests the packages of this repository that provide a missing command, as listed in its `Contents-<arch>.gz` files when `command-not-found` was built. A build made before the repository had those files suggests the packages of the official Termux repository instead, and `pkg install` fails for those that are not here yet.
 - Right after a publish, GitHub Pages can serve the old index for up to 10 minutes; `pkg update` may report a hash mismatch until then.
 
-To host the repository in a fork: generate a signing key (`gpg --quick-gen-key "<name>" rsa4096 sign never`), replace `apt-repo/termux-re.gpg` and `apt-repo/termux-re.asc` with its public key, store the ASCII armored private key in the `APT_SIGNING_KEY` secret, enable GitHub Pages with *GitHub Actions* as the source, then run *Build packages* and *Build bootstraps* (or *Repackage bootstraps*).
+To host the repository in a fork: generate a signing key (`gpg --quick-gen-key "<name>" rsa4096 sign never`), replace `apt-repo/termux-re.gpg` and `apt-repo/termux-re.asc` with its public key, store the ASCII armored private key in the `APT_SIGNING_KEY` secret, enable GitHub Pages with *GitHub Actions* as the source, then run *Build packages* and *Build bootstraps*.
 
 #### Building locally
 
@@ -206,7 +206,7 @@ The app's identity and bootstrap are set with Gradle properties, either in `grad
 | `termuxPackageName` | `com.termux.re` | Android package name (`applicationId`). The Java namespace stays `com.termux`. |
 | `termuxAppName` | `Termux RE` | App name shown in the launcher and the UI |
 | `termuxGithubRepoUrl` | this repository | Linked from the app's about and issue report screens |
-| `termuxBootstrapUrl` | unset | Where to download `bootstrap-<arch>.zip` and `SHA256SUMS` from, for example `https://github.com/<owner>/<repo>/releases/download/bootstrap-com.termux.re-1`. Unset means the official bootstrap. The `TERMUX_BOOTSTRAP_URL` environment variable works too. |
+| `termuxBootstrapUrl` | unset | Where to download `bootstrap-<arch>.zip` and `SHA256SUMS` from, for example `https://riyadmondol2006.github.io/termux-app-RE/bootstrap/<id>`, see [Packages and the bootstrap](#packages-and-the-bootstrap). Unset means the official bootstrap. The `TERMUX_BOOTSTRAP_URL` environment variable works too. |
 
 For example, to build a stock-identity app that works with the official bootstrap and repositories:
 
@@ -258,14 +258,14 @@ The app version comes from git tags, so it never has to be edited by hand:
 - Builds of a tagged commit get its version, like `1.2.0`. Later commits get the newest tag plus build metadata, like `1.2.0+3.g1a2b3c4` locally and `1.2.0+1a2b3c4` in CI, which counts as the same version for updates. Without git or tags, the fallback in [`app/build.gradle`](app/build.gradle) (`1.0.0`) is used.
 - The `versionCode` is computed from the version as `major * 1000000 + minor * 1000 + patch`, so every release can be installed over the previous one. The `TERMUX_APP_VERSION_NAME` and `TERMUX_APP_VERSION_CODE` environment variables override both.
 
-To publish a release, open *Actions → Build → Run workflow* on `master` and choose **release**: `patch`, `minor` or `major` bumps that part of the newest release tag (the first release is `1.0.0`), or enter an exact **version**. The workflow runs the tests, builds the APKs with that version, creates the tag on the built commit and publishes the GitHub release with the signed release APKs, their SHA-256 sums and notes generated from the changes since the previous release. With the GitHub CLI:
+To publish a release, open *Actions → Build → Run workflow* on `master` and choose **release**: `patch`, `minor` or `major` bumps that part of the newest release tag (the first release is `1.0.0`), or enter an exact **version**. The workflow runs the tests, builds the APKs with that version, creates the tag on the built commit and publishes the GitHub release with the signed release APKs and notes generated from the changes since the previous release. Releases contain only the release APKs; GitHub shows the SHA-256 of each. With the GitHub CLI:
 
 ```sh
 gh workflow run build.yml --ref master -f release=patch
 gh workflow run build.yml --ref master -f version=1.2.0
 ```
 
-Pushing a tag yourself (`git tag v1.2.0 && git push origin v1.2.0`) publishes a release the same way. A release is refused if the APKs would be unsigned, or if no `bootstrap-<package name>-*` release exists for the app's package name, since the APKs would then embed the official bootstrap, which doesn't work for it (see [Packages and the bootstrap](#packages-and-the-bootstrap)).
+Pushing a tag yourself (`git tag v1.2.0 && git push origin v1.2.0`) publishes a release the same way. A release is refused if the APKs would be unsigned, or if no bootstrap for the app's package name is published (see [Packages and the bootstrap](#packages-and-the-bootstrap)), since the APKs would then embed the official bootstrap, which doesn't work for it (see [Packages and the bootstrap](#packages-and-the-bootstrap)).
 
 ## Native code
 

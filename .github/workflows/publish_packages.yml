@@ -1,23 +1,42 @@
 name: Publish packages
 
-# Publishes the Termux RE apt repository on the GitHub Pages site of this repository, under
-# apt/termux-main. Called by the Build packages and Build bootstraps workflows with the .deb files
-# they built: they are merged into the published repository (the newest version of every package
-# is kept), which is signed with the APT_SIGNING_KEY secret and deployed again. See apt-repo/.
+# Publishes the GitHub Pages site of this repository:
 #
-# Started by hand, it signs and deploys the published repository again, optionally without some
+# - apt/termux-main: the Termux RE apt repository. Called by the Build packages and Build
+#   bootstraps workflows with the .deb files they built, which are merged into the published
+#   repository: the newest version of every package that was asked for and of its runtime
+#   dependencies is kept (see apt-repo/apt-repo.py). It is signed with the APT_SIGNING_KEY secret.
+# - bootstrap/<id>: the bootstrap archives that app builds embed, with a SHA256SUMS file signed
+#   with the same key, and bootstrap/latest, the id of the newest. Build bootstraps adds them, the
+#   Build workflow uses the newest. Only the newest two are kept (see apt-repo/site-bootstraps.py).
+#
+# Every deploy replaces the whole site, so the published repository and bootstraps are copied
+# over after checking their signatures and checksums.
+#
+# Started by hand, it signs and deploys the published site again, optionally without some
 # packages.
 #
 # APT_SIGNING_KEY is the ASCII armored private key of apt-repo/termux-re.gpg. The workflow fails
-# if they don't match, since apt in Termux RE only trusts that key.
+# if they don't match, since Termux RE only trusts that key.
 
 on:
   workflow_call:
     inputs:
       artifact_pattern:
-        description: 'Artifacts of the calling run with .deb files to add'
+        description: 'Artifacts of the calling run with .deb files to add, and roots.txt files with the packages that were asked for'
         type: string
-        required: true
+        required: false
+        default: ''
+      bootstrap_pattern:
+        description: 'Artifacts of the calling run with bootstrap-<arch>.zip files to publish'
+        type: string
+        required: false
+        default: ''
+      bootstrap_id:
+        description: 'Id of the bootstrap to publish'
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
     inputs:
       remove:
@@ -35,7 +54,7 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    # Publishing reads the published repository and replaces it, so only one at a time.
+    # Publishing reads the published site and replaces it, so only one at a time.
     concurrency:
       group: apt-repository
       cancel-in-progress: false
@@ -58,11 +77,19 @@ jobs:
           pattern: ${{ inputs.artifact_pattern }}
           path: new-debs
 
-      - name: Build repository
+      - name: Download bootstraps
+        if: inputs.bootstrap_pattern != ''
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ inputs.bootstrap_pattern }}
+          merge-multiple: true
+          path: new-bootstrap
+
+      - name: Build site
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           REMOVE: ${{ inputs.remove }}
+          BOOTSTRAP_ID: ${{ inputs.bootstrap_id }}
         run: |
           set -euo pipefail
           OWNER="${GITHUB_REPOSITORY%%/*}"
@@ -74,6 +101,7 @@ jobs:
           # Once the site is live, a missing repository means the site could not be read, not
           # that there is nothing to keep.
           ARGS=(--url "$REPO_URL" --keyring apt-repo/termux-re.gpg --out site/apt/termux-main
+            --root-file apt-repo/packages.txt
             --index-page site/index.html --package-name "$PACKAGE_NAME" --app-repo-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY")
           if curl -fsSL -o /dev/null "$SITE_URL/termux-re.gpg"; then
             ARGS+=(--expect-existing)
@@ -81,18 +109,30 @@ jobs:
           if [ -d new-debs ]; then
             echo "New packages:"; find new-debs -name '*.deb' -printf '%P\n' | sort
             ARGS+=(--new new-debs)
+            while read -r roots; do
+              ARGS+=(--root-file "$roots")
+            done < <(find new-debs -name roots.txt)
           fi
           for package in ${REMOVE//,/ }; do
             ARGS+=(--remove "$package")
           done
           python3 -I apt-repo/apt-repo.py "${ARGS[@]}"
+
+          ARGS=(--site-url "$SITE_URL" --keyring apt-repo/termux-re.gpg --out site/bootstrap --keep 2)
+          if [ -n "$BOOTSTRAP_ID" ]; then
+            ARGS+=(--new-id "$BOOTSTRAP_ID" --new-dir new-bootstrap)
+          fi
+          python3 -I apt-repo/site-bootstraps.py "${ARGS[@]}"
+
           cp apt-repo/termux-re.gpg apt-repo/termux-re.asc site/
+          echo "SITE_URL=$SITE_URL" >> "$GITHUB_ENV"
           echo "REPO_URL=$REPO_URL" >> "$GITHUB_ENV"
 
-      - name: Sign repository
+      - name: Sign site
         shell: bash
         env:
           APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          BOOTSTRAP_ID: ${{ inputs.bootstrap_id }}
         run: |
           set -euo pipefail
           if [ -z "$APT_SIGNING_KEY" ]; then
@@ -103,13 +143,21 @@ jobs:
           trap 'rm -rf "$GNUPGHOME"' EXIT
           printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --quiet --import
           FINGERPRINT="$(gpg --show-keys --with-colons apt-repo/termux-re.gpg | awk -F: '/^fpr/ { print $10; exit }')"
+          SIGN=(gpg --batch --yes --local-user "$FINGERPRINT!" --digest-algo SHA512)
           DIST=site/apt/termux-main/dists/stable
-          gpg --batch --yes --local-user "$FINGERPRINT!" --digest-algo SHA512 --clearsign --output "$DIST/InRelease" "$DIST/Release"
-          gpg --batch --yes --local-user "$FINGERPRINT!" --digest-algo SHA512 --armor --detach-sign --output "$DIST/Release.gpg" "$DIST/Release"
-          # Check the signatures against the public key that Termux RE trusts.
+          "${SIGN[@]}" --clearsign --output "$DIST/InRelease" "$DIST/Release"
+          "${SIGN[@]}" --armor --detach-sign --output "$DIST/Release.gpg" "$DIST/Release"
+          if [ -n "$BOOTSTRAP_ID" ]; then
+            "${SIGN[@]}" --armor --detach-sign --output "site/bootstrap/$BOOTSTRAP_ID/SHA256SUMS.asc" "site/bootstrap/$BOOTSTRAP_ID/SHA256SUMS"
+          fi
+          # Check all signatures against the public key that Termux RE trusts.
           gpgv --keyring apt-repo/termux-re.gpg "$DIST/InRelease"
           gpgv --keyring apt-repo/termux-re.gpg "$DIST/Release.gpg" "$DIST/Release"
-          cat "$DIST/Release" | sed -n '1,/^MD5Sum:/p'
+          for sums in site/bootstrap/*/SHA256SUMS; do
+            gpgv --keyring apt-repo/termux-re.gpg "$sums.asc" "$sums"
+            (cd "$(dirname "$sums")" && sha256sum --check --strict SHA256SUMS)
+          done
+          sed -n '1,/^MD5Sum:/p' "$DIST/Release"
 
       - name: Check site size
         shell: bash
@@ -120,19 +168,23 @@ jobs:
           {
             echo "### Termux RE package repository"
             echo
-            echo "\`deb $REPO_URL stable main\`, $SIZE_MB MiB"
+            echo "\`deb $REPO_URL stable main\`, site size $SIZE_MB MiB"
             echo
             for packages in site/apt/termux-main/dists/stable/main/binary-*/Packages; do
               arch="${packages%/Packages}"; arch="${arch##*binary-}"
               echo "- $arch: $(grep -c '^Package:' "$packages" || true) packages"
             done
+            if [ -f site/bootstrap/latest ]; then
+              echo
+              echo "Bootstrap: \`$SITE_URL/bootstrap/$(cat site/bootstrap/latest)\` (kept: $(tr '\n' ' ' < site/bootstrap/ids))"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           # GitHub Pages sites can be at most 1 GB.
           if [ "$SIZE_MB" -gt 950 ]; then
-            echo "::error::The repository is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB. Remove packages with the remove input."
+            echo "::error::The site is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB. Remove packages with the remove input."
             exit 1
           elif [ "$SIZE_MB" -gt 800 ]; then
-            echo "::warning::The repository is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB."
+            echo "::warning::The site is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB."
           fi
 
       - name: Upload site

@@ -6,6 +6,8 @@ name: Build packages
 # so packages from the official repositories don't work in Termux RE.
 #
 # - Without a package list, the packages in apt-repo/packages.txt are built.
+# - The repository keeps the packages asked for and their runtime dependencies, not the
+#   dependencies that were only needed to build them.
 # - Dependencies are built and published too. Once the repository exists, those it already has
 #   at the version termux-packages wants are downloaded from it instead of built again, and
 #   requested packages it already has at their current version are skipped.
@@ -149,7 +151,9 @@ jobs:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
           PACKAGES: ${{ needs.setup.outputs.packages }}
           FORCE: ${{ inputs.force }}
-        run: SUMMARY_FILE="$GITHUB_STEP_SUMMARY" ../termux-app-re/apt-repo/build-packages.sh "${{ matrix.arch }}" "$REPO_URL" "$DEADLINE" "$FORCE" $PACKAGES
+        run: |
+          SUMMARY_FILE="$GITHUB_STEP_SUMMARY" ROOTS_FILE="$RUNNER_TEMP/roots.txt" \
+            ../termux-app-re/apt-repo/build-packages.sh "${{ matrix.arch }}" "$REPO_URL" "$DEADLINE" "$FORCE" $PACKAGES
 
       - name: Check packages
         working-directory: termux-packages
@@ -171,19 +175,21 @@ jobs:
 
       - name: Collect packages
         # Artifact file names can't contain ":", which versions with an epoch have. The file
-        # names don't matter, the repository is built from the package metadata.
+        # names don't matter, the repository is built from the package metadata. roots.txt lists
+        # the packages that were asked for, the repository keeps them and their dependencies.
         run: |
           mkdir debs
           for deb in termux-packages/output/*.deb; do
             [ -e "$deb" ] && cp "$deb" "debs/$(basename "$deb" | tr ':' '_')"
           done
           ls debs | wc -l
+          cp "$RUNNER_TEMP/roots.txt" debs/roots.txt 2>/dev/null || true
 
       - name: Upload packages
         uses: actions/upload-artifact@v7
         with:
           name: debs-${{ matrix.arch }}
-          path: debs/*.deb
+          path: debs/
           if-no-files-found: warn
           retention-days: 14
 

@@ -128,17 +128,26 @@ jobs:
           echo "TERMUX_APP_VERSION_NAME=$TAG_VERSION_NAME" >> "$GITHUB_ENV"
           echo "APK_VERSION_TAG=$APK_VERSION_TAG" >> "$GITHUB_ENV"
 
-          # Use the newest bootstrap release made by the build_bootstraps workflow for the
-          # app's package name, if there is one. Otherwise the official bootstrap is used.
+          # Use the newest bootstrap made by the Build bootstraps workflow for the app's package
+          # name, published on this repository's GitHub Pages site as bootstrap/<id>, with
+          # bootstrap/latest set to the id. Its SHA256SUMS must be signed with the Termux RE
+          # repository key, and app/build.gradle checks the zips against it. Without one, the
+          # official bootstrap is used.
           PACKAGE_NAME="$(sed -n 's/^termuxPackageName=//p' gradle.properties)"
           echo "PACKAGE_NAME=$PACKAGE_NAME" >> "$GITHUB_ENV"
-          BOOTSTRAP_TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
-            --jq "[.[] | select(.tagName | startswith(\"bootstrap-$PACKAGE_NAME-\"))] | sort_by(.createdAt) | last | .tagName // empty" || true)"
-          if [ -n "$BOOTSTRAP_TAG" ]; then
-            echo "Using bootstrap release '$BOOTSTRAP_TAG'"
-            echo "TERMUX_BOOTSTRAP_URL=https://github.com/$GITHUB_REPOSITORY/releases/download/$BOOTSTRAP_TAG" >> "$GITHUB_ENV"
-          else
-            echo "::warning::No 'bootstrap-$PACKAGE_NAME-*' release found, building with the official bootstrap. It only works for package name com.termux. Run the 'Build bootstraps' workflow to make one."
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          SITE_URL="https://${OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}"
+          BOOTSTRAP_ID="$(curl -fsSL "$SITE_URL/bootstrap/latest?nocache=$RANDOM$RANDOM" || true)"
+          BOOTSTRAP_ID="$(echo "$BOOTSTRAP_ID" | head -n 1)"
+          if [ "$PACKAGE_NAME" != "com.termux" ] && [[ "$BOOTSTRAP_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
+            BOOTSTRAP_URL="$SITE_URL/bootstrap/$BOOTSTRAP_ID"
+            curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "$BOOTSTRAP_URL/SHA256SUMS"
+            curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS.asc" "$BOOTSTRAP_URL/SHA256SUMS.asc"
+            gpgv --keyring "$PWD/apt-repo/termux-re.gpg" "$RUNNER_TEMP/SHA256SUMS.asc" "$RUNNER_TEMP/SHA256SUMS"
+            echo "Using bootstrap $BOOTSTRAP_URL"
+            echo "TERMUX_BOOTSTRAP_URL=$BOOTSTRAP_URL" >> "$GITHUB_ENV"
+          elif [ "$PACKAGE_NAME" != "com.termux" ]; then
+            echo "::warning::No bootstrap found at $SITE_URL/bootstrap/latest, building with the official bootstrap. It only works for package name com.termux. Run the 'Build bootstraps' workflow to make one."
           fi
 
       - name: Setup release signing key
@@ -227,8 +236,6 @@ jobs:
             echo "Refusing to publish a release with the official bootstrap, which does not work for '$PACKAGE_NAME'. Run the 'Build bootstraps' workflow first."
             exit 1
           fi
-          # Mark app releases as the latest release explicitly, other releases of the repository,
-          # like bootstrap releases, should not be.
           RELEASE_TYPE="--latest"
           if [[ "$APK_VERSION_TAG" == *-* ]]; then RELEASE_TYPE="--prerelease"; fi
           # Prepended to the notes generated from the changes since the previous release.
@@ -236,4 +243,4 @@ jobs:
           # For a workflow_dispatch release, this creates the tag on the built commit.
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Termux RE $APK_VERSION_TAG" --notes "$NOTES" --generate-notes $RELEASE_TYPE \
-            "$OUT_DIR"/*-release_*.apk "$OUT_DIR"/sha256sums.txt
+            "$OUT_DIR"/*-release_*.apk

@@ -1,10 +1,11 @@
 name: Build bootstraps
 
 # Makes bootstrap archives for the app package name (termuxPackageName in gradle.properties) from
-# the Termux RE package repository and publishes them as a "bootstrap-<package name>-<run number>"
-# GitHub release with a SHA256SUMS file. The Build workflow picks up the newest such release
-# automatically, and local builds can use it with
-#   ./gradlew assembleDebug -PtermuxBootstrapUrl=https://github.com/<owner>/<repo>/releases/download/<tag>
+# the Termux RE package repository and publishes them on the GitHub Pages site of this repository
+# as bootstrap/<id>/bootstrap-<arch>.zip, with a SHA256SUMS file signed with the repository key,
+# and bootstrap/latest set to the id (see the Publish packages workflow). The Build workflow uses
+# the newest automatically, and local builds can use one with
+#   ./gradlew assembleDebug -PtermuxBootstrapUrl=https://<owner>.github.io/<repo>/bootstrap/<id>
 #
 # Termux binaries hardcode /data/data/<package name>/files/usr, so the official bootstrap and
 # repositories only work for com.termux. The bootstraps are assembled with termux-packages'
@@ -17,8 +18,7 @@ name: Build bootstraps
 # Docker image with build-bootstraps.sh and published in the repository, which takes about an
 # hour. Its own archives are not used: they contain every package built, build dependencies too.
 # With source "repository", the bootstraps are assembled from what the repository has, which takes
-# minutes. To point an existing bootstrap release at the repository without rebuilding it, use
-# the Repackage bootstraps workflow.
+# minutes.
 
 on:
   workflow_dispatch:
@@ -42,7 +42,7 @@ on:
         default: build
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   setup:
@@ -50,6 +50,8 @@ jobs:
     outputs:
       architectures: ${{ steps.inputs.outputs.architectures }}
       repo_url: ${{ steps.inputs.outputs.repo_url }}
+      bootstrap_id: ${{ steps.inputs.outputs.bootstrap_id }}
+      all_architectures: ${{ steps.inputs.outputs.all_architectures }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v7
@@ -79,6 +81,13 @@ jobs:
           {
             echo "architectures=$(jq -cn --arg a "$ARCHITECTURES" '$a | split(",")')"
             echo "repo_url=https://${OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/apt/termux-main"
+            echo "bootstrap_id=$(date -u +%Y%m%d).$GITHUB_RUN_NUMBER"
+            # The app needs the bootstraps of all architectures.
+            ALL=true
+            for arch in aarch64 arm i686 x86_64; do
+              [[ ",$ARCHITECTURES," == *",$arch,"* ]] || ALL=false
+            done
+            echo "all_architectures=$ALL"
           } >> "$GITHUB_OUTPUT"
 
   build:
@@ -234,38 +243,16 @@ jobs:
           path: termux-packages/bootstrap-${{ matrix.arch }}.zip
           if-no-files-found: error
 
-  release:
+  publish-bootstrap:
     needs: [setup, assemble]
-    if: ${{ !cancelled() && needs.assemble.result == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download bootstraps
-        uses: actions/download-artifact@v8
-        with:
-          pattern: bootstrap-*
-          merge-multiple: true
-          path: bootstraps
-
-      - name: Publish release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_NAME: ${{ inputs.package_name }}
-          PACKAGES_REF: ${{ inputs.termux_packages_ref }}
-          SOURCE: ${{ inputs.source }}
-          REPO_URL: ${{ needs.setup.outputs.repo_url }}
-        run: |
-          set -euo pipefail
-          cd bootstraps
-          sha256sum bootstrap-*.zip > SHA256SUMS
-          cat SHA256SUMS
-          TAG="bootstrap-$PACKAGE_NAME-$GITHUB_RUN_NUMBER"
-          NOTES="Bootstrap archives for package name \`$PACKAGE_NAME\`, assembled from the Termux RE package repository \`$REPO_URL\`"
-          if [ "$SOURCE" == "build" ]; then
-            NOTES+=" after building their packages from termux/termux-packages \`$PACKAGES_REF\`"
-          fi
-          # Not the latest release: that is the newest app release.
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
-            --title "Bootstrap for $PACKAGE_NAME ($GITHUB_RUN_NUMBER)" \
-            --notes "$NOTES, by run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
-            bootstrap-*.zip SHA256SUMS
+    # The app needs the bootstraps of all architectures, others are only checked.
+    if: ${{ !cancelled() && needs.assemble.result == 'success' && needs.setup.outputs.all_architectures == 'true' }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/publish_packages.yml
+    with:
+      bootstrap_pattern: bootstrap-*
+      bootstrap_id: ${{ needs.setup.outputs.bootstrap_id }}
+    secrets: inherit
