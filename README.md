@@ -49,7 +49,7 @@ The amber and slate colors of the icon are used on Android 11 and older, and whe
 - **Android 7.0+ only** (minSdk 24). Only the `apt-android-7` bootstrap variant is built. The old `apt-android-5` variant was dropped: on current Android its APKs only showed the error that the bootstrap variant is not compatible with the Android version.
 - **Toolchain:** compileSdk 37, Android Gradle Plugin 9.5, Gradle 9.9, NDK r30 and Java 17. The JNI libraries are written in Rust (see [Native code](#native-code)).
 - **targetSdk stays at 28 on purpose.** With targetSdk 29 or higher, Android blocks executing files from the app's data directory (W^X), which Termux depends on: every program under `$PREFIX` is run from there. As a result, Termux RE can't be published on Google Play, which requires a much higher targetSdk.
-- **CI** builds and tests on every push, signs release APKs with your own key, publishes tagged versions as releases, and can build bootstraps for the fork's package name.
+- **CI** builds and tests on every push, signs release APKs with your own key, publishes tagged versions as releases, and builds bootstraps and an apt package repository for the fork's package name.
 - **New icon**, so you can tell it apart from Termux on the home screen.
 - **Material 3 Expressive UI** for the drawer, settings and dialogs, with Material You dynamic colors on Android 12+ (set `dynamic-colors = false` in `~/.termux/termux.properties` for the fixed amber and slate scheme of the icon). The terminal keeps its own colors from `colors.properties`.
 - **Update notices.** Release builds check this repository's GitHub releases once a day and offer the APK for the device when a newer version is out (*Settings → Check for updates*). See [Updating and uninstalling](#updating-and-uninstalling).
@@ -70,24 +70,64 @@ The amber and slate colors of the icon are used on Android 11 and older, and whe
 
 **Read this before installing a `com.termux.re` build.**
 
-Termux packages are compiled with their install prefix hardcoded: `/data/data/<package name>/files/usr`. It appears in binaries, scripts, shebangs and configuration files, and can't be changed after the fact. The *bootstrap* is the minimal set of packages (shell, coreutils, `apt`, …) that the app embeds and extracts on first launch. That has three consequences:
+Termux packages are compiled with their install prefix hardcoded: `/data/data/<package name>/files/usr`. It appears in binaries, scripts, shebangs and configuration files, and can't be changed after the fact. The *bootstrap* is the minimal set of packages (shell, coreutils, `apt`, …) that the app embeds and extracts on first launch. That has these consequences:
 
-- The official bootstrap and the official package repositories only work in an app whose package name is `com.termux`.
+- The official bootstrap and the official package repositories only work in an app whose package name is `com.termux`. Packages from them don't work in Termux RE, and packages built for Termux RE don't work in Termux.
 - A `com.termux.re` build needs bootstrap archives built for `com.termux.re`. This repository's *Build bootstraps* workflow ([`build_bootstraps.yml`](.github/workflows/build_bootstraps.yml)) builds them with [termux-packages](https://github.com/termux/termux-packages) and publishes them as a `bootstrap-com.termux.re-<n>` GitHub release. Start it by hand from the Actions tab; it builds every package of the bootstrap from source and takes a few hours. After that, every CI build embeds the newest such release automatically.
 - Until then, builds embed the official bootstrap. A `com.termux.re` build then doesn't extract it (its programs couldn't run), but explains why on first launch and offers a failsafe session running Android's `/system/bin/sh`.
-- `pkg install` of anything that is not in the bootstrap needs an apt repository of packages built for `com.termux.re`. Packages from the official Termux repositories are built for `com.termux` and don't work in Termux RE. Until you host your own repository, a `com.termux.re` build is limited to what the bootstrap contains.
+- `pkg install` needs an apt repository of packages built for `com.termux.re`. Termux RE has one, see below.
 
-To build bootstraps or packages yourself, set the package name in a termux-packages checkout and build with its Docker image:
+### The Termux RE package repository
+
+Termux RE has its own apt repository of packages built for `com.termux.re`, hosted on this repository's GitHub Pages site:
+
+```
+deb https://riyadmondol2006.github.io/termux-app-RE/apt/termux-main stable main
+```
+
+[The site](https://riyadmondol2006.github.io/termux-app-RE/) lists the packages it has. It starts with the bootstrap packages and a set of everyday tools ([`apt-repo/packages.txt`](apt-repo/packages.txt)): Python with pip, Node.js, git, OpenSSH, rsync, vim, zsh, tmux, htop, curl, wget, zip, jq, make, man pages, proot and proot-distro, plus everything they depend on. proot-distro runs full Debian, Ubuntu, Arch or Alpine environments with their own package managers, a way to get software that isn't in this repository.
+
+Termux RE's bootstrap is set up to use it, so `pkg install python` just works:
+
+- `$PREFIX/etc/apt/sources.list` points at it.
+- Its signing key is installed by the `termux-keyring` package and trusted by apt. The key's fingerprint is `4F9F 3AF3 6023 DC4C 4E24 E464 3F73 0223 6E98 D269`, its public part is [`apt-repo/termux-re.asc`](apt-repo/termux-re.asc). The repository is signed in CI with the private key in the `APT_SIGNING_KEY` repository secret.
+- Every mirror that `pkg` and `termux-change-repo` can choose from (`$PREFIX/etc/termux/mirrors`) points at it, so mirror selection never switches to the official repositories.
+
+The repository also has the `apt`, `termux-keyring` and `termux-tools` packages built with these settings, so upgrading them keeps them. The changes are made by [`apt-repo/patch-termux-packages.sh`](apt-repo/patch-termux-packages.sh) in the termux-packages checkout that the *Build bootstraps* and *Build packages* workflows build from. A bootstrap release built before that can be set up the same way without rebuilding it, with the *Repackage bootstraps* workflow ([`repackage_bootstraps.yml`](.github/workflows/repackage_bootstraps.yml)), which publishes it as a new `bootstrap-com.termux.re-<n>-r<m>` release.
+
+#### Adding packages
+
+Run the *Build packages* workflow ([`build_packages.yml`](.github/workflows/build_packages.yml)) from the Actions tab with the termux-packages names of the packages, separated by spaces, for example `neovim ruby`. Without a list it builds `apt-repo/packages.txt`; add packages there to keep them in the default set. The workflow:
+
+- Builds for each architecture (`aarch64`, `arm`, `i686`, `x86_64`, choose with the *architectures* input) from termux-packages `master` or the ref you give.
+- Builds the dependencies too. Those that the repository already has in the version termux-packages wants are downloaded from it instead (`build-package.sh -I`), and requested packages that it already has in their current version are skipped. Running it again after termux-packages updated a package only builds what changed. *force* rebuilds anyway.
+- Accepts subpackage names and builds them through their package (`curl` through `libcurl`).
+- Publishes the result with the *Publish packages* workflow ([`publish_packages.yml`](.github/workflows/publish_packages.yml)), which merges it into the published repository, keeps the newest version of each package, signs and deploys it. The Build bootstraps workflow publishes the bootstrap packages it builds the same way. To remove a package, run *Publish packages* with its name in *remove*.
+
+#### Limits
+
+- **6 hours per architecture and run.** GitHub stops jobs after 6 hours, and each architecture builds its whole list in one job. Packages that are not started in time are listed in the job summary; run the workflow again for them, everything already published is skipped. The first run has to build every dependency from source.
+- **Toolchains are out of reach.** `clang`/LLVM, `rust` and similar toolchains take longer than 6 hours to build from source on GitHub's runners, so they are not in the repository, and neither is anything that needs them to build. Programs that compile code on the device (`pip install` of packages with C extensions, `npm` packages with native addons) need `clang` and won't work.
+- **1 GB.** GitHub Pages sites are limited to 1 GB. The repository has all four architectures, the Publish packages workflow refuses to deploy more than 950 MiB.
+- **Main packages only.** Packages from termux-packages' `x11-packages` and `root-packages` directories are not supported.
+- **Versions** come from termux-packages at the time of the build and can be ahead of or behind the official repositories.
+- Right after a publish, GitHub Pages can serve the old index for up to 10 minutes; `pkg update` may report a hash mismatch until then.
+
+To host the repository in a fork: generate a signing key (`gpg --quick-gen-key "<name>" rsa4096 sign never`), replace `apt-repo/termux-re.gpg` and `apt-repo/termux-re.asc` with its public key, store the ASCII armored private key in the `APT_SIGNING_KEY` secret, enable GitHub Pages with *GitHub Actions* as the source, then run *Build packages* and *Build bootstraps* (or *Repackage bootstraps*).
+
+#### Building locally
+
+To build bootstraps or packages yourself, configure a termux-packages checkout with the same script and build with its Docker image:
 
 ```sh
 git clone https://github.com/termux/termux-packages.git
+apt-repo/patch-termux-packages.sh termux-packages com.termux.re https://riyadmondol2006.github.io/termux-app-RE/apt/termux-main
 cd termux-packages
-# In scripts/properties.sh, set:
-#   TERMUX_APP__PACKAGE_NAME="com.termux.re"
-./scripts/run-docker.sh ./scripts/build-bootstraps.sh
+./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures aarch64
+./scripts/run-docker.sh ./build-package.sh -a aarch64 python
 ```
 
-Build further packages from the same configured checkout (see [Building packages](https://github.com/termux/termux-packages/wiki/Building-packages)). Then serve the `.deb` files as an apt repository, for example with [termux-apt-repo](https://github.com/termux/termux-apt-repo), and point `$PREFIX/etc/apt/sources.list` in Termux RE at it.
+See [Building packages](https://github.com/termux/termux-packages/wiki/Building-packages) for more. The built `.deb` files are in `termux-packages/output`; install one in Termux RE with `apt install ./<file>.deb`.
 
 If you need the official repositories instead, build with `-PtermuxPackageName=com.termux` (see [Building](#building)). That build uses the official bootstraps and repositories, but it can't be installed next to official Termux: it has the same package name and a different signing key.
 
