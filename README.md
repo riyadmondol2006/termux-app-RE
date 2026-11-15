@@ -16,6 +16,7 @@ If you want the official app, install Termux from one of the sources in the [ups
 
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Differences from Termux](#differences-from-termux)
 - [Packages and the bootstrap](#packages-and-the-bootstrap)
 - [Installation](#installation)
@@ -27,6 +28,20 @@ If you want the official app, install Termux from one of the sources in the [ups
 - [Contributing](#contributing)
 - [Credits](#credits)
 - [License](#license)
+
+## Screenshots
+
+The drawer, settings and dialogs use Material 3. The terminal keeps its own colors.
+
+| Terminal | Sessions | Terminal menu | Settings |
+| :---: | :---: | :---: | :---: |
+| <img src="art/screenshots/dark-terminal.png" alt="Terminal with the extra keys row" width="180"> | <img src="art/screenshots/dark-drawer.png" alt="Drawer with two named sessions and the Keyboard and New session buttons" width="180"> | <img src="art/screenshots/dark-menu.png" alt="Terminal context menu" width="180"> | <img src="art/screenshots/dark-settings.png" alt="Terminal I/O settings with switches" width="180"> |
+
+The amber and slate colors of the icon are used on Android 11 and older, and when `dynamic-colors = false` is set. On Android 12+ the app uses Material You colors from the wallpaper by default:
+
+| Light theme | Permissions | Material You, dark | Material You, light |
+| :---: | :---: | :---: | :---: |
+| <img src="art/screenshots/light-drawer.png" alt="Drawer in the light theme" width="180"> | <img src="art/screenshots/light-permissions.png" alt="Permissions settings screen" width="180"> | <img src="art/screenshots/material-you-dark-drawer.png" alt="Drawer with dynamic colors from the wallpaper, dark theme" width="180"> | <img src="art/screenshots/material-you-light-settings.png" alt="Settings with dynamic colors from the wallpaper, light theme" width="180"> |
 
 ## Differences from Termux
 
