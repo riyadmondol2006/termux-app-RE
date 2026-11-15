@@ -34,7 +34,7 @@ If you want the official app, install Termux from one of the sources in the [ups
 - **Android 7.0+ only** (minSdk 24). Only the `apt-android-7` bootstrap variant is built. The old `apt-android-5` variant was dropped: on current Android its APKs only showed the error that the bootstrap variant is not compatible with the Android version.
 - **Toolchain:** compileSdk 37, Android Gradle Plugin 9.5, Gradle 9.9, NDK r30 and Java 17.
 - **targetSdk stays at 28 on purpose.** With targetSdk 29 or higher, Android blocks executing files from the app's data directory (W^X), which Termux depends on: every program under `$PREFIX` is run from there. As a result, Termux RE can't be published on Google Play, which requires a much higher targetSdk.
-- **CI** builds APKs on every push, signs release APKs with your own key, and builds bootstraps for the fork's package name.
+- **CI** builds and tests on every push, signs release APKs with your own key, publishes tagged versions as releases, and can build bootstraps for the fork's package name.
 - **New icon**, so you can tell it apart from Termux on the home screen.
 
 ## Packages and the bootstrap
@@ -44,7 +44,8 @@ If you want the official app, install Termux from one of the sources in the [ups
 Termux packages are compiled with their install prefix hardcoded: `/data/data/<package name>/files/usr`. It appears in binaries, scripts, shebangs and configuration files, and can't be changed after the fact. The *bootstrap* is the minimal set of packages (shell, coreutils, `apt`, …) that the app embeds and extracts on first launch. That has three consequences:
 
 - The official bootstrap and the official package repositories only work in an app whose package name is `com.termux`.
-- A `com.termux.re` build needs bootstrap archives built for `com.termux.re`. This repository's [`build_bootstraps.yml`](.github/workflows/build_bootstraps.yml) workflow builds them with [termux-packages](https://github.com/termux/termux-packages) and publishes them as a GitHub release, which the app build then downloads.
+- A `com.termux.re` build needs bootstrap archives built for `com.termux.re`. This repository's *Build bootstraps* workflow ([`build_bootstraps.yml`](.github/workflows/build_bootstraps.yml)) builds them with [termux-packages](https://github.com/termux/termux-packages) and publishes them as a `bootstrap-com.termux.re-<n>` GitHub release. Start it by hand from the Actions tab; it builds every package of the bootstrap from source and takes a few hours. After that, every CI build embeds the newest such release automatically.
+- Until then, builds embed the official bootstrap. A `com.termux.re` build then doesn't extract it (its programs couldn't run), but explains why on first launch and offers a failsafe session running Android's `/system/bin/sh`.
 - `pkg install` of anything that is not in the bootstrap needs an apt repository of packages built for `com.termux.re`. Packages from the official Termux repositories are built for `com.termux` and don't work in Termux RE. Until you host your own repository, a `com.termux.re` build is limited to what the bootstrap contains.
 
 To build bootstraps or packages yourself, set the package name in a termux-packages checkout and build with its Docker image:
@@ -65,8 +66,8 @@ If you need the official repositories instead, build with `-PtermuxPackageName=c
 
 Requirements: Android 7.0 or newer.
 
-- **Release APKs** are attached to [GitHub Releases](https://github.com/riyadmondol2006/termux-app-RE/releases). They are signed with the fork's release key.
-- **Debug APKs** are built for every push. Find them under *Artifacts* on a run in [GitHub Actions](https://github.com/riyadmondol2006/termux-app-RE/actions); you must be logged into GitHub to download them. Debug APKs are signed with the publicly known test key `app/testkey_untrusted.jks` inherited from upstream. Anyone can sign an APK with that key and it will install as an update over a debug build, so only install debug APKs that come from this repository.
+- **Releases:** pushing a `v*` tag publishes the signed release APKs to [GitHub Releases](https://github.com/riyadmondol2006/termux-app-RE/releases).
+- **Every push:** release and debug APKs are uploaded under *Artifacts* on the run in [GitHub Actions](https://github.com/riyadmondol2006/termux-app-RE/actions); you must be logged into GitHub to download them. Release APKs are signed with the fork's release key. Debug APKs are signed with the publicly known test key `app/testkey_untrusted.jks` inherited from upstream. Anyone can sign an APK with that key and it will install as an update over a debug build, so only install debug APKs that come from this repository.
 
 ### Which APK to download
 
@@ -122,19 +123,30 @@ cd termux-app-RE
 ./gradlew assembleDebug
 ```
 
-The APKs are written to `app/build/outputs/apk/debug/`. The build downloads the bootstrap archives for the configured package name.
+The APKs are written to `app/build/outputs/apk/debug/`.
 
-To build with a different package name, override the Gradle property:
+The app's identity and bootstrap are set with Gradle properties, either in `gradle.properties` or with `-P` on the command line:
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `termuxPackageName` | `com.termux.re` | Android package name (`applicationId`). The Java namespace stays `com.termux`. |
+| `termuxAppName` | `Termux RE` | App name shown in the launcher and the UI |
+| `termuxGithubRepoUrl` | this repository | Linked from the app's about and issue report screens |
+| `termuxBootstrapUrl` | unset | Where to download `bootstrap-<arch>.zip` and `SHA256SUMS` from, for example `https://github.com/<owner>/<repo>/releases/download/bootstrap-com.termux.re-1`. Unset means the official bootstrap. The `TERMUX_BOOTSTRAP_URL` environment variable works too. |
+
+For example, to build a stock-identity app that works with the official bootstrap and repositories:
 
 ```sh
-./gradlew assembleDebug -PtermuxPackageName=com.termux
+./gradlew assembleDebug -PtermuxPackageName=com.termux -PtermuxAppName=Termux
 ```
 
-With `com.termux`, the official Termux bootstraps are used. With any other package name, bootstraps built for that name are required (see [Packages and the bootstrap](#packages-and-the-bootstrap)).
+The build detects which package name the embedded bootstrap was built for and warns if it differs from `termuxPackageName` (see [Packages and the bootstrap](#packages-and-the-bootstrap)).
+
+To sign release builds locally, pass the keystore with the `termuxReleaseKeystoreFile`, `termuxReleaseKeystorePassword`, `termuxReleaseKeyAlias` and `termuxReleaseKeyPassword` properties (for example in `~/.gradle/gradle.properties`), or the matching `TERMUX_RELEASE_KEYSTORE_FILE`, `TERMUX_RELEASE_KEYSTORE_PASSWORD`, `TERMUX_RELEASE_KEY_ALIAS` and `TERMUX_RELEASE_KEY_PASSWORD` environment variables. Without them, `assembleRelease` produces unsigned APKs.
 
 ### CI and release signing
 
-GitHub Actions builds APKs on every push. Release APKs are signed with a keystore that is stored in four repository secrets:
+GitHub Actions runs the unit tests and builds release and debug APKs on every push and pull request ([`build.yml`](.github/workflows/build.yml)). Pushing a tag like `v0.119.0` also publishes a GitHub release. Release APKs are signed with a keystore that is stored in four repository secrets; without them (for example in pull requests from forks) release APKs are unsigned and tags are not published:
 
 | Secret | Value |
 | --- | --- |

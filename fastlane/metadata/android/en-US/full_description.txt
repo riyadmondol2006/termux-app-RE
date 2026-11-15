@@ -1,13 +1,9 @@
-Termux is a terminal emulator application enhanced with a large set of command line utilities ported to Android OS. The main goal is to bring a Linux command line experience to users of mobile devices with no rooting or other special setup required.
+Termux RE is an unofficial fork of the Termux terminal emulator and Linux environment for Android. It is built under its own package name, com.termux.re, so it installs next to the official Termux app, and uses an updated build toolchain. It is not affiliated with or endorsed by the Termux project.
 
-* Enjoy the Bash and Zsh shells.
-* Edit files with nano and vim.
-* Access servers over SSH.
-* Compile C/C++ code with clang.
-* Use the Python console as a pocket calculator.
-* Check out projects with Git and Subversion.
-* Run text-based games with frotz.
+* A full terminal emulator with extra keys, multiple sessions and hardware keyboard support.
+* Runs the Bash shell and the core command line utilities from its bootstrap packages.
+* Works without root.
 
-At first start a small base system is being configured. The GNU Bash, Coreutils, Findutils and other core utilities are available out-of-box. Additionally, we provide more than 1000 other packages installable by using the 'pkg' utility which currently is a frontend for the 'apt' package manager. All provided software has been patched and compiled with Android NDK to provide max compatibility with Android OS.
+Termux packages have their install path compiled in. Termux RE builds for com.termux.re therefore need bootstrap packages built for that package name, and installing further packages with 'pkg' needs a package repository built for it. The packages from the official Termux repositories only work in an app with the package name com.termux. See the project README for how to build bootstraps and packages, or how to build the app with the package name com.termux.
 
-To learn more about application usage tips and tricks, long-press anywhere on the terminal and select the Help menu option to access Termux Wiki. This resource is also accessible directly in a web browser: https://wiki.termux.com/wiki/Main_Page.
+Source code and issue tracker: https://github.com/riyadmondol2006/termux-app-RE
