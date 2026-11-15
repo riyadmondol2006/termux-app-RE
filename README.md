@@ -154,7 +154,7 @@ To check a device's ABI, run `adb shell getprop ro.product.cpu.abi`.
 
 ### Updating and uninstalling
 
-Release builds check for a new release when the terminal is opened, at most once a day, and show a dialog with the release notes. *Download* opens the release APK for the device's ABI in the browser; install it to update. *Skip this version* hides the notice until the next release. The check only requests this repository's release list from the GitHub API, with the app name and version as the user agent, and sends nothing else. Turn it off, or check right away, under *Settings → Check for updates*. Debug builds only check when you ask, since release APKs can't be installed over them.
+Release builds check for a new release when the terminal is opened, at most once a day, and show a dialog with the release notes. *Download* opens the release APK for the device's ABI in the browser; install it to update. *Skip* hides the notice for that version until the next release. The check only requests this repository's release list from the GitHub API, with the app name and version as the user agent, and sends nothing else. Turn it off, or check right away, under *Settings → Check for updates*. Debug builds only check when you ask, since release APKs can't be installed over them.
 
 Android only installs an update that is signed with the same key as the installed app. Release and debug builds use different keys, so to switch between them you have to uninstall first, which deletes the app's data. [Back up](https://wiki.termux.com/wiki/Backing_up_Termux) your home directory before you uninstall. Uninstalling Termux RE doesn't affect an installed official Termux, and the other way round.
 

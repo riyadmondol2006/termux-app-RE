@@ -60,7 +60,7 @@ public final class AppUpdateChecker {
 
     private static final int TIMEOUT_MILLIS = 15000;
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-    private static final int MAX_RELEASE_NOTES_CHARS = 3000;
+    private static final int MAX_RELEASE_NOTES_CHARS = 2000;
 
     private static final Pattern GITHUB_REPO_URL_PATTERN = Pattern.compile("^https://github\\.com/([^/]+)/([^/]+?)(?:\\.git)?/*$");
     private static final Pattern RELEASE_TAG_PATTERN = Pattern.compile("^v(\\d+\\.\\d+\\.\\d+)$");

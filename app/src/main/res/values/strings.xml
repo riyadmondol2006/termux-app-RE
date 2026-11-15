@@ -300,7 +300,7 @@
     <string name="msg_update_available">%1$s %2$s is available, you have %3$s.</string>
     <string name="action_update_download">Download</string>
     <string name="action_update_later">Later</string>
-    <string name="action_update_skip">Skip this version</string>
+    <string name="action_update_skip">Skip</string>
     <string name="msg_update_check_running">Checking for updates…</string>
     <string name="msg_update_check_up_to_date">You have the newest version, %1$s.</string>
     <string name="msg_update_check_failed">Failed to check for updates: %1$s</string>
