@@ -21,7 +21,16 @@ android {
 
     compileSdk = project.properties.compileSdkVersion.toInteger()
     ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
-    def appVersionName = System.getenv("TERMUX_APP_VERSION_NAME") ?: ""
+    // App version. Releases are made from "v<version>" git tags, see "Releases" in README.md.
+    // 1. The TERMUX_APP_VERSION_NAME env variable, which the Build workflow sets.
+    // 2. Otherwise the newest "v*" tag reachable from HEAD, with "+<commits>.g<commit>" build
+    //    metadata if HEAD is not the tagged commit, like "1.0.0+3.g1a2b3c4".
+    // 3. Otherwise, without git or tags, the fallback below, which is the version of the first
+    //    release and must not be changed for later releases.
+    // The versionCode is computed from the major, minor and patch version so that it increases
+    // with every release, unless TERMUX_APP_VERSION_CODE is set.
+    def appVersionName = System.getenv("TERMUX_APP_VERSION_NAME") ?: gitDescribeVersionName() ?: "1.0.0"
+    def appVersionCode = System.getenv("TERMUX_APP_VERSION_CODE") ?: versionCodeOf(appVersionName)
     def splitAPKsForDebugBuilds = System.getenv("TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS") ?: "1"
     def splitAPKsForReleaseBuilds = System.getenv("TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS") ?: "0" // F-Droid does not support split APKs #1904
 
@@ -29,10 +38,8 @@ android {
         applicationId = termuxIdentity.packageName
         minSdk = project.properties.minSdkVersion.toInteger()
         targetSdk = project.properties.targetSdkVersion.toInteger()
-        versionCode = 118
-        versionName = "0.118.0"
-
-        if (appVersionName) versionName = appVersionName
+        versionName = appVersionName
+        versionCode = appVersionCode as int
         validateVersionName(versionName)
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
@@ -177,6 +184,42 @@ tasks.register("versionName") {
     doLast {
         print versionName
     }
+}
+
+/**
+ * Get the version for the newest "v*" git tag reachable from HEAD, like "1.0.0", or
+ * "1.0.0+3.g1a2b3c4" if HEAD is 3 commits after it. Returns null if git or a tag is not found,
+ * like for source archives or shallow clones.
+ */
+def gitDescribeVersionName() {
+    try {
+        def describe = providers.exec {
+            commandLine "git", "describe", "--tags", "--long", "--abbrev=7", "--match", "v[0-9]*"
+            workingDir = rootDir
+            ignoreExitValue = true
+        }
+        if (describe.result.get().exitValue != 0) return null
+        def matcher = describe.standardOutput.asText.get().trim() =~ /^v(.+)-(\d+)-g([0-9a-f]+)$/
+        if (!matcher.matches()) return null
+        def commits = matcher.group(2) as int
+        return commits == 0 ? matcher.group(1) : matcher.group(1) + "+" + commits + ".g" + matcher.group(3)
+    } catch (Exception e) {
+        logger.info("Failed to get version from git tags: " + e)
+        return null
+    }
+}
+
+/** Get the versionCode for a "major.minor.patch" version: major * 1000000 + minor * 1000 + patch. */
+def versionCodeOf(String versionName) {
+    def matcher = versionName =~ /^(\d+)\.(\d+)\.(\d+)/
+    if (!matcher.find())
+        throw new GradleException("The versionName '" + versionName + "' does not start with 'major.minor.patch'.")
+    int major = matcher.group(1) as int
+    int minor = matcher.group(2) as int
+    int patch = matcher.group(3) as int
+    if (major > 2000 || minor > 999 || patch > 999)
+        throw new GradleException("The versionName '" + versionName + "' needs major <= 2000, minor <= 999 and patch <= 999 for the versionCode.")
+    return major * 1000000 + minor * 1000 + patch
 }
 
 def validateVersionName(String versionName) {
