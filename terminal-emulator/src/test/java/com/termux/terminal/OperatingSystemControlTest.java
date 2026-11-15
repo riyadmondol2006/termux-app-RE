@@ -142,6 +142,17 @@ public class OperatingSystemControlTest extends TerminalTestCase {
 		enterString("\033]52;c;" + Base64.encodeToString("Hello, world".getBytes(), 0) + "\007");
 	}
 
+	public void testLargeSetClipboardIsNotTruncated() {
+		// OSC 52 allows up to ~100KB of data, more than the default max length of other commands.
+		// If the sequence was cut off, the rest of its data would be printed to the screen.
+		StringBuilder data = new StringBuilder();
+		for (int i = 0; i < 20000; i++) data.append('A');
+		withTerminalSized(3, 2).enterString("\033]52;c;" + data + "\007");
+		assertLinesAre("   ", "   ");
+		assertEquals(0, mTerminal.getCursorRow());
+		assertEquals(0, mTerminal.getCursorCol());
+	}
+
 	public void testResettingTerminalResetsColor() throws Exception {
 		// "OSC 4; $INDEX; $COLORSPEC BEL" => Change color $INDEX to the color specified by $COLORSPEC.
 		withTerminalSized(4, 4).enterString("\033]4;5;#00FF00\007");
