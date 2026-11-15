@@ -12,9 +12,10 @@
 # - termux-keyring: also installs the Termux RE repository signing key.
 # - command-not-found: suggests the packages of the Termux RE repository (with
 #   fix-termux-packages.sh).
-# - termux-tools: the welcome message doesn't suggest the root-repo and x11-repo packages and
-#   sends issue reports to the given url, its revision is raised so it replaces the package
-#   without these changes, and
+# - termux-tools: the welcome message doesn't suggest the root-repo and x11-repo packages, and
+#   its Docs, Donate, Community and issue links point at the app repository instead of
+#   termux.dev (DONATE_URL can be set to a donation page). Its revision is raised so it replaces
+#   termux-tools packages without these changes. And
 #   every mirror file that `pkg` and `termux-change-repo` choose from points at
 #   the Termux RE repository, and `pkg` uses the default one, so mirror selection can't switch
 #   back to the official repositories. Mirror files of other repositories left over from an
@@ -22,26 +23,33 @@
 #
 # The package build steps are wrapped, not replaced, so upstream changes to them still apply.
 #
-# Usage: patch-termux-packages.sh <termux-packages dir> <app package name> <repository url> [<issues url>]
+# Usage: patch-termux-packages.sh <termux-packages dir> <app package name> <package repository url> <app repository url>
 
 set -euo pipefail
 
-if [ $# -ne 3 ] && [ $# -ne 4 ]; then
-	echo "Usage: $0 <termux-packages dir> <app package name> <repository url> [<issues url>]" >&2
+if [ $# -ne 4 ]; then
+	echo "Usage: $0 <termux-packages dir> <app package name> <package repository url> <app repository url>" >&2
 	exit 1
 fi
 
 TERMUX_PACKAGES_DIR="$1"
 PACKAGE_NAME="$2"
 REPO_URL="${3%/}"
-ISSUES_URL="${4:-}"
+APP_REPO_URL="${4%/}"
+# The links of the welcome message.
+DOCS_URL="$APP_REPO_URL#readme"
+DONATE_URL="${DONATE_URL:-$APP_REPO_URL}"
+COMMUNITY_URL="$APP_REPO_URL/issues"
+ISSUES_URL="$APP_REPO_URL/issues"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fail() { echo "patch-termux-packages.sh: $*" >&2; exit 1; }
 
 [[ "$PACKAGE_NAME" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]] || fail "Invalid package name '$PACKAGE_NAME'"
 [[ "$REPO_URL" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~-]+)*$ ]] || fail "Invalid repository url '$REPO_URL'"
-[[ -z "$ISSUES_URL" || "$ISSUES_URL" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~-]+)*$ ]] || fail "Invalid issues url '$ISSUES_URL'"
+for url in "$APP_REPO_URL" "$DONATE_URL"; do
+	[[ "$url" =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~-]+)*/?$ ]] || fail "Invalid url '$url'"
+done
 
 # Writes template $1 from files/ to $2 with the placeholders replaced.
 render() {
@@ -122,8 +130,11 @@ wrap_step packages/termux-tools/build.sh termux_step_post_make_install <<'EOF'
 	# The welcome message suggests root-repo and x11-repo, which don't exist in this repository.
 	sed -i -e '/Subscribing to additional repos/d' -e '/pkg install root-repo/d' -e '/pkg install x11-repo/d' \
 		"$TERMUX_PREFIX/etc/motd" "$TERMUX_PREFIX/etc/motd.sh"
-	if [ -n "${TERMUX_RE_ISSUES_URL:-}" ]; then
-		sed -i "s|https://termux\.dev/issues|$TERMUX_RE_ISSUES_URL|" "$TERMUX_PREFIX/etc/motd" "$TERMUX_PREFIX/etc/motd.sh"
+	sed -i -e "s|https://termux\.dev/docs|$TERMUX_RE_DOCS_URL|" -e "s|https://termux\.dev/donate|$TERMUX_RE_DONATE_URL|" \
+		-e "s|https://termux\.dev/community|$TERMUX_RE_COMMUNITY_URL|" -e "s|https://termux\.dev/issues|$TERMUX_RE_ISSUES_URL|" \
+		"$TERMUX_PREFIX/etc/motd" "$TERMUX_PREFIX/etc/motd.sh"
+	if grep -n "termux\.dev" "$TERMUX_PREFIX/etc/motd" "$TERMUX_PREFIX/etc/motd.sh"; then
+		termux_error_exit "The welcome message still links to termux.dev"
 	fi
 
 	sed -i '\|^etc/termux/mirrors/|d' "$TERMUX_PKG_BUILDDIR/conffiles"
@@ -139,17 +150,21 @@ wrap_step packages/termux-tools/build.sh termux_step_post_make_install <<'EOF'
 	PREINST
 EOF
 
-# A higher revision than termux-tools packages without these changes, which apt replaces then.
+# Raise the revision by one more whenever the changes above change, so a termux-tools package
+# with them replaces one without them, in the repository and on devices.
+TOOLS_REVISION_INCREASE=2
 TOOLS_BUILD=packages/termux-tools/build.sh
 revision="$(sed -n -E 's/^TERMUX_PKG_REVISION="?([0-9]+)"?( #.*)?$/\1/p' "$TOOLS_BUILD")"
-if [ -n "$revision" ]; then
-	sed -i -E "s/^TERMUX_PKG_REVISION=.*/TERMUX_PKG_REVISION=$((revision + 1)) # Termux RE: raised by apt-repo\/fix-termux-packages.sh and patch-termux-packages.sh/" "$TOOLS_BUILD"
-else
-	sed -i -E "0,/^TERMUX_PKG_VERSION=/s//TERMUX_PKG_REVISION=1 # Termux RE: see apt-repo\/patch-termux-packages.sh\n&/" "$TOOLS_BUILD"
-fi
-if [ -n "$ISSUES_URL" ]; then
-	printf '\n# Termux RE: added by apt-repo/patch-termux-packages.sh.\nTERMUX_RE_ISSUES_URL="%s"\n' "$ISSUES_URL" >> "$TOOLS_BUILD"
-fi
+[ -n "$revision" ] || fail "No TERMUX_PKG_REVISION in $TOOLS_BUILD"
+sed -i -E "s/^TERMUX_PKG_REVISION=.*/TERMUX_PKG_REVISION=$((revision + TOOLS_REVISION_INCREASE)) # Termux RE: raised by apt-repo\/fix-termux-packages.sh and patch-termux-packages.sh/" "$TOOLS_BUILD"
+{
+	echo
+	echo "# Termux RE: added by apt-repo/patch-termux-packages.sh."
+	echo "TERMUX_RE_DOCS_URL=\"$DOCS_URL\""
+	echo "TERMUX_RE_DONATE_URL=\"$DONATE_URL\""
+	echo "TERMUX_RE_COMMUNITY_URL=\"$COMMUNITY_URL\""
+	echo "TERMUX_RE_ISSUES_URL=\"$ISSUES_URL\""
+} >> "$TOOLS_BUILD"
 
 ### command-not-found
 # Suggest the packages of the Termux RE repository, see fix-termux-packages.sh.

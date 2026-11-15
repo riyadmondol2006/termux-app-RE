@@ -123,7 +123,7 @@ To build bootstraps or packages yourself, configure a termux-packages checkout w
 ```sh
 git clone https://github.com/termux/termux-packages.git
 apt-repo/fix-termux-packages.sh termux-packages
-apt-repo/patch-termux-packages.sh termux-packages com.termux.re https://riyadmondol2006.github.io/termux-app-RE/apt/termux-main
+apt-repo/patch-termux-packages.sh termux-packages com.termux.re https://riyadmondol2006.github.io/termux-app-RE/apt/termux-main https://github.com/riyadmondol2006/termux-app-RE
 cd termux-packages
 ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures aarch64
 ./scripts/run-docker.sh ./build-package.sh -a aarch64 python

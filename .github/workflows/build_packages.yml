@@ -131,7 +131,7 @@ jobs:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
         run: |
           ./termux-app-re/apt-repo/fix-termux-packages.sh termux-packages
-          ./termux-app-re/apt-repo/patch-termux-packages.sh termux-packages "$PACKAGE_NAME" "$REPO_URL" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/issues"
+          ./termux-app-re/apt-repo/patch-termux-packages.sh termux-packages "$PACKAGE_NAME" "$REPO_URL" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           echo "termux-packages $(git -C termux-packages rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Start build container
