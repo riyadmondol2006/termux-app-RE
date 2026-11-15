@@ -16,6 +16,7 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.SparseBooleanArray;
 import android.view.ActionMode;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -85,6 +86,13 @@ public final class TerminalView extends View {
 
     /** If non-zero, this is the last unicode code point received if that was a combining character. */
     int mCombiningAccent;
+
+    /**
+     * Whether the last {@link KeyEvent#ACTION_DOWN} event of a key code was handled by
+     * {@link #onKeyDown(int, KeyEvent)}, used to only handle the {@link KeyEvent#ACTION_UP} event in
+     * {@link #onKeyUp(int, KeyEvent)} if the down event was handled.
+     */
+    private final SparseBooleanArray mKeysHandledOnKeyDown = new SparseBooleanArray();
 
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
@@ -763,6 +771,13 @@ public final class TerminalView extends View {
      */
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        boolean handled = handleKeyDown(keyCode, event);
+        if (event.getAction() == KeyEvent.ACTION_DOWN)
+            mKeysHandledOnKeyDown.put(keyCode, handled);
+        return handled;
+    }
+
+    private boolean handleKeyDown(int keyCode, KeyEvent event) {
         if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
             mClient.logInfo(LOG_TAG, "onKeyDown(keyCode=" + keyCode + ", isSystem()=" + event.isSystem() + ", event=" + event + ")");
         if (mEmulator == null) return true;
@@ -786,6 +801,10 @@ public final class TerminalView extends View {
             // Otherwise pressing a modifier key would clear the extra keys buttons that are active
             // before the key to be modified is pressed. The modifier state is part of the
             // meta state of the next key event.
+            return super.onKeyDown(keyCode, event);
+        } else if (keyCode == KeyEvent.KEYCODE_SYSRQ) {
+            // Let the system handle the Print Screen/SysRq key to take a screenshot, since on newer
+            // Android versions it is only done if the app does not handle the key event.
             return super.onKeyDown(keyCode, event);
         }
 
@@ -969,10 +988,15 @@ public final class TerminalView extends View {
         } else if (event.isSystem()) {
             // Let system key events through.
             return super.onKeyUp(keyCode, event);
-        } else if (KeyEvent.isModifierKey(keyCode)) {
-            // Modifier keys are not handled in onKeyDown() either.
-            return super.onKeyUp(keyCode, event);
         }
+
+        // Only handle the key up event if the key down event was handled (or not received), so that
+        // keys not handled by onKeyDown(), like modifier keys or the Print Screen/SysRq key, are
+        // passed on to the system, like to take a screenshot.
+        boolean handledOnKeyDown = mKeysHandledOnKeyDown.get(keyCode, true);
+        mKeysHandledOnKeyDown.delete(keyCode);
+        if (!handledOnKeyDown)
+            return super.onKeyUp(keyCode, event);
 
         return true;
     }
