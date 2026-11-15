@@ -1,0 +1,29 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:key="permissions"
+        app:title="@string/termux_permissions_header">
+
+        <Preference
+            app:key="notifications"
+            app:persistent="false"
+            app:title="@string/termux_permission_notifications_title" />
+
+        <Preference
+            app:key="storage"
+            app:persistent="false"
+            app:title="@string/termux_permission_storage_title" />
+
+        <Preference
+            app:key="display_over_other_apps"
+            app:persistent="false"
+            app:title="@string/termux_permission_display_over_other_apps_title" />
+
+        <Preference
+            app:key="battery_optimizations"
+            app:persistent="false"
+            app:title="@string/termux_permission_battery_optimizations_title" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>
