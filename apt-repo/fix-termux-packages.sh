@@ -12,6 +12,8 @@
 #     from the kernel.googlesource.com mirror of the repository instead.
 #   - downloads.apache.org only has the newest releases, older ones move to archive.apache.org,
 #     for example apr-util 1.6.5, a build dependency of git.
+#   - invisible-mirror.net returns a small web page instead of the file, for example for the
+#     dialog sources that termux-tools needs. invisible-island.net is the site it mirrors.
 #
 # Usage: fix-termux-packages.sh <termux-packages dir>
 
@@ -48,9 +50,15 @@ eval "termux_re_upstream_$(declare -f termux_download)"
 termux_download() {
 	termux_re_upstream_termux_download "$@" && return 0
 	local status=$? url="$1" destination="$2" checksum="${3:-}"
-	if [[ "$checksum" =~ ^[0-9a-f]{64}$ && "$url" =~ ^https://(downloads|www)\.apache\.org/(dist/)?(.+)$ ]]; then
-		echo "Trying the Apache archive instead"
-		termux_re_upstream_termux_download "https://archive.apache.org/dist/${BASH_REMATCH[3]}" "$destination" "$checksum" && return 0
+	local alternative=""
+	if [[ "$url" =~ ^https://(downloads|www)\.apache\.org/(dist/)?(.+)$ ]]; then
+		alternative="https://archive.apache.org/dist/${BASH_REMATCH[3]}"
+	elif [[ "$url" =~ ^https://invisible-mirror\.net/archives/(.+)$ ]]; then
+		alternative="https://invisible-island.net/archives/${BASH_REMATCH[1]}"
+	fi
+	if [[ -n "$alternative" && "$checksum" =~ ^[0-9a-f]{64}$ ]]; then
+		echo "Trying $alternative instead"
+		termux_re_upstream_termux_download "$alternative" "$destination" "$checksum" && return 0
 		return $status
 	fi
 	# git.kernel.org cgit snapshots are `git archive | gzip -n` of a tag: make the snapshot from
@@ -84,4 +92,4 @@ termux_download() {
 	return $status
 }
 EOF
-echo "termux_download falls back to kernel.googlesource.com and archive.apache.org"
+echo "termux_download falls back to kernel.googlesource.com, archive.apache.org and invisible-island.net"
