@@ -66,6 +66,19 @@ def main():
         if link not in (read("SYMLINKS.txt") or "").splitlines():
             errors.append("etc/apt/trusted.gpg.d/termux-re.gpg is not linked to the repository key")
 
+        # Scripts and configuration must not use the paths of another app, like com.termux.
+        other_prefix = re.compile(r"/data/data/(?!%s/)[A-Za-z0-9_.]+/files/" % re.escape(package_name))
+        for name in sorted(names):
+            if not re.match(r"(bin|etc|libexec)/[^/].*[^/]$", name):
+                continue
+            data = z.read(name)
+            if b"\0" in data[:4096]:
+                continue
+            for line in data.decode("utf-8", "replace").splitlines():
+                if other_prefix.search(line) and not re.match(r"\s*(#|//|\*|/\*)", line):
+                    errors.append("%s uses another app's paths: %s" % (name, line.strip()[:120]))
+                    break
+
         mirrors = sorted(n for n in names if n.startswith("etc/termux/mirrors/") and not n.endswith("/"))
         if "etc/termux/mirrors/default" not in mirrors:
             errors.append("etc/termux/mirrors/default is missing")

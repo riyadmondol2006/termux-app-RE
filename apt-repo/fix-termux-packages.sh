@@ -18,6 +18,10 @@
 #     for example apr-util 1.6.5, a build dependency of git.
 #   - invisible-mirror.net returns a small web page instead of the file, for example for the
 #     dialog sources that termux-tools needs. invisible-island.net is the site it mirrors.
+# - termux-tools' configure takes the app package name and paths from environment variables
+#   that termux-packages doesn't export, and falls back to com.termux, so pkg, login and other
+#   scripts used /data/data/com.termux paths (only their shebangs were fixed). They are exported
+#   for it now.
 # - command-not-found builds its database from the Contents-<arch>.gz files of the repositories
 #   in repo.json, of which it only uses files under the build's own prefix, and it needs the
 #   official repository names. It now uses the file list of the repository in
@@ -149,3 +153,29 @@ termux_step_pre_configure() {
 }
 EOF
 echo "command-not-found uses the official file list with the build's prefix"
+
+### termux-tools paths
+TOOLS=packages/termux-tools/build.sh
+grep -q 'termux_re_paths_upstream_termux_step_pre_configure' "$TOOLS" && fail "$TOOLS is already patched"
+cat >> "$TOOLS" <<'EOF'
+
+# Termux RE: added by apt-repo/fix-termux-packages.sh of the Termux RE app repository. configure
+# reads these from the environment and otherwise uses the paths of com.termux.
+if declare -F termux_step_pre_configure >/dev/null; then eval "termux_re_paths_upstream_$(declare -f termux_step_pre_configure)"; else termux_re_paths_upstream_termux_step_pre_configure() { :; }; fi
+termux_step_pre_configure() {
+	termux_re_paths_upstream_termux_step_pre_configure
+	export TERMUX_APP_PACKAGE="$TERMUX_APP__PACKAGE_NAME" TERMUX_BASE_DIR="$TERMUX__ROOTFS" \
+		TERMUX_CACHE_DIR="$TERMUX__CACHE_DIR" TERMUX_PREFIX="$TERMUX__PREFIX" TERMUX_ANDROID_HOME="$TERMUX__HOME"
+}
+EOF
+grep -q '^termux_step_post_make_install()' "$TOOLS" && cat >> "$TOOLS" <<'EOF'
+if declare -F termux_step_post_make_install >/dev/null; then eval "termux_re_paths_upstream_$(declare -f termux_step_post_make_install)"; fi
+termux_step_post_make_install() {
+	termux_re_paths_upstream_termux_step_post_make_install
+	if [ "$TERMUX_APP__PACKAGE_NAME" != "com.termux" ] && \
+			grep -l "/data/data/com\.termux/" "$TERMUX_PREFIX/bin/pkg" "$TERMUX_PREFIX/bin/login"; then
+		termux_error_exit "termux-tools still uses /data/data/com.termux paths"
+	fi
+}
+EOF
+echo "termux-tools is configured with the build's package name and paths"

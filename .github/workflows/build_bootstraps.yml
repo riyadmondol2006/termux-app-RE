@@ -10,7 +10,8 @@ name: Build bootstraps
 # repositories only work for com.termux. The bootstraps are assembled with termux-packages'
 # generate-bootstraps.sh, like the official ones, from the Termux RE repository: the bootstrap
 # packages and their runtime dependencies, with apt using and trusting that repository (see
-# apt-repo/patch-termux-packages.sh). Each archive is checked with apt-repo/check-bootstrap.py.
+# apt-repo/patch-termux-packages.sh), from a local copy checked against the signed index (see
+# apt-repo/mirror-repo.py). Each archive is checked with apt-repo/check-bootstrap.py.
 #
 # With source "build", every bootstrap package is first built from source in the termux-packages
 # Docker image with build-bootstraps.sh and published in the repository, which takes about an
@@ -193,33 +194,22 @@ jobs:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
         run: ./apt-repo/patch-termux-packages.sh termux-packages "$PACKAGE_NAME" "$REPO_URL"
 
-      - name: Wait for the published repository
+      - name: Copy the published repository
         env:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
-        # generate-bootstraps.sh reads the repository without checking signatures, and GitHub
-        # Pages serves the previous deployment for a few minutes. Wait until the index it reads
-        # is the one in the signed Release file, and keep that index for the check.
-        run: |
-          set -euo pipefail
-          INDEX="main/binary-${{ matrix.arch }}/Packages"
-          for attempt in $(seq 1 30); do
-            curl -fsSL -o "$RUNNER_TEMP/InRelease" "$REPO_URL/dists/stable/InRelease?nocache=$RANDOM$RANDOM"
-            gpgv --keyring apt-repo/termux-re.gpg --output "$RUNNER_TEMP/Release" "$RUNNER_TEMP/InRelease"
-            EXPECTED="$(awk -v f="$INDEX" '/^SHA256:/ { s = 1; next } /^[^ ]/ { s = 0 } s && $3 == f { print $1 }' "$RUNNER_TEMP/Release")"
-            curl -fsSL -o "$RUNNER_TEMP/Packages" "$REPO_URL/dists/stable/$INDEX"
-            if [ -n "$EXPECTED" ] && [ "$EXPECTED" == "$(sha256sum < "$RUNNER_TEMP/Packages" | cut -d' ' -f1)" ]; then
-              echo "$INDEX matches the signed Release file"; exit 0
-            fi
-            echo "$INDEX does not match the signed Release file yet"
-            sleep 30
-          done
-          exit 1
+        # generate-bootstraps.sh reads a repository without checking signatures or checksums, and
+        # GitHub Pages serves the previous deployment for a few minutes after a publish. Assemble
+        # from a local copy instead, in which the index and every package match the signed
+        # InRelease file.
+        run: python3 -I apt-repo/mirror-repo.py "$REPO_URL" apt-repo/termux-re.gpg "${{ matrix.arch }}" "$RUNNER_TEMP/repo"
 
       - name: Assemble bootstrap
         working-directory: termux-packages
-        env:
-          REPO_URL: ${{ needs.setup.outputs.repo_url }}
-        run: ./scripts/generate-bootstraps.sh --repository "$REPO_URL" --architectures "${{ matrix.arch }}"
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory "$RUNNER_TEMP/repo" > /dev/null 2>&1 &
+          trap 'kill $!' EXIT
+          sleep 2
+          ./scripts/generate-bootstraps.sh --repository http://127.0.0.1:8765 --architectures "${{ matrix.arch }}"
 
       - name: Check bootstrap
         env:
@@ -235,7 +225,7 @@ jobs:
             OFFICIAL=("$RUNNER_TEMP/official-bootstrap-${{ matrix.arch }}.zip")
           fi
           python3 -I apt-repo/check-bootstrap.py "termux-packages/bootstrap-${{ matrix.arch }}.zip" "$PACKAGE_NAME" "$REPO_URL" \
-            apt-repo/termux-re.gpg "$RUNNER_TEMP/Packages" "${OFFICIAL[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+            apt-repo/termux-re.gpg "$RUNNER_TEMP/repo/dists/stable/main/binary-${{ matrix.arch }}/Packages" "${OFFICIAL[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload bootstrap
         uses: actions/upload-artifact@v7
