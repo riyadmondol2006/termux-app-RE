@@ -12,7 +12,8 @@
 # - termux-keyring: also installs the Termux RE repository signing key.
 # - command-not-found: suggests the packages of the Termux RE repository (with
 #   fix-termux-packages.sh).
-# - termux-tools: every mirror file that `pkg` and `termux-change-repo` choose from points at
+# - termux-tools: the welcome message doesn't suggest the root-repo and x11-repo packages, and
+#   every mirror file that `pkg` and `termux-change-repo` choose from points at
 #   the Termux RE repository, and `pkg` uses the default one, so mirror selection can't switch
 #   back to the official repositories. Mirror files of other repositories left over from an
 #   earlier termux-tools version are deleted when it is upgraded.
@@ -116,6 +117,10 @@ wrap_step packages/termux-tools/build.sh termux_step_post_make_install <<'EOF'
 
 	# termux-change-repo always offers this official mirror in its single mirror dialog.
 	sed -i '/europe\/packages\.termux\.dev")"/d' "$TERMUX_PREFIX/bin/termux-change-repo"
+
+	# The welcome message suggests root-repo and x11-repo, which don't exist in this repository.
+	sed -i -e '/Subscribing to additional repos/d' -e '/pkg install root-repo/d' -e '/pkg install x11-repo/d' \
+		"$TERMUX_PREFIX/etc/motd" "$TERMUX_PREFIX/etc/motd.sh"
 
 	sed -i '\|^etc/termux/mirrors/|d' "$TERMUX_PKG_BUILDDIR/conffiles"
 	(cd "$TERMUX_PREFIX" && find etc/termux/mirrors -type f | LC_ALL=C sort) >> "$TERMUX_PKG_BUILDDIR/conffiles"
