@@ -3,6 +3,8 @@ plugins {
     id "maven-publish"
 }
 
+apply from: rootProject.file("gradle/termux-identity.gradle")
+
 android {
     namespace = "com.termux.shared"
 
@@ -12,6 +14,11 @@ android {
     defaultConfig {
         minSdk = project.properties.minSdkVersion.toInteger()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Used by TermuxConstants, see gradle/termux-identity.gradle.
+        buildConfigField "String", "TERMUX_PACKAGE_NAME", "\"" + termuxIdentity.packageName + "\""
+        buildConfigField "String", "TERMUX_APP_NAME", "\"" + termuxIdentity.appName + "\""
+        buildConfigField "String", "TERMUX_GITHUB_REPO_URL", "\"" + termuxIdentity.githubRepoUrl + "\""
         externalNativeBuild {
             ndkBuild {
                 cppFlags ''
@@ -40,6 +47,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     publishing {
         multipleVariants {
             withSourcesJar()
@@ -48,6 +59,8 @@ android {
         }
     }
 }
+
+registerTermuxIdentityResources(["values/strings.xml"])
 
 dependencies {
     implementation libs.androidx.appcompat

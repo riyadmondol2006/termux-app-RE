@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!DOCTYPE resources [
-    <!ENTITY TERMUX_PACKAGE_NAME "com.termux">
-    <!ENTITY TERMUX_APP_NAME "Termux">
+    <!ENTITY TERMUX_PACKAGE_NAME "com.termux.re">
+    <!ENTITY TERMUX_APP_NAME "Termux RE">
     <!ENTITY TERMUX_API_APP_NAME "Termux:API">
     <!ENTITY TERMUX_BOOT_APP_NAME "Termux:Boot">
     <!ENTITY TERMUX_FLOAT_APP_NAME "Termux:Float">
@@ -34,6 +34,11 @@
     <string name="bootstrap_error_not_primary_user_message">&TERMUX_APP_NAME; can only be run as the primary user.
         \nBootstrap binaries compiled for &TERMUX_APP_NAME; have hardcoded $PREFIX path and cannot be installed
         under any path other than:\n%1$s.</string>
+    <string name="bootstrap_error_package_name_mismatch_title">Bootstrap packages not usable</string>
+    <string name="bootstrap_error_package_name_mismatch_body">This build of &TERMUX_APP_NAME; has the package name %1$s, but the bootstrap packages inside it were built for %2$s. Termux packages have their install path hardcoded, so they only work from %3$s.
+        \n\nRebuild the app with bootstrap packages built for %1$s (see the README), or build it with -PtermuxPackageName=%2$s.
+        \n\nThe failsafe session still works. It runs Android\'s /system/bin/sh instead of the Termux shell.</string>
+    <string name="bootstrap_error_open_failsafe_session">Failsafe session</string>
     <string name="bootstrap_error_installed_on_portable_sd">&TERMUX_APP_NAME; cannot be installed on
         portable/external/removable sd card on your device.
         \nBootstrap binaries compiled for &TERMUX_APP_NAME; have hardcoded $PREFIX path and cannot be installed

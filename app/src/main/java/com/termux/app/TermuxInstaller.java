@@ -10,6 +10,7 @@ import android.system.Os;
 import android.util.Pair;
 import android.view.WindowManager;
 
+import com.termux.BuildConfig;
 import com.termux.R;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
@@ -63,6 +64,17 @@ final class TermuxInstaller {
 
     /** Performs bootstrap setup if necessary. */
     static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone) {
+        setupBootstrapIfNeeded(activity, whenDone, null);
+    }
+
+    /**
+     * Performs bootstrap setup if necessary.
+     *
+     * @param whenDone Run once the bootstrap is installed.
+     * @param whenFailsafeRequested Run if the bootstrap can't be installed and the user asks for a
+     *                              failsafe session instead. If {@code null}, that option is not offered.
+     */
+    static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone, final Runnable whenFailsafeRequested) {
         String bootstrapErrorMessage;
         Error filesDirectoryAccessibleError;
 
@@ -112,6 +124,14 @@ final class TermuxInstaller {
             }
         } else if (FileUtils.fileExists(TERMUX_PREFIX_DIR_PATH, false)) {
             Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" does not exist but another file exists at its destination.");
+        }
+
+        // Bootstrap binaries have the $PREFIX of the package name they were built for hardcoded,
+        // so they can't run if the app was built for another package name, which is the case for
+        // the official bootstrap in a build with a forked package name.
+        if (!TermuxConstants.TERMUX_PACKAGE_NAME.equals(BuildConfig.TERMUX_BOOTSTRAP_PACKAGE_NAME)) {
+            showBootstrapPackageNameMismatchDialog(activity, whenFailsafeRequested);
+            return;
         }
 
         final ProgressDialog progress = ProgressDialog.show(activity, null, activity.getString(R.string.bootstrap_installer_body), true, false);
@@ -258,6 +278,35 @@ final class TermuxInstaller {
                         TermuxInstaller.setupBootstrapIfNeeded(activity, whenDone);
                     }).show();
             } catch (WindowManager.BadTokenException e1) {
+                // Activity already dismissed - ignore.
+            }
+        });
+    }
+
+    private static void showBootstrapPackageNameMismatchDialog(Activity activity, Runnable whenFailsafeRequested) {
+        String message = activity.getString(R.string.bootstrap_error_package_name_mismatch_body,
+            TermuxConstants.TERMUX_PACKAGE_NAME, BuildConfig.TERMUX_BOOTSTRAP_PACKAGE_NAME,
+            "/data/data/" + BuildConfig.TERMUX_BOOTSTRAP_PACKAGE_NAME + "/files/usr");
+        Logger.logError(LOG_TAG, message);
+
+        activity.runOnUiThread(() -> {
+            try {
+                AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+                    .setTitle(R.string.bootstrap_error_package_name_mismatch_title)
+                    .setMessage(message)
+                    .setCancelable(false)
+                    .setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
+                        dialog.dismiss();
+                        activity.finish();
+                    });
+                if (whenFailsafeRequested != null) {
+                    builder.setPositiveButton(R.string.bootstrap_error_open_failsafe_session, (dialog, which) -> {
+                        dialog.dismiss();
+                        whenFailsafeRequested.run();
+                    });
+                }
+                builder.show();
+            } catch (WindowManager.BadTokenException e) {
                 // Activity already dismissed - ignore.
             }
         });

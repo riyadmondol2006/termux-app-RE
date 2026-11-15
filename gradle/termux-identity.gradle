@@ -1,0 +1,103 @@
+// App identity shared by the app and termux-shared modules.
+//
+// The Android package name (applicationId) and app name come from Gradle properties so a build
+// can switch between the fork's identity and upstream's without editing sources:
+//
+//   ./gradlew assembleDebug                                  -> com.termux.re, "Termux RE"
+//   ./gradlew assembleDebug -PtermuxPackageName=com.termux -PtermuxAppName=Termux
+//
+// Only the package name changes. The Java namespace stays "com.termux" (see
+// TermuxConstants.TERMUX_APP_NAMESPACE), which is also what termux-packages assumes through its
+// separate TERMUX_APP__NAMESPACE property when building bootstraps for a forked package name.
+//
+// Resources can't read Gradle properties, so the few resource files that embed the identity
+// (the XML entities at the top of values/strings.xml and the targetPackage values in
+// xml/shortcuts.xml) are copied with the identity substituted into a generated resource
+// directory that overrides the source copies for every variant.
+
+def identityPackageName = providers.gradleProperty("termuxPackageName").getOrElse("com.termux.re")
+def identityAppName = providers.gradleProperty("termuxAppName").getOrElse("Termux RE")
+def identityGithubRepoUrl = providers.gradleProperty("termuxGithubRepoUrl").getOrElse("https://github.com/termux/termux-app")
+
+if (!(identityPackageName ==~ /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/)) {
+    throw new GradleException("termuxPackageName \"" + identityPackageName + "\" is not a valid lowercase Android package name, e.g. \"com.termux.re\".")
+}
+if (identityAppName.isEmpty() || identityAppName =~ /["'<>&\\]/) {
+    throw new GradleException("termuxAppName \"" + identityAppName + "\" must be non-empty and must not contain quotes, backslashes, '<', '>' or '&'.")
+}
+if (!(identityGithubRepoUrl ==~ /^https:\/\/[^"\\\s]+$/)) {
+    throw new GradleException("termuxGithubRepoUrl \"" + identityGithubRepoUrl + "\" must be an https url.")
+}
+
+def identityPrefixDirPath = "/data/data/" + identityPackageName + "/files/usr"
+
+ext.termuxIdentity = [
+    packageName  : identityPackageName,
+    appName      : identityAppName,
+    githubRepoUrl: identityGithubRepoUrl,
+    prefixDirPath: identityPrefixDirPath,
+]
+
+/** Copies identity-bearing resource files with the configured identity substituted. */
+abstract class GenerateTermuxIdentityResTask extends DefaultTask {
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getResSourceDirs()
+
+    @Input
+    abstract ListProperty<String> getFiles()
+
+    @Input
+    abstract Property<String> getPackageName()
+
+    @Input
+    abstract Property<String> getAppName()
+
+    @Input
+    abstract Property<String> getPrefixDirPath()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDir()
+
+    @TaskAction
+    void generate() {
+        def outDir = outputDir.get().asFile
+        outDir.deleteDir()
+        def pkg = packageName.get()
+        files.get().each { relativePath ->
+            def source = resSourceDirs.files.collect { new File(it, relativePath) }.find { it.isFile() }
+            if (source == null) throw new GradleException("Identity resource \"" + relativePath + "\" not found in " + resSourceDirs.files)
+            def text = source.getText("UTF-8")
+            def replaced = text
+                .replaceAll(/<!ENTITY TERMUX_PACKAGE_NAME "[^"]*">/, '<!ENTITY TERMUX_PACKAGE_NAME "' + pkg + '">')
+                .replaceAll(/<!ENTITY TERMUX_APP_NAME "[^"]*">/, '<!ENTITY TERMUX_APP_NAME "' + appName.get() + '">')
+                .replaceAll(/<!ENTITY TERMUX_PREFIX_DIR_PATH "[^"]*">/, '<!ENTITY TERMUX_PREFIX_DIR_PATH "' + prefixDirPath.get() + '">')
+                .replaceAll(/android:targetPackage="[^"]*"/, 'android:targetPackage="' + pkg + '"')
+                .replaceAll(/android:name="[^"]*\.app\.failsafe_session"/, 'android:name="' + pkg + '.app.failsafe_session"')
+            def target = new File(outDir, relativePath)
+            target.parentFile.mkdirs()
+            target.setText(replaced, "UTF-8")
+        }
+    }
+}
+
+/**
+ * Register the generated identity resources for every variant of the calling module.
+ * {@code files} are paths relative to src/main/res, e.g. "values/strings.xml".
+ */
+ext.registerTermuxIdentityResources = { List<String> files ->
+    def task = tasks.register("generateTermuxIdentityRes", GenerateTermuxIdentityResTask) {
+        resSourceDirs.from(file("src/main/res"))
+        it.files.set(files)
+        packageName.set(identityPackageName)
+        appName.set(identityAppName)
+        prefixDirPath.set(identityPrefixDirPath)
+        outputDir.set(layout.buildDirectory.dir("generated/termux-identity/res"))
+    }
+    androidComponents {
+        onVariants(selector().all()) { variant ->
+            variant.sources.res.addGeneratedSourceDirectory(task, { it.outputDir })
+        }
+    }
+}

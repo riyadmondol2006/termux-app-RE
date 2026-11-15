@@ -2,6 +2,8 @@ plugins {
     id "com.android.application"
 }
 
+apply from: rootProject.file("gradle/termux-identity.gradle")
+
 ext {
     // The packageVariant defines the bootstrap variant that will be included in the app APK.
     // This must be supported by com.termux.shared.termux.TermuxBootstrap.PackageVariant or app will
@@ -24,6 +26,7 @@ android {
     def splitAPKsForReleaseBuilds = System.getenv("TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS") ?: "0" // F-Droid does not support split APKs #1904
 
     defaultConfig {
+        applicationId = termuxIdentity.packageName
         minSdk = project.properties.minSdkVersion.toInteger()
         targetSdk = project.properties.targetSdkVersion.toInteger()
         versionCode = 118
@@ -34,8 +37,8 @@ android {
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
 
-        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
-        manifestPlaceholders.TERMUX_APP_NAME = "Termux"
+        manifestPlaceholders.TERMUX_PACKAGE_NAME = termuxIdentity.packageName
+        manifestPlaceholders.TERMUX_APP_NAME = termuxIdentity.appName
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
         manifestPlaceholders.TERMUX_BOOT_APP_NAME = "Termux:Boot"
         manifestPlaceholders.TERMUX_FLOAT_APP_NAME = "Termux:Float"
@@ -135,6 +138,8 @@ dependencies {
     coreLibraryDesugaring libs.desugar.jdk.libs
 }
 
+registerTermuxIdentityResources(["values/strings.xml", "xml/shortcuts.xml"])
+
 // Name APKs "termux-app_<tag>_<abi>.apk", where <tag> is TERMUX_APK_VERSION_TAG if set,
 // otherwise "<packageVariant>-<buildType>".
 androidComponents {
@@ -163,21 +168,31 @@ def validateVersionName(String versionName) {
         throw new GradleException("The versionName '"  + versionName + "' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html.")
 }
 
-def downloadBootstrap(String arch, String expectedChecksum, String version) {
+def sha256Of(File file) {
     def digest = java.security.MessageDigest.getInstance("SHA-256")
+    file.withInputStream { input ->
+        def buffer = new byte[8192]
+        int readBytes
+        while ((readBytes = input.read(buffer)) >= 0) digest.update(buffer, 0, readBytes)
+    }
+    def checksum = new BigInteger(1, digest.digest()).toString(16)
+    while (checksum.length() < 64) { checksum = "0" + checksum }
+    return checksum
+}
 
+def downloadUrlToFile(String remoteUrl, File file) {
+    logger.quiet("Downloading " + remoteUrl + " ...")
+    file.parentFile.mkdirs()
+    def connection = new URI(remoteUrl).toURL().openConnection()
+    connection.setInstanceFollowRedirects(true)
+    file.withOutputStream { out -> out << connection.inputStream }
+}
+
+def downloadBootstrap(String arch, String expectedChecksum, String remoteUrl) {
     def localUrl = "src/main/cpp/bootstrap-" + arch + ".zip"
     def file = new File(projectDir, localUrl)
     if (file.exists()) {
-        def buffer = new byte[8192]
-        def input = new FileInputStream(file)
-        while (true) {
-            def readBytes = input.read(buffer)
-            if (readBytes < 0) break
-            digest.update(buffer, 0, readBytes)
-        }
-        def checksum = new BigInteger(1, digest.digest()).toString(16)
-        while (checksum.length() < 64) { checksum = "0" + checksum }
+        def checksum = sha256Of(file)
         if (checksum == expectedChecksum) {
             return
         } else {
@@ -186,23 +201,37 @@ def downloadBootstrap(String arch, String expectedChecksum, String version) {
         }
     }
 
-    def remoteUrl = "https://github.com/termux/termux-packages/releases/download/bootstrap-" + version + "/bootstrap-" + arch + ".zip"
-    logger.quiet("Downloading " + remoteUrl + " ...")
+    downloadUrlToFile(remoteUrl, file)
 
-    file.parentFile.mkdirs()
-    def out = new BufferedOutputStream(new FileOutputStream(file))
-
-    def connection = new URL(remoteUrl).openConnection()
-    connection.setInstanceFollowRedirects(true)
-    def digestStream = new java.security.DigestInputStream(connection.inputStream, digest)
-    out << digestStream
-    out.close()
-
-    def checksum = new BigInteger(1, digest.digest()).toString(16)
-    while (checksum.length() < 64) { checksum = "0" + checksum }
+    def checksum = sha256Of(file)
     if (checksum != expectedChecksum) {
         file.delete()
         throw new GradleException("Wrong checksum for " + remoteUrl + ": expected: " + expectedChecksum + ", actual: " + checksum)
+    }
+}
+
+/**
+ * Download bootstrap-<arch>.zip files from a custom location, normally a GitHub release made by
+ * .github/workflows/build_bootstraps.yml. The location must also have a SHA256SUMS file in
+ * sha256sum format listing every zip, which is used to verify them.
+ */
+def downloadCustomBootstraps(String baseUrl) {
+    baseUrl = baseUrl.replaceAll('/+$', '')
+    def cacheDir = layout.buildDirectory.dir("termux-bootstrap/" + baseUrl.digest("SHA-1")).get().asFile
+    def sumsFile = new File(cacheDir, "SHA256SUMS")
+    if (!sumsFile.isFile()) downloadUrlToFile(baseUrl + "/SHA256SUMS", sumsFile)
+    def checksums = [:]
+    sumsFile.eachLine { line ->
+        def m = line.trim() =~ /^([0-9a-f]{64})\s+\*?(?:.*\/)?(bootstrap-[a-z0-9_]+\.zip)$/
+        if (m.matches()) checksums[m.group(2)] = m.group(1)
+    }
+    ["aarch64", "arm", "i686", "x86_64"].each { arch ->
+        def name = "bootstrap-" + arch + ".zip"
+        if (!checksums.containsKey(name)) {
+            sumsFile.delete()
+            throw new GradleException("No checksum for " + name + " in " + baseUrl + "/SHA256SUMS")
+        }
+        downloadBootstrap(arch, checksums[name], baseUrl + "/" + name)
     }
 }
 
@@ -214,18 +243,95 @@ clean {
     }
 }
 
+// Bootstrap source. By default the official termux-packages bootstrap release pinned below is
+// used, which only works for termuxPackageName=com.termux. For any other package name set
+// termuxBootstrapUrl (Gradle property or TERMUX_BOOTSTRAP_URL env variable) to a location with
+// bootstrap-<arch>.zip files built for that package name plus a SHA256SUMS file, e.g.
+// https://github.com/<owner>/<repo>/releases/download/bootstrap-com.termux.re-<n>
+def bootstrapUrl = providers.gradleProperty("termuxBootstrapUrl")
+    .orElse(providers.environmentVariable("TERMUX_BOOTSTRAP_URL")).getOrElse("")
+
 def downloadBootstraps = tasks.register("downloadBootstraps") {
     doLast {
         def packageVariant = project.ext.packageVariant
-        if (packageVariant == "apt-android-7") {
-            def version = "2026.02.12-r1" + "%2B" + "apt.android-7"
-            downloadBootstrap("aarch64", "ea2aeba8819e517db711f8c32369e89e7c52cee73e07930ff91185e1ab93f4f3", version)
-            downloadBootstrap("arm", "a38f4d3b2f735f83be2bf54eff463e86dc32a3e2f9f861c1557c4378d249c018", version)
-            downloadBootstrap("i686", "f5bc0b025b9f3b420b5fcaeefc064f888f5f22a0d6fd7090f4aac0c33eb3555b", version)
-            downloadBootstrap("x86_64", "b7fd0f2e3a4de534be3144f9f91acc768630fc463eaf134ab2e64c545e834f7a", version)
-        } else {
+        if (packageVariant != "apt-android-7") {
             throw new GradleException("Unsupported TERMUX_PACKAGE_VARIANT \"" + packageVariant + "\"")
         }
+
+        if (bootstrapUrl) {
+            downloadCustomBootstraps(bootstrapUrl)
+        } else {
+            def version = "2026.02.12-r1" + "%2B" + "apt.android-7"
+            def baseUrl = "https://github.com/termux/termux-packages/releases/download/bootstrap-" + version
+            downloadBootstrap("aarch64", "ea2aeba8819e517db711f8c32369e89e7c52cee73e07930ff91185e1ab93f4f3", baseUrl + "/bootstrap-aarch64.zip")
+            downloadBootstrap("arm", "a38f4d3b2f735f83be2bf54eff463e86dc32a3e2f9f861c1557c4378d249c018", baseUrl + "/bootstrap-arm.zip")
+            downloadBootstrap("i686", "f5bc0b025b9f3b420b5fcaeefc064f888f5f22a0d6fd7090f4aac0c33eb3555b", baseUrl + "/bootstrap-i686.zip")
+            downloadBootstrap("x86_64", "b7fd0f2e3a4de534be3144f9f91acc768630fc463eaf134ab2e64c545e834f7a", baseUrl + "/bootstrap-x86_64.zip")
+        }
+    }
+}
+
+/**
+ * Detects the package name the downloaded bootstrap zips were built for from the
+ * /data/data/<package>/files/usr prefix hardcoded in them. The app compares it with its own
+ * package name at runtime, see TermuxInstaller, and logs a warning here if they differ.
+ */
+abstract class DetectBootstrapPackageNameTask extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract ConfigurableFileCollection getBootstrapZips()
+
+    @Input
+    abstract Property<String> getAppPackageName()
+
+    @OutputFile
+    abstract RegularFileProperty getOutputFile()
+
+    @TaskAction
+    void detect() {
+        def found = [:]
+        bootstrapZips.files.sort().each { zipFile ->
+            def packageName = null
+            new java.util.zip.ZipFile(zipFile).withCloseable { zip ->
+                for (entryName in ["bin/login", "SYMLINKS.txt"]) {
+                    def entry = zip.getEntry(entryName)
+                    if (entry == null) continue
+                    def head = zip.getInputStream(entry).withCloseable { new String(it.readNBytes(4096), "UTF-8") }
+                    def m = head =~ /\/data\/data\/([A-Za-z0-9_.]+)\/files\/usr\//
+                    if (m.find()) { packageName = m.group(1); break }
+                }
+            }
+            if (packageName == null) throw new GradleException("Failed to detect the package name that \"" + zipFile + "\" was built for")
+            found[zipFile.name] = packageName
+        }
+        if (found.isEmpty()) throw new GradleException("No bootstrap zips found")
+        def packageNames = found.values().toSet()
+        if (packageNames.size() != 1) throw new GradleException("Bootstrap zips were built for different package names: " + found)
+        def bootstrapPackageName = packageNames.first()
+        if (bootstrapPackageName != appPackageName.get()) {
+            logger.warn("WARNING: The bootstrap zips were built for package name \"" + bootstrapPackageName +
+                "\" but the app package name is \"" + appPackageName.get() + "\". The app will not be able to " +
+                "install them and only the failsafe session will work. Set termuxBootstrapUrl to bootstraps built for \"" +
+                appPackageName.get() + "\", see README.")
+        }
+        outputFile.get().asFile.text = bootstrapPackageName
+    }
+}
+
+def detectBootstrapPackageName = tasks.register("detectBootstrapPackageName", DetectBootstrapPackageNameTask) {
+    dependsOn downloadBootstraps
+    bootstrapZips.from(["aarch64", "arm", "i686", "x86_64"].collect { file("src/main/cpp/bootstrap-" + it + ".zip") })
+    appPackageName.set(termuxIdentity.packageName)
+    outputFile.set(layout.buildDirectory.file("termux-bootstrap/bootstrap-package-name.txt"))
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.buildConfigFields.put("TERMUX_BOOTSTRAP_PACKAGE_NAME",
+            detectBootstrapPackageName.flatMap { it.outputFile }.map {
+                new com.android.build.api.variant.BuildConfigField("String",
+                    "\"" + it.asFile.text.trim() + "\"", "Package name the embedded bootstrap was built for")
+            })
     }
 }
 

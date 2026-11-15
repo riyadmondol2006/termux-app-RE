@@ -407,6 +407,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     } catch (WindowManager.BadTokenException e) {
                         // Activity finished - ignore.
                     }
+                }, () -> {
+                    if (mTermuxService == null) return; // Activity might have been destroyed.
+                    try {
+                        mTermuxTerminalSessionActivityClient.addNewSession(true, null);
+                    } catch (WindowManager.BadTokenException e) {
+                        // Activity finished - ignore.
+                    }
                 });
             } else {
                 // The service connected while not in foreground - just bail out.
