@@ -206,6 +206,7 @@ The app's identity and bootstrap are set with Gradle properties, either in `grad
 | `termuxPackageName` | `com.termux.re` | Android package name (`applicationId`). The Java namespace stays `com.termux`. |
 | `termuxAppName` | `Termux RE` | App name shown in the launcher and the UI |
 | `termuxGithubRepoUrl` | this repository | Linked from the app's about and issue report screens |
+| `termuxDonateUrl` | `termuxGithubRepoUrl` | Opened by *Settings → Donate*. Set it to your donation page. |
 | `termuxBootstrapUrl` | unset | Where to download `bootstrap-<arch>.zip` and `SHA256SUMS` from, for example `https://riyadmondol2006.github.io/termux-app-RE/bootstrap/<id>`, see [Packages and the bootstrap](#packages-and-the-bootstrap). Unset means the official bootstrap. The `TERMUX_BOOTSTRAP_URL` environment variable works too. |
 
 For example, to build a stock-identity app that works with the official bootstrap and repositories:

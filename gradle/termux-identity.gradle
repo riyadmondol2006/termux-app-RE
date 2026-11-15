@@ -18,6 +18,8 @@
 def identityPackageName = providers.gradleProperty("termuxPackageName").getOrElse("com.termux.re")
 def identityAppName = providers.gradleProperty("termuxAppName").getOrElse("Termux RE")
 def identityGithubRepoUrl = providers.gradleProperty("termuxGithubRepoUrl").getOrElse("https://github.com/termux/termux-app")
+// Opened by Settings -> Donate. Defaults to the GitHub repo, set it to a donation page if there is one.
+def identityDonateUrl = providers.gradleProperty("termuxDonateUrl").getOrElse(identityGithubRepoUrl)
 
 if (!(identityPackageName ==~ /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/)) {
     throw new GradleException("termuxPackageName \"" + identityPackageName + "\" is not a valid lowercase Android package name, e.g. \"com.termux.re\".")
@@ -28,6 +30,9 @@ if (identityAppName.isEmpty() || identityAppName =~ /["'<>&\\]/) {
 if (!(identityGithubRepoUrl ==~ /^https:\/\/[^"\\\s]+$/)) {
     throw new GradleException("termuxGithubRepoUrl \"" + identityGithubRepoUrl + "\" must be an https url.")
 }
+if (!(identityDonateUrl ==~ /^https:\/\/[^"\\\s]+$/)) {
+    throw new GradleException("termuxDonateUrl \"" + identityDonateUrl + "\" must be an https url.")
+}
 
 def identityPrefixDirPath = "/data/data/" + identityPackageName + "/files/usr"
 
@@ -35,6 +40,7 @@ ext.termuxIdentity = [
     packageName  : identityPackageName,
     appName      : identityAppName,
     githubRepoUrl: identityGithubRepoUrl,
+    donateUrl    : identityDonateUrl,
     prefixDirPath: identityPrefixDirPath,
 ]
 

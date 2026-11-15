@@ -287,6 +287,7 @@ import java.util.List;
  *      - `TERMUX_PACKAGE_NAME`, `TERMUX_APP_NAME` and `TERMUX_GITHUB_REPO_URL` are now set from Gradle
  *        properties through `BuildConfig`.
  *      - Added `TERMUX_APP_NAMESPACE` and `TERMUX_UPSTREAM_GITHUB_REPO_URL`.
+ *      - `TERMUX_DONATE_URL` is now set from the `termuxDonateUrl` Gradle property through `BuildConfig`.
  *      - Class name constants in `TERMUX_APP` are now based on `TERMUX_APP_NAMESPACE` instead of
  *        `TERMUX_PACKAGE_NAME`, so they stay valid when the app is built for another package name.
  */
@@ -584,8 +585,8 @@ public final class TermuxConstants {
     public static final String TERMUX_REDDIT_SUBREDDIT_URL = "https://www.reddit.com/r/termux"; // Default: "https://www.reddit.com/r/termux"
 
 
-    /** Termux donate url */
-    public static final String TERMUX_DONATE_URL = TERMUX_SITE_URL + "/donate"; // Default: "https://termux.dev/donate"
+    /** Termux donate url, opened by Settings -> Donate. Set by the `termuxDonateUrl` Gradle property, which defaults to {@link #TERMUX_GITHUB_REPO_URL}. */
+    public static final String TERMUX_DONATE_URL = com.termux.shared.BuildConfig.TERMUX_DONATE_URL; // Default: "https://github.com/riyadmondol2006/termux-app-RE" (upstream: "https://termux.dev/donate")
 
 
 

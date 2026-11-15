@@ -19,6 +19,7 @@ android {
         buildConfigField "String", "TERMUX_PACKAGE_NAME", "\"" + termuxIdentity.packageName + "\""
         buildConfigField "String", "TERMUX_APP_NAME", "\"" + termuxIdentity.appName + "\""
         buildConfigField "String", "TERMUX_GITHUB_REPO_URL", "\"" + termuxIdentity.githubRepoUrl + "\""
+        buildConfigField "String", "TERMUX_DONATE_URL", "\"" + termuxIdentity.donateUrl + "\""
     }
 
     buildTypes {
