@@ -85,7 +85,7 @@ Termux RE has its own apt repository of packages built for `com.termux.re`, host
 deb https://riyadmondol2006.github.io/termux-app-RE/apt/termux-main stable main
 ```
 
-[The site](https://riyadmondol2006.github.io/termux-app-RE/) lists the packages it has. It starts with the bootstrap packages and a set of everyday tools ([`apt-repo/packages.txt`](apt-repo/packages.txt)): Python with pip, Node.js, git, OpenSSH, rsync, vim, zsh, tmux, htop, curl, wget, zip, jq, make, man pages, proot and proot-distro, plus everything they depend on. proot-distro runs full Debian, Ubuntu, Arch or Alpine environments with their own package managers, a way to get software that isn't in this repository.
+[The site](https://riyadmondol2006.github.io/termux-app-RE/) lists the packages it has. It starts with the bootstrap packages and a set of everyday tools ([`apt-repo/packages.txt`](apt-repo/packages.txt)): Python with pip, Node.js with npm, git, OpenSSH, rsync, vim, zsh, tmux, htop, curl, wget, zip, jq, make, man pages, proot and proot-distro, plus everything they depend on. proot-distro runs full Debian, Ubuntu, Arch or Alpine environments with their own package managers, a way to get software that isn't in this repository.
 
 Termux RE's bootstrap is set up to use it, so `pkg install python` just works:
 

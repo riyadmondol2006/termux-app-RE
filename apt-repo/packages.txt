@@ -27,5 +27,5 @@ mandoc
 proot proot-distro
 
 # Heavy, built last: Node.js takes a large part of the 6 hour job limit. If it runs out of time,
-# run the workflow again, everything else is skipped then.
-nodejs-lts
+# run the workflow again, everything else is skipped then. npm is a separate package.
+nodejs-lts npm
