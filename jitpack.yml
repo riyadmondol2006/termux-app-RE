@@ -2,3 +2,9 @@ jdk:
   - openjdk21
 env:
   JITPACK_NDK_VERSION: "30.0.16248370"
+before_install:
+  # The JNI libraries of terminal-emulator and termux-shared are written in Rust. Install rustup
+  # and then the toolchain and Android targets pinned in rust-toolchain.toml. Gradle finds cargo
+  # in ~/.cargo/bin.
+  - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none --no-modify-path
+  - $HOME/.cargo/bin/rustup toolchain install

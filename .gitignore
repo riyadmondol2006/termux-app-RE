@@ -9,6 +9,8 @@ release/
 *.so
 .externalNativeBuild
 .cxx
+# Cargo output when running cargo directly in a Rust JNI crate, Gradle uses build/rust/target.
+/*/src/main/rust/target/
 *.zip
 
 # Local configuration file (sdk path, etc)

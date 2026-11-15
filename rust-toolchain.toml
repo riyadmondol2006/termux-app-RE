@@ -1,0 +1,12 @@
+# Rust toolchain used for the JNI libraries of the `terminal-emulator` (libtermux.so) and
+# `termux-shared` (liblocal-socket.so) modules. Gradle runs cargo from inside the crate
+# directories, so rustup picks this file up and installs the toolchain and targets if needed.
+[toolchain]
+channel = "1.100.0"
+profile = "minimal"
+targets = [
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "i686-linux-android",
+    "x86_64-linux-android",
+]

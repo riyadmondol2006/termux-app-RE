@@ -1,0 +1,275 @@
+/*
+ * Builds a Rust JNI library crate with cargo for all Android ABIs and adds the resulting `.so`
+ * files to the jniLibs of every variant of the module.
+ *
+ * Usage, after the Android plugin is applied:
+ *
+ *     apply from: rootProject.file("gradle/rust-jni.gradle")
+ *     rustJni {
+ *         crateDirectory = file("src/main/rust")
+ *         cargoLibraryName = "local_socket" // [lib] name in Cargo.toml
+ *         libraryName = "local-socket"      // Packaged as liblocal-socket.so
+ *     }
+ *
+ * Requirements: rustup (https://rustup.rs) with the toolchain and Android targets pinned in
+ * `rust-toolchain.toml`, installed with `rustup toolchain install` in the repository root. cargo
+ * is looked up in `$CARGO`, `$CARGO_HOME/bin`, `~/.cargo/bin` and then `PATH`. The NDK linkers are
+ * taken from the `ndkVersion` of the module (and so `JITPACK_NDK_VERSION` if set).
+ *
+ * The crate is always built with the cargo `release` profile, also for debug variants. Host unit
+ * tests of the crate are run by the `cargoTest` task, which `test` depends on (Linux hosts only).
+ */
+
+import javax.inject.Inject
+import org.gradle.internal.os.OperatingSystem
+
+abstract class RustJniExtension {
+    /** The directory with the `Cargo.toml` of the crate. */
+    abstract DirectoryProperty getCrateDirectory()
+    /** The `[lib] name` of the crate, cargo produces `lib<name>.so`. */
+    abstract Property<String> getCargoLibraryName()
+    /** The name the library is packaged as, `lib<name>.so` for `System.loadLibrary("<name>")`. */
+    abstract Property<String> getLibraryName()
+    /** The Android ABIs to build for. */
+    abstract ListProperty<String> getAbis()
+}
+
+/** Shared helpers to find and run the Rust tools, used at execution time only. */
+class RustTools {
+    /** Android ABI to Rust target triple. */
+    static final Map<String, String> RUST_TARGETS = [
+        "arm64-v8a"  : "aarch64-linux-android",
+        "armeabi-v7a": "armv7-linux-androideabi",
+        "x86"        : "i686-linux-android",
+        "x86_64"     : "x86_64-linux-android",
+    ]
+
+    /** Android ABI to the target prefix of the NDK clang wrappers. */
+    static final Map<String, String> CLANG_TARGETS = [
+        "arm64-v8a"  : "aarch64-linux-android",
+        "armeabi-v7a": "armv7a-linux-androideabi",
+        "x86"        : "i686-linux-android",
+        "x86_64"     : "x86_64-linux-android",
+    ]
+
+    static final String INSTALL_HELP =
+        "Install Rust with rustup (https://rustup.rs), for example with\n" +
+        "    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none\n" +
+        "and then run `rustup toolchain install` in the repository root to install the toolchain and the Android targets pinned in rust-toolchain.toml."
+
+    static String exe(String name) {
+        return OperatingSystem.current().isWindows() ? name + ".exe" : name
+    }
+
+    /** Find a tool of the Rust toolchain, like `cargo` or `rustc`. */
+    static String find(String name) {
+        def env = System.getenv()
+        if (name == "cargo" && env["CARGO"]) return env["CARGO"]
+        def candidates = []
+        if (env["CARGO_HOME"]) candidates << new File(env["CARGO_HOME"], "bin/" + exe(name))
+        candidates << new File(System.getProperty("user.home"), ".cargo/bin/" + exe(name))
+        def found = candidates.find { it.canExecute() }
+        return found ? found.absolutePath : name // Rely on PATH.
+    }
+
+    /** Run a command and return its stdout, or throw a GradleException with `help`. */
+    static String output(ExecOperations exec, File workingDir, List<String> command, String help) {
+        def stdout = new ByteArrayOutputStream()
+        def stderr = new ByteArrayOutputStream()
+        def result
+        try {
+            result = exec.exec {
+                it.workingDir = workingDir
+                it.commandLine = command
+                it.standardOutput = stdout
+                it.errorOutput = stderr
+                it.ignoreExitValue = true
+            }
+        } catch (Exception e) {
+            throw new GradleException("Failed to run `${command.join(' ')}`: ${e.message}\n\n${help}", e)
+        }
+        if (result.exitValue != 0) {
+            throw new GradleException("`${command.join(' ')}` failed with exit code ${result.exitValue}:\n" +
+                "${stderr.toString().trim()}\n\n${help}")
+        }
+        return stdout.toString().trim()
+    }
+}
+
+/** Builds the crate with cargo for all ABIs and copies the libraries to `<outputDirectory>/<abi>/`. */
+abstract class CargoBuildTask extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getSources()
+
+    @Internal
+    abstract DirectoryProperty getCrateDirectory()
+
+    @Input
+    abstract Property<String> getCargoLibraryName()
+
+    @Input
+    abstract Property<String> getLibraryName()
+
+    @Input
+    abstract ListProperty<String> getAbis()
+
+    @Input
+    abstract Property<Integer> getMinSdk()
+
+    @Input
+    abstract Property<String> getNdkVersion()
+
+    @Internal
+    abstract DirectoryProperty getNdkDirectory()
+
+    @Internal
+    abstract DirectoryProperty getCargoTargetDirectory()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @TaskAction
+    void build() {
+        def crateDir = crateDirectory.get().asFile
+        def abis = abis.get()
+        def unknownAbis = abis.findAll { !RustTools.RUST_TARGETS.containsKey(it) }
+        if (unknownAbis) throw new GradleException("Unsupported ABIs for Rust: ${unknownAbis}")
+        def targets = abis.collect { RustTools.RUST_TARGETS[it] }
+
+        // Check the toolchain and targets first, to fail with a clear message.
+        def cargo = RustTools.find("cargo")
+        def rustc = RustTools.find("rustc")
+        RustTools.output(execOperations, crateDir, [cargo, "--version"],
+            "cargo is required to build lib${libraryName.get()}.so.\n" + RustTools.INSTALL_HELP)
+        def sysroot = new File(RustTools.output(execOperations, crateDir, [rustc, "--print", "sysroot"],
+            "The Rust toolchain pinned in rust-toolchain.toml may not be installed.\n" + RustTools.INSTALL_HELP))
+        def missingTargets = targets.findAll { !new File(sysroot, "lib/rustlib/${it}/lib").isDirectory() }
+        if (missingTargets) {
+            throw new GradleException("The Rust targets ${missingTargets.join(', ')} are not installed for the toolchain at ${sysroot}.\n" +
+                "Run `rustup toolchain install` in the repository root, or `rustup target add ${missingTargets.join(' ')}`.")
+        }
+
+        def ndkDir = ndkDirectory.get().asFile
+        def prebuiltDirs = new File(ndkDir, "toolchains/llvm/prebuilt").listFiles()?.findAll { it.isDirectory() } ?: []
+        if (prebuiltDirs.size() != 1) {
+            throw new GradleException("Failed to find the LLVM toolchain of NDK ${ndkVersion.get()} in ${ndkDir}/toolchains/llvm/prebuilt")
+        }
+        def ndkBin = new File(prebuiltDirs[0], "bin")
+        def windows = OperatingSystem.current().isWindows()
+
+        def environment = [:]
+        abis.each { abi ->
+            def target = RustTools.RUST_TARGETS[abi]
+            def linker = new File(ndkBin, "${RustTools.CLANG_TARGETS[abi]}${minSdk.get()}-clang${windows ? '.cmd' : ''}")
+            if (!linker.isFile()) {
+                throw new GradleException("The NDK ${ndkVersion.get()} linker for ${abi} and API level ${minSdk.get()} does not exist: ${linker}")
+            }
+            def ar = new File(ndkBin, RustTools.exe("llvm-ar"))
+            environment["CARGO_TARGET_${target.toUpperCase().replace('-', '_')}_LINKER".toString()] = linker.absolutePath
+            // For crates with C code built by the cc crate, none currently.
+            environment["CC_${target.replace('-', '_')}".toString()] = linker.absolutePath
+            environment["AR_${target.replace('-', '_')}".toString()] = ar.absolutePath
+        }
+
+        def targetDir = cargoTargetDirectory.get().asFile
+        def command = [cargo, "build", "--release", "--locked",
+                       "--manifest-path", new File(crateDir, "Cargo.toml").absolutePath,
+                       "--target-dir", targetDir.absolutePath]
+        targets.each { command += ["--target", it] }
+        execOperations.exec {
+            it.workingDir = crateDir // So that rustup finds rust-toolchain.toml.
+            it.commandLine = command
+            it.environment(environment)
+        }
+
+        def outputDir = outputDirectory.get().asFile
+        outputDir.deleteDir()
+        abis.each { abi ->
+            def built = new File(targetDir, "${RustTools.RUST_TARGETS[abi]}/release/lib${cargoLibraryName.get()}.so")
+            def packaged = new File(outputDir, "${abi}/lib${libraryName.get()}.so")
+            packaged.parentFile.mkdirs()
+            java.nio.file.Files.copy(built.toPath(), packaged.toPath())
+        }
+    }
+}
+
+/** Runs the unit tests of the crate on the host. */
+abstract class CargoTestTask extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getSources()
+
+    @Internal
+    abstract DirectoryProperty getCrateDirectory()
+
+    @Internal
+    abstract DirectoryProperty getCargoTargetDirectory()
+
+    /** Written when the tests passed, so that the task is up to date until the sources change. */
+    @OutputFile
+    abstract RegularFileProperty getResultFile()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @TaskAction
+    void test() {
+        def crateDir = crateDirectory.get().asFile
+        def cargo = RustTools.find("cargo")
+        RustTools.output(execOperations, crateDir, [cargo, "--version"],
+            "cargo is required to run the Rust unit tests.\n" + RustTools.INSTALL_HELP)
+        execOperations.exec {
+            it.workingDir = crateDir
+            it.commandLine = [cargo, "test", "--locked",
+                              "--manifest-path", new File(crateDir, "Cargo.toml").absolutePath,
+                              "--target-dir", cargoTargetDirectory.get().asFile.absolutePath]
+        }
+        resultFile.get().asFile.text = "passed\n"
+    }
+}
+
+def rustJni = extensions.create("rustJni", RustJniExtension)
+rustJni.abis.convention(["arm64-v8a", "armeabi-v7a", "x86", "x86_64"])
+
+def rustSources = { Directory crateDir ->
+    files(
+        fileTree(crateDir) { exclude "target/**" },
+        rootProject.file("rust-toolchain.toml"),
+    )
+}
+def cargoTargetDir = layout.buildDirectory.dir("rust/target")
+
+def cargoTest = tasks.register("cargoTest", CargoTestTask) {
+    group = "verification"
+    description = "Runs the unit tests of the Rust JNI library on the host."
+    sources.from(rustJni.crateDirectory.map(rustSources))
+    crateDirectory = rustJni.crateDirectory
+    cargoTargetDirectory = cargoTargetDir
+    resultFile = layout.buildDirectory.file("rust/test-results/cargo-test.txt")
+    // The tests use Linux specific APIs like /proc.
+    onlyIf("host is Linux") { OperatingSystem.current().isLinux() }
+}
+tasks.matching { it.name == "test" }.configureEach { dependsOn(cargoTest) }
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        def cargoBuild = tasks.register("cargoBuild${variant.name.capitalize()}", CargoBuildTask) {
+            group = "build"
+            description = "Builds the Rust JNI library for the ${variant.name} variant."
+            sources.from(rustJni.crateDirectory.map(rustSources))
+            crateDirectory = rustJni.crateDirectory
+            cargoLibraryName = rustJni.cargoLibraryName
+            libraryName = rustJni.libraryName
+            abis = rustJni.abis
+            minSdk = variant.minSdk.apiLevel
+            ndkVersion = android.ndkVersion
+            ndkDirectory = androidComponents.sdkComponents.ndkDirectory
+            cargoTargetDirectory = cargoTargetDir
+        }
+        variant.sources.jniLibs.addGeneratedSourceDirectory(cargoBuild, { it.outputDirectory })
+    }
+}

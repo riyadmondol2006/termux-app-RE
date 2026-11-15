@@ -1,0 +1,29 @@
+[package]
+name = "termux"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+description = "JNI library for com.termux.terminal.JNI: pseudoterminal creation and subprocess management"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+# Produces libtermux.so, loaded with System.loadLibrary("termux").
+name = "termux"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni-sys = "0.4.1"
+libc = { version = "0.2.177", default-features = false }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+debug = false
