@@ -9,6 +9,60 @@ public class ResizeTest extends TerminalTestCase {
 		resize(cols, 3).assertCursorAt(2, 2).assertLinesAre("777", "888", "999");
 	}
 
+	private int countAllocatedRows() {
+		int allocatedRows = 0;
+		for (TerminalRow row : mTerminal.getScreen().mLines)
+			if (row != null) allocatedRows++;
+		return allocatedRows;
+	}
+
+	/** Resizing should not allocate all the rows of a large transcript (termux/termux-app#3541). */
+	public void testResizeDoesNotAllocateWholeTranscript() {
+		final int transcriptRows = TerminalEmulator.TERMINAL_TRANSCRIPT_ROWS_MAX;
+		mTerminal = new TerminalEmulator(mOutput, 4, 5, INITIAL_CELL_WIDTH_PIXELS, INITIAL_CELL_HEIGHT_PIXELS, transcriptRows, null);
+		assertEquals(transcriptRows, mTerminal.getScreen().mTotalRows);
+		enterString("1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7").assertLinesAre("3   ", "4   ", "5   ", "6   ", "7   ");
+		assertEquals(7, countAllocatedRows());
+
+		// Changing the columns uses the slow path which reflows the lines.
+		resize(3, 5).assertLinesAre("3  ", "4  ", "5  ", "6  ", "7  ").assertHistoryStartsWith("2  ", "1  ");
+		assertEquals(7, countAllocatedRows());
+		resize(6, 3).assertLinesAre("5     ", "6     ", "7     ").assertHistoryStartsWith("4     ", "3     ", "2     ", "1     ");
+		assertEquals(7, countAllocatedRows());
+		resize(6, 6).assertLinesAre("2     ", "3     ", "4     ", "5     ", "6     ", "7     ");
+		assertEquals(7, countAllocatedRows());
+		assertEquals("1\n2\n3\n4\n5\n6\n7", mTerminal.getScreen().getTranscriptText());
+
+		// Rows scrolled into the transcript should be allocated lazily.
+		enterString("\r\n8\r\n9").assertLinesAre("4     ", "5     ", "6     ", "7     ", "8     ", "9     ");
+		assertEquals(9, countAllocatedRows());
+		assertEquals("1\n2\n3\n4\n5\n6\n7\n8\n9", mTerminal.getScreen().getTranscriptText());
+	}
+
+	/** The transcript should still work as a ring buffer after a resize with lazily allocated rows. */
+	public void testResizeThenFillTranscriptRingBuffer() {
+		final int transcriptRows = TerminalEmulator.TERMINAL_TRANSCRIPT_ROWS_MIN;
+		final int screenRows = 3;
+		mTerminal = new TerminalEmulator(mOutput, 5, screenRows, INITIAL_CELL_WIDTH_PIXELS, INITIAL_CELL_HEIGHT_PIXELS, transcriptRows, null);
+		enterString("a\r\nb\r\nc\r\nd");
+		resize(4, screenRows).assertLinesAre("b   ", "c   ", "d   ").assertHistoryStartsWith("a   ");
+		assertEquals(4, countAllocatedRows());
+
+		StringBuilder input = new StringBuilder();
+		for (int i = 0; i < 3 * transcriptRows; i++) input.append("\r\n").append(i % 10000);
+		enterString(input.toString());
+		assertEquals(transcriptRows, countAllocatedRows());
+		assertEquals(transcriptRows - screenRows, mTerminal.getScreen().getActiveTranscriptRows());
+		int last = 3 * transcriptRows - 1;
+		assertLinesAre(String.format("%-4d", last - 2), String.format("%-4d", last - 1), String.format("%-4d", last));
+		assertHistoryStartsWith(String.format("%-4d", last - 3), String.format("%-4d", last - 4));
+
+		// Changing the columns again should only keep the rows that are used.
+		resize(5, screenRows).assertLinesAre(String.format("%-5d", last - 2), String.format("%-5d", last - 1), String.format("%-5d", last));
+		assertEquals(transcriptRows, countAllocatedRows());
+		assertHistoryStartsWith(String.format("%-5d", last - 3), String.format("%-5d", last - 4));
+	}
+
 	public void testResizeWhenInAltBuffer() {
 		final int rows = 3, cols = 3;
 		withTerminalSized(cols, rows).enterString("a\r\ndef$").assertLinesAre("a  ", "def", "$  ").assertCursorAt(2, 1);

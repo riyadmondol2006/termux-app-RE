@@ -139,6 +139,11 @@ public final class TerminalBuffer {
                 x2 = columns;
             }
             TerminalRow lineObject = mLines[externalToInternalRow(row)];
+            if (lineObject == null) {
+                // Not yet allocated row, which is blank.
+                if (row < selY2 && row < mScreenRows - 1) builder.append('\n');
+                continue;
+            }
             int x1Index = lineObject.findStartOfColumn(x1);
             int x2Index = (x2 < mColumns) ? lineObject.findStartOfColumn(x2) : lineObject.getSpaceUsed();
             if (x2Index == x1Index) {
@@ -246,15 +251,17 @@ public final class TerminalBuffer {
     }
 
     public void setLineWrap(int row) {
-        mLines[externalToInternalRow(row)].mLineWrap = true;
+        allocateFullLineIfNecessary(externalToInternalRow(row)).mLineWrap = true;
     }
 
     public boolean getLineWrap(int row) {
-        return mLines[externalToInternalRow(row)].mLineWrap;
+        TerminalRow line = mLines[externalToInternalRow(row)];
+        return line != null && line.mLineWrap;
     }
 
     public void clearLineWrap(int row) {
-        mLines[externalToInternalRow(row)].mLineWrap = false;
+        TerminalRow line = mLines[externalToInternalRow(row)];
+        if (line != null) line.mLineWrap = false;
     }
 
     /**
@@ -299,7 +306,11 @@ public final class TerminalBuffer {
             // Copy away old state and update new:
             TerminalRow[] oldLines = mLines;
             mLines = new TerminalRow[newTotalRows];
-            for (int i = 0; i < newTotalRows; i++)
+            // Only allocate the rows of the screen. The rows of the transcript are allocated when
+            // they are scrolled into by scrollDownOneLine() or when written to by setChar().
+            // Allocating all rows of a large transcript, like 50000 rows, every time the columns
+            // change, like on rotation or pinch zoom, could cause an OutOfMemoryError.
+            for (int i = 0; i < Math.min(newRows, newTotalRows); i++)
                 mLines[i] = new TerminalRow(newColumns, currentStyle);
 
             final int oldActiveTranscriptRows = mActiveTranscriptRows;
@@ -536,7 +547,7 @@ public final class TerminalBuffer {
     public void setOrClearEffect(int bits, boolean setOrClear, boolean reverse, boolean rectangular, int leftMargin, int rightMargin, int top, int left,
                                  int bottom, int right) {
         for (int y = top; y < bottom; y++) {
-            TerminalRow line = mLines[externalToInternalRow(y)];
+            TerminalRow line = allocateFullLineIfNecessary(externalToInternalRow(y));
             int startOfLine = (rectangular || y == top) ? left : leftMargin;
             int endOfLine = (rectangular || y + 1 == bottom) ? right : rightMargin;
             for (int x = startOfLine; x < endOfLine; x++) {
@@ -721,7 +732,7 @@ public final class TerminalBuffer {
 
         if (row + 1 < mTotalRows) {
             TerminalRow nextLine = mLines[row + 1];
-            if (nextLine.mHasTerminalBitmap) {
+            if (nextLine != null && nextLine.mHasTerminalBitmap) {
                 for (int column = 0; column < mColumns; column++) {
                     long columnStyle = nextLine.getStyle(column);
                     int bitmapNum = TextStyle.getTerminalBitmapNum(columnStyle);

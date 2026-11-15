@@ -65,6 +65,63 @@ public class TerminalTest extends TerminalTestCase {
 		assertEquals("\033[<0;10;10m", mOutput.getOutputAndClear());
 	}
 
+	/** All mouse buttons and motion while pressed should be reported (termux/termux-app#5237). */
+	public void testMouseButtonsAndMotionSgr() {
+		withTerminalSized(10, 10);
+		enterString("\033[?1000h\033[?1006h");
+
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MIDDLE_BUTTON, 3, 4, true);
+		assertEquals("\033[<1;3;4M", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MIDDLE_BUTTON, 3, 4, false);
+		assertEquals("\033[<1;3;4m", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON, 5, 6, true);
+		assertEquals("\033[<2;5;6M", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON, 5, 6, false);
+		assertEquals("\033[<2;5;6m", mOutput.getOutputAndClear());
+
+		// Motion while a button is pressed is only reported for DECSET 1002, not 1000.
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, 2, 2, true);
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MIDDLE_BUTTON_MOVED, 2, 2, true);
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON_MOVED, 2, 2, true);
+		assertEquals("", mOutput.getOutputAndClear());
+
+		enterString("\033[?1002h");
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON, 1, 1, true);
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON_MOVED, 2, 1, true);
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON, 2, 1, false);
+		assertEquals("\033[<2;1;1M\033[<34;2;1M\033[<2;2;1m", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MIDDLE_BUTTON_MOVED, 3, 1, true);
+		assertEquals("\033[<33;3;1M", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, 4, 1, true);
+		assertEquals("\033[<32;4;1M", mOutput.getOutputAndClear());
+
+		// Wheel events are not affected.
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_WHEELUP_BUTTON, 1, 1, true);
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_WHEELDOWN_BUTTON, 1, 1, true);
+		assertEquals("\033[<64;1;1M\033[<65;1;1M", mOutput.getOutputAndClear());
+		enterString("\033[?1002l");
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_WHEELUP_BUTTON, 1, 1, true);
+		assertEquals("\033[<64;1;1M", mOutput.getOutputAndClear());
+	}
+
+	/** The legacy mouse protocol reports all button releases as button 3. */
+	public void testMouseButtonsAndMotionLegacy() {
+		withTerminalSized(10, 10);
+		enterString("\033[?1002h");
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON, 3, 4, true);
+		assertEquals("\033[M" + (char) (32 + 2) + (char) (32 + 3) + (char) (32 + 4), mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON_MOVED, 4, 4, true);
+		assertEquals("\033[M" + (char) (32 + 34) + (char) (32 + 4) + (char) (32 + 4), mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_RIGHT_BUTTON, 4, 4, false);
+		assertEquals("\033[M" + (char) (32 + 3) + (char) (32 + 4) + (char) (32 + 4), mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MIDDLE_BUTTON, 1, 2, true);
+		assertEquals("\033[M" + (char) (32 + 1) + (char) (32 + 1) + (char) (32 + 2), mOutput.getOutputAndClear());
+
+		enterString("\033[?1000h");
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MIDDLE_BUTTON_MOVED, 2, 2, true);
+		assertEquals("", mOutput.getOutputAndClear());
+	}
+
 	public void testNormalization() throws UnsupportedEncodingException {
 		// int lowerCaseN = 0x006E;
 		// int combiningTilde = 0x0303;
@@ -134,6 +191,27 @@ public class TerminalTest extends TerminalTestCase {
 		enterString("\033[?2004l");
 		mTerminal.paste("hi");
 		assertEquals("hi", mOutput.getOutputAndClear());
+	}
+
+	/** Pasting only escape and C1 control characters should not write anything (termux/termux-app#5119). */
+	public void testPasteOnlyEscapeAndC1Characters() {
+		withTerminalSized(5, 5);
+		mTerminal.paste("\u001B\u0085\u009B\u001B");
+		assertEquals("", mOutput.getOutputAndClear());
+		mTerminal.paste("");
+		assertEquals("", mOutput.getOutputAndClear());
+		assertEquals(0, mOutput.emptyWrites);
+
+		// No empty bracketed paste markers.
+		enterString("\033[?2004h");
+		mTerminal.paste("\u001B\u009F");
+		assertEquals("", mOutput.getOutputAndClear());
+		assertEquals(0, mOutput.emptyWrites);
+
+		// Characters other than escape and C1 control characters should still be pasted.
+		mTerminal.paste("\u001Ba\u0085");
+		assertEquals("\033[200~" + "a" + "\033[201~", mOutput.getOutputAndClear());
+		assertEquals(0, mOutput.emptyWrites);
 	}
 
 	public void testSelectGraphics() {

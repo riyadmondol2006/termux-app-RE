@@ -34,9 +34,17 @@ public final class TerminalEmulator {
     private static final boolean LOG_ESCAPE_SEQUENCES = false;
 
     public static final int MOUSE_LEFT_BUTTON = 0;
+    public static final int MOUSE_MIDDLE_BUTTON = 1;
+    public static final int MOUSE_RIGHT_BUTTON = 2;
 
+    /** Flag added to a mouse button for moving the mouse while having that mouse button pressed. */
+    public static final int MOUSE_BUTTON_MOVED_FLAG = 32;
     /** Mouse moving while having left mouse button pressed. */
-    public static final int MOUSE_LEFT_BUTTON_MOVED = 32;
+    public static final int MOUSE_LEFT_BUTTON_MOVED = MOUSE_LEFT_BUTTON | MOUSE_BUTTON_MOVED_FLAG;
+    /** Mouse moving while having middle mouse button pressed. */
+    public static final int MOUSE_MIDDLE_BUTTON_MOVED = MOUSE_MIDDLE_BUTTON | MOUSE_BUTTON_MOVED_FLAG;
+    /** Mouse moving while having right mouse button pressed. */
+    public static final int MOUSE_RIGHT_BUTTON_MOVED = MOUSE_RIGHT_BUTTON | MOUSE_BUTTON_MOVED_FLAG;
     public static final int MOUSE_WHEELUP_BUTTON = 64;
     public static final int MOUSE_WHEELDOWN_BUTTON = 65;
 
@@ -200,7 +208,7 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE = 1 << 6;
     /** DECSET 1002 - like 1000, but report moving mouse while pressed. */
     private static final int DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT = 1 << 7;
-    /** DECSET 1004 - NOT implemented. */
+    /** DECSET 1004 - if to report focus in and out events, see {@link #onFocusChanged(boolean)}. */
     private static final int DECSET_BIT_SEND_FOCUS_EVENTS = 1 << 8;
     /** DECSET 1006 - SGR-like mouse protocol (the modern sane choice). */
     private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR = 1 << 9;
@@ -372,6 +380,9 @@ public final class TerminalEmulator {
      * @see TerminalEmulator#mapDecSetBitToInternalBit(int)
      */
     private int mCurrentDecSetFlags, mSavedDecSetFlags;
+
+    /** If the terminal currently has focus, as last set by {@link #onFocusChanged(boolean)}. */
+    private boolean mHasFocus = true;
 
     /**
      * If insert mode (as opposed to replace mode) is active. In insert mode new characters are inserted, pushing
@@ -556,8 +567,8 @@ public final class TerminalEmulator {
         if (row < 1) row = 1;
         if (row > mRows) row = mRows;
 
-        if (mouseButton == MOUSE_LEFT_BUTTON_MOVED && !isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT)) {
-            // Do not send tracking.
+        if ((mouseButton & MOUSE_BUTTON_MOVED_FLAG) != 0 && !isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT)) {
+            // Only report moving the mouse while having a button pressed for DECSET 1002.
         } else if (isDecsetInternalBitSet(DECSET_BIT_MOUSE_PROTOCOL_SGR)) {
             mSession.write(String.format("\033[<%d;%d;%d" + (pressed ? 'M' : 'm'), mouseButton, column, row));
         } else {
@@ -1836,7 +1847,7 @@ public final class TerminalEmulator {
             case 1001:
             case 1002:
             case 1003:
-            case 1004:
+            case 1004: // Focus in and out events - setting bit is enough, see onFocusChanged().
             case 1005: // UTF-8 mouse mode, ignore.
             case 1006: // SGR Mouse Mode
             case 1015:
@@ -3537,12 +3548,34 @@ public final class TerminalEmulator {
         }
     }
 
+    /**
+     * Notify the terminal that it gained or lost focus, like if the window showing it gained or lost
+     * focus or another terminal session is shown instead. If DECSET 1004 is set, send "\033[I"
+     * when focus was gained or "\033[O" when focus was lost. Nothing is sent if the focus did not
+     * change.
+     */
+    public void onFocusChanged(boolean hasFocus) {
+        if (hasFocus == mHasFocus) return;
+        mHasFocus = hasFocus;
+        if (isDecsetInternalBitSet(DECSET_BIT_SEND_FOCUS_EVENTS))
+            mSession.write(hasFocus ? "\033[I" : "\033[O");
+    }
+
+    /** If the terminal currently has focus, as last set by {@link #onFocusChanged(boolean)}. */
+    public boolean hasFocus() {
+        return mHasFocus;
+    }
+
     /** If DECSET 2004 is set, prefix paste with "\033[200~" and suffix with "\033[201~". */
     public void paste(String text) {
         // First: Always remove escape key and C1 control characters [0x80,0x9F]:
         text = text.replaceAll("(\u001B|[\u0080-\u009F])", "");
         // Second: Replace all newlines (\n) or CRLF (\r\n) with carriage returns (\r).
         text = text.replaceAll("\r?\n", "\r");
+
+        // Nothing left to paste, like if text only contained escape and C1 control characters.
+        // Do not send empty bracketed paste markers either.
+        if (text.isEmpty()) return;
 
         // Then: Implement bracketed paste mode if enabled:
         boolean bracketed = isDecsetInternalBitSet(DECSET_BIT_BRACKETED_PASTE_MODE);

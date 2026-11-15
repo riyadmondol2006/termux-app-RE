@@ -22,9 +22,12 @@ public abstract class TerminalTestCase extends TestCase {
 		public final List<String> clipboardPuts = new ArrayList<>();
 		public int bellsRung = 0;
 		public int colorsChanged = 0;
+		/** The number of calls to {@link #write(byte[], int, int)} with a count <= 0. */
+		public int emptyWrites = 0;
 
 		@Override
 		public void write(byte[] data, int offset, int count) {
+			if (count <= 0) emptyWrites++;
 			baos.write(data, offset, count);
 		}
 

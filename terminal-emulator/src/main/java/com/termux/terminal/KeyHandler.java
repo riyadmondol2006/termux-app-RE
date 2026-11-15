@@ -129,6 +129,38 @@ public final class KeyHandler {
         TERMCAP_TO_KEYCODE.put("@8", KEYCODE_NUMPAD_ENTER);
     }
 
+    /**
+     * Get the code point to send for a code point input while the control key is held, like 1 (^A)
+     * for 'a' or 0 (^@, NUL) for '@'.
+     *
+     * @param codePoint The code point that was input.
+     * @return The control code point, or {@code codePoint} if it is not modified by the control key.
+     */
+    public static int getCodePointWithCtrl(int codePoint) {
+        if (codePoint >= 'a' && codePoint <= 'z') {
+            return codePoint - 'a' + 1;
+        } else if (codePoint >= 'A' && codePoint <= 'Z') {
+            return codePoint - 'A' + 1;
+        } else if (codePoint == ' ' || codePoint == '2' || codePoint == '@') {
+            return 0; // ^@ (NUL)
+        } else if (codePoint == '[' || codePoint == '3') {
+            return 27; // ^[ (Esc)
+        } else if (codePoint == '\\' || codePoint == '4') {
+            return 28;
+        } else if (codePoint == ']' || codePoint == '5') {
+            return 29;
+        } else if (codePoint == '^' || codePoint == '6') {
+            return 30; // control-^
+        } else if (codePoint == '_' || codePoint == '7' || codePoint == '/') {
+            // "Ctrl-/ sends 0x1f which is equivalent of Ctrl-_ since the days of VT102"
+            // - http://apple.stackexchange.com/questions/24261/how-do-i-send-c-that-is-control-slash-to-the-terminal
+            return 31;
+        } else if (codePoint == '8' || codePoint == '?') {
+            return 127; // ^? (DEL)
+        }
+        return codePoint;
+    }
+
     static String getCodeFromTermcap(String termcap, boolean cursorKeysApplication, boolean keypadApplication) {
         Integer keyCodeAndMod = TERMCAP_TO_KEYCODE.get(termcap);
         if (keyCodeAndMod == null) return null;

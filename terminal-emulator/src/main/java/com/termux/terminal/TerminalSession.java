@@ -13,9 +13,12 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * A terminal session, consisting of a process coupled to a terminal interface.
@@ -45,8 +48,15 @@ public final class TerminalSession extends TerminalOutput {
     /**
      * A queue written to from the main thread due to user interaction, and read by another thread which forwards by
      * writing to the {@link #mTerminalFileDescriptor}.
+     * <p>
+     * The queue is unbounded so that writing to it never blocks the main thread, like for a large paste. A bounded
+     * blocking queue could deadlock the app if the main thread was blocked writing to it while the process was blocked
+     * writing output that only the main thread reads (termux/termux-app#5379). Each element is a separate write, which
+     * is written in order and is never interleaved with other writes, even if written from different threads.
      */
-    final ByteQueue mTerminalToProcessIOQueue = new ByteQueue(4096);
+    final LinkedBlockingQueue<byte[]> mTerminalToProcessIOQueue = new LinkedBlockingQueue<>();
+    /** The element added to {@link #mTerminalToProcessIOQueue} to stop the thread reading from it. */
+    private static final byte[] TERMINAL_TO_PROCESS_IO_QUEUE_END = new byte[0];
     /** Buffer to write translate code points into utf8 before writing to mTerminalToProcessIOQueue */
     private final byte[] mUtf8InputBuffer = new byte[5];
 
@@ -150,14 +160,9 @@ public final class TerminalSession extends TerminalOutput {
         new Thread("TermSessionOutputWriter[pid=" + mShellPid + "]") {
             @Override
             public void run() {
-                final byte[] buffer = new byte[4096];
                 try (FileOutputStream termOut = new FileOutputStream(terminalFileDescriptorWrapped)) {
-                    while (true) {
-                        int bytesToWrite = mTerminalToProcessIOQueue.read(buffer, true);
-                        if (bytesToWrite == -1) return;
-                        termOut.write(buffer, 0, bytesToWrite);
-                    }
-                } catch (IOException e) {
+                    writeTerminalToProcessIOQueue(termOut);
+                } catch (IOException | InterruptedException e) {
                     // Ignore.
                 }
             }
@@ -173,17 +178,51 @@ public final class TerminalSession extends TerminalOutput {
 
     }
 
-    /** Write data to the shell process. */
+    /**
+     * Write data to the shell process. This does not block, the data is copied and written to the process by a
+     * separate thread.
+     */
     @Override
     public void write(byte[] data, int offset, int count) {
-        if (mShellPid > 0) mTerminalToProcessIOQueue.write(data, offset, count);
+        // Ignore empty writes, like for a paste of only escape and C1 control characters, which
+        // are removed before writing.
+        if (mShellPid > 0 && count > 0) {
+            if (offset < 0 || count > data.length - offset)
+                throw new IllegalArgumentException("offset=" + offset + ", count=" + count + ", data.length=" + data.length);
+            mTerminalToProcessIOQueue.offer(Arrays.copyOfRange(data, offset, offset + count));
+        }
     }
 
-    /** Write the Unicode code point to the terminal encoded in UTF-8. */
+    /**
+     * Write the data in {@link #mTerminalToProcessIOQueue} to {@code out} until
+     * {@link #closeTerminalToProcessIOQueue()} is called. This blocks while waiting for data.
+     */
+    void writeTerminalToProcessIOQueue(OutputStream out) throws IOException, InterruptedException {
+        while (true) {
+            byte[] data = mTerminalToProcessIOQueue.take();
+            if (data == TERMINAL_TO_PROCESS_IO_QUEUE_END) return;
+            out.write(data);
+        }
+    }
+
+    /**
+     * Discard the data not yet written to the process and stop the thread running
+     * {@link #writeTerminalToProcessIOQueue(OutputStream)}.
+     */
+    void closeTerminalToProcessIOQueue() {
+        mTerminalToProcessIOQueue.clear();
+        mTerminalToProcessIOQueue.offer(TERMINAL_TO_PROCESS_IO_QUEUE_END);
+    }
+
+    /**
+     * Write the Unicode code point to the terminal encoded in UTF-8. Invalid code points, like lone
+     * surrogates, are written as {@link TerminalEmulator#UNICODE_REPLACEMENT_CHAR}.
+     */
     public void writeCodePoint(boolean prependEscape, int codePoint) {
-        if (codePoint > 1114111 || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+        if (codePoint < 0 || codePoint > 1114111 || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
             // 1114111 (= 2**16 + 1024**2 - 1) is the highest code point, [0xD800,0xDFFF] is the surrogate range.
-            throw new IllegalArgumentException("Invalid code point: " + codePoint);
+            // Do not throw since this is called on the main thread for user input and would crash the app.
+            codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
         }
 
         int bufferPosition = 0;
@@ -250,7 +289,7 @@ public final class TerminalSession extends TerminalOutput {
         }
 
         // Stop the reader and writer threads, and close the I/O streams
-        mTerminalToProcessIOQueue.close();
+        closeTerminalToProcessIOQueue();
         mProcessToTerminalIOQueue.close();
         JNI.close(mTerminalFileDescriptor);
     }

@@ -16,6 +16,7 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.SparseBooleanArray;
 import android.view.ActionMode;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -77,6 +78,14 @@ public final class TerminalView extends View {
     private int mMouseScrollStartX = -1, mMouseScrollStartY = -1;
     /** Keep track of the time when a touch event leading to sending mouse scroll events started. */
     private long mMouseStartDownTime = -1;
+    /**
+     * The {@link TerminalEmulator} mouse button reported as pressed to the terminal for a mouse in
+     * {@link #onTouchEvent(MotionEvent)}, or -1 if none. Stored since the button state of the
+     * {@link MotionEvent#ACTION_UP} event does not contain the released button anymore.
+     */
+    private int mMouseTrackingPressedButton = -1;
+    /** The column and row last reported to the terminal for {@link #mMouseTrackingPressedButton}. */
+    private int mMouseTrackingLastColumn, mMouseTrackingLastRow;
 
     final Scroller mScroller;
 
@@ -85,6 +94,13 @@ public final class TerminalView extends View {
 
     /** If non-zero, this is the last unicode code point received if that was a combining character. */
     int mCombiningAccent;
+
+    /**
+     * Whether the last {@link KeyEvent#ACTION_DOWN} event of a key code was handled by
+     * {@link #onKeyDown(int, KeyEvent)}, used to only handle the {@link KeyEvent#ACTION_UP} event in
+     * {@link #onKeyUp(int, KeyEvent)} if the down event was handled.
+     */
+    private final SparseBooleanArray mKeysHandledOnKeyDown = new SparseBooleanArray();
 
     /**
      * The current AutoFill type returned for {@link View#getAutofillType()} by {@link #getAutofillType()}.
@@ -170,11 +186,11 @@ public final class TerminalView extends View {
             public boolean onScroll(MotionEvent e, float distanceX, float distanceY) {
                 if (mEmulator == null) return true;
                 if (mEmulator.isMouseTrackingActive() && e.isFromSource(InputDevice.SOURCE_MOUSE)) {
-                    // If moving with mouse pointer while pressing button, report that instead of scroll.
-                    // This means that we never report moving with button press-events for touch input,
-                    // since we cannot just start sending these events without a starting press event,
-                    // which we do not do for touch input, only mouse in onTouchEvent().
-                    sendMouseEventCode(e, TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, true);
+                    // Do not scroll if moving with mouse pointer while pressing button, which is
+                    // reported in onTouchEvent() instead. This means that we never report moving
+                    // with button press-events for touch input, since we cannot just start sending
+                    // these events without a starting press event, which we do not do for touch
+                    // input, only mouse in onTouchEvent().
                 } else {
                     scrolledWithFinger = true;
                     distanceY += mScrollRemainder;
@@ -290,9 +306,17 @@ public final class TerminalView extends View {
     public boolean attachSession(TerminalSession session) {
         if (session == mTermSession) return false;
 
+        // The previous session is not shown anymore, so it loses focus.
+        if (mEmulator != null) mEmulator.onFocusChanged(false);
+
         mTermSession = session;
         mEmulator = null;
         mCombiningAccent = 0;
+
+        // The emulator of the new session will only be set below if the view has a size, but it may
+        // already exist if the session was shown before.
+        TerminalEmulator newEmulator = session != null ? session.getEmulator() : null;
+        if (newEmulator != null) newEmulator.onFocusChanged(hasWindowFocus());
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -382,17 +406,12 @@ public final class TerminalView extends View {
                 stopTextSelectionMode();
                 final int textLengthInChars = text.length();
                 for (int i = 0; i < textLengthInChars; i++) {
-                    char firstChar = text.charAt(i);
-                    int codePoint;
-                    if (Character.isHighSurrogate(firstChar)) {
-                        if (++i < textLengthInChars) {
-                            codePoint = Character.toCodePoint(firstChar, text.charAt(i));
-                        } else {
-                            // At end of string, with no low surrogate following the high:
-                            codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
-                        }
-                    } else {
-                        codePoint = firstChar;
+                    // Only combine a high surrogate with a directly following low surrogate. A lone
+                    // high or low surrogate, like sent by some keyboards, is returned as is.
+                    int codePoint = Character.codePointAt(text, i);
+                    i += Character.charCount(codePoint) - 1;
+                    if (codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE) {
+                        codePoint = TerminalEmulator.UNICODE_REPLACEMENT_CHAR;
                     }
 
                     // Check onKeyDown() for details.
@@ -529,6 +548,13 @@ public final class TerminalView extends View {
     }
 
     @Override
+    public void onWindowFocusChanged(boolean hasWindowFocus) {
+        super.onWindowFocusChanged(hasWindowFocus);
+        // Report focus in and out events to the terminal if requested with DECSET 1004.
+        if (mEmulator != null) mEmulator.onFocusChanged(hasWindowFocus);
+    }
+
+    @Override
     public boolean isOpaque() {
         return true;
     }
@@ -613,34 +639,95 @@ public final class TerminalView extends View {
             mGestureRecognizer.onTouchEvent(event);
             return true;
         } else if (event.isFromSource(InputDevice.SOURCE_MOUSE)) {
-            if (event.isButtonPressed(MotionEvent.BUTTON_SECONDARY)) {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) mMouseTrackingPressedButton = -1;
+
+            if (mEmulator.isMouseTrackingActive() &&
+                (mMouseTrackingPressedButton != -1 || (event.getMetaState() & KeyEvent.META_SHIFT_ON) == 0)) {
+                // Report the mouse buttons to the terminal if mouse tracking is active, unless shift
+                // is held when pressing, in which case the mouse is used for the context menu and
+                // paste below.
+                int button = sendMouseTrackingEvent(event);
+                // Let the gesture recognizer handle the left button as before, like to focus the view.
+                if (button != TerminalEmulator.MOUSE_LEFT_BUTTON && button != -1) return true;
+            } else if (event.isButtonPressed(MotionEvent.BUTTON_SECONDARY)) {
                 if (action == MotionEvent.ACTION_DOWN) showContextMenu();
                 return true;
             } else if (event.isButtonPressed(MotionEvent.BUTTON_TERTIARY)) {
-                ClipboardManager clipboardManager = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                ClipData clipData = clipboardManager.getPrimaryClip();
-                if (clipData != null) {
-                    ClipData.Item clipItem = clipData.getItemAt(0);
-                    if (clipItem != null) {
-                        CharSequence text = clipItem.coerceToText(getContext());
-                        if (!TextUtils.isEmpty(text)) mEmulator.paste(text.toString());
-                    }
-                }
-            } else if (mEmulator.isMouseTrackingActive()) { // BUTTON_PRIMARY.
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                    case MotionEvent.ACTION_UP:
-                        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON, event.getAction() == MotionEvent.ACTION_DOWN);
-                        break;
-                    case MotionEvent.ACTION_MOVE:
-                        sendMouseEventCode(event, TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, true);
-                        break;
-                }
+                // Paste only once when pressed, and not again for every move while pressed.
+                if (action == MotionEvent.ACTION_DOWN) pasteFromClipboard();
+                return true;
             }
         }
 
         mGestureRecognizer.onTouchEvent(event);
         return true;
+    }
+
+    /**
+     * Send the mouse button press, motion while pressed and release of a mouse {@link MotionEvent}
+     * to the terminal.
+     *
+     * @return The {@link TerminalEmulator} mouse button of the event, or -1 if none.
+     */
+    private int sendMouseTrackingEvent(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                mMouseTrackingPressedButton = getTerminalMouseButton(event.getButtonState());
+                int[] columnAndRow = getColumnAndRow(event, false);
+                mMouseTrackingLastColumn = columnAndRow[0];
+                mMouseTrackingLastRow = columnAndRow[1];
+                sendMouseEventCode(event, mMouseTrackingPressedButton, true);
+                return mMouseTrackingPressedButton;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                if (mMouseTrackingPressedButton == -1) return -1;
+                // Like xterm, only report motion if the mouse moved to a different cell.
+                int[] columnAndRow = getColumnAndRow(event, false);
+                if (columnAndRow[0] != mMouseTrackingLastColumn || columnAndRow[1] != mMouseTrackingLastRow) {
+                    mMouseTrackingLastColumn = columnAndRow[0];
+                    mMouseTrackingLastRow = columnAndRow[1];
+                    sendMouseEventCode(event, mMouseTrackingPressedButton | TerminalEmulator.MOUSE_BUTTON_MOVED_FLAG, true);
+                }
+                return mMouseTrackingPressedButton;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL: {
+                int button = mMouseTrackingPressedButton;
+                mMouseTrackingPressedButton = -1;
+                if (button != -1) sendMouseEventCode(event, button, false);
+                return button;
+            }
+            default:
+                return mMouseTrackingPressedButton;
+        }
+    }
+
+    /** Get the {@link TerminalEmulator} mouse button for a {@link MotionEvent#getButtonState()}. */
+    private static int getTerminalMouseButton(int buttonState) {
+        if ((buttonState & MotionEvent.BUTTON_PRIMARY) != 0 || buttonState == 0) {
+            // Also assume a left button press if no button state is set, like done previously.
+            return TerminalEmulator.MOUSE_LEFT_BUTTON;
+        } else if ((buttonState & MotionEvent.BUTTON_SECONDARY) != 0) {
+            return TerminalEmulator.MOUSE_RIGHT_BUTTON;
+        } else if ((buttonState & MotionEvent.BUTTON_TERTIARY) != 0) {
+            return TerminalEmulator.MOUSE_MIDDLE_BUTTON;
+        } else {
+            return TerminalEmulator.MOUSE_LEFT_BUTTON;
+        }
+    }
+
+    /** Paste the text in the primary clip of the clipboard to the terminal. */
+    private void pasteFromClipboard() {
+        ClipboardManager clipboardManager = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboardManager == null) return;
+        ClipData clipData = clipboardManager.getPrimaryClip();
+        if (clipData != null && clipData.getItemCount() > 0) {
+            ClipData.Item clipItem = clipData.getItemAt(0);
+            if (clipItem != null) {
+                CharSequence text = clipItem.coerceToText(getContext());
+                if (!TextUtils.isEmpty(text)) mEmulator.paste(text.toString());
+            }
+        }
     }
 
     @Override
@@ -768,6 +855,13 @@ public final class TerminalView extends View {
      */
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        boolean handled = handleKeyDown(keyCode, event);
+        if (event.getAction() == KeyEvent.ACTION_DOWN)
+            mKeysHandledOnKeyDown.put(keyCode, handled);
+        return handled;
+    }
+
+    private boolean handleKeyDown(int keyCode, KeyEvent event) {
         if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
             mClient.logInfo(LOG_TAG, "onKeyDown(keyCode=" + keyCode + ", isSystem()=" + event.isSystem() + ", event=" + event + ")");
         if (mEmulator == null) return true;
@@ -784,6 +878,17 @@ public final class TerminalView extends View {
             mTermSession.write(event.getCharacters());
             return true;
         } else if (keyCode == KeyEvent.KEYCODE_LANGUAGE_SWITCH) {
+            return super.onKeyDown(keyCode, event);
+        } else if (KeyEvent.isModifierKey(keyCode)) {
+            // Modifier keys, like a hardware keyboard shift key, do not produce any input themselves,
+            // so do not read (and consume) the extra keys CTRL/ALT/SHIFT/FN buttons for them below.
+            // Otherwise pressing a modifier key would clear the extra keys buttons that are active
+            // before the key to be modified is pressed. The modifier state is part of the
+            // meta state of the next key event.
+            return super.onKeyDown(keyCode, event);
+        } else if (keyCode == KeyEvent.KEYCODE_SYSRQ) {
+            // Let the system handle the Print Screen/SysRq key to take a screenshot, since on newer
+            // Android versions it is only done if the app does not handle the key event.
             return super.onKeyDown(keyCode, event);
         }
 
@@ -862,27 +967,7 @@ public final class TerminalView extends View {
         if (mClient.onCodePoint(codePoint, controlDown, mTermSession)) return;
 
         if (controlDown) {
-            if (codePoint >= 'a' && codePoint <= 'z') {
-                codePoint = codePoint - 'a' + 1;
-            } else if (codePoint >= 'A' && codePoint <= 'Z') {
-                codePoint = codePoint - 'A' + 1;
-            } else if (codePoint == ' ' || codePoint == '2') {
-                codePoint = 0;
-            } else if (codePoint == '[' || codePoint == '3') {
-                codePoint = 27; // ^[ (Esc)
-            } else if (codePoint == '\\' || codePoint == '4') {
-                codePoint = 28;
-            } else if (codePoint == ']' || codePoint == '5') {
-                codePoint = 29;
-            } else if (codePoint == '^' || codePoint == '6') {
-                codePoint = 30; // control-^
-            } else if (codePoint == '_' || codePoint == '7' || codePoint == '/') {
-                // "Ctrl-/ sends 0x1f which is equivalent of Ctrl-_ since the days of VT102"
-                // - http://apple.stackexchange.com/questions/24261/how-do-i-send-c-that-is-control-slash-to-the-terminal
-                codePoint = 31;
-            } else if (codePoint == '8') {
-                codePoint = 127; // DEL
-            }
+            codePoint = KeyHandler.getCodePointWithCtrl(codePoint);
         }
 
         if (codePoint > -1) {
@@ -968,6 +1053,14 @@ public final class TerminalView extends View {
             // Let system key events through.
             return super.onKeyUp(keyCode, event);
         }
+
+        // Only handle the key up event if the key down event was handled (or not received), so that
+        // keys not handled by onKeyDown(), like modifier keys or the Print Screen/SysRq key, are
+        // passed on to the system, like to take a screenshot.
+        boolean handledOnKeyDown = mKeysHandledOnKeyDown.get(keyCode, true);
+        mKeysHandledOnKeyDown.delete(keyCode);
+        if (!handledOnKeyDown)
+            return super.onKeyUp(keyCode, event);
 
         return true;
     }
@@ -1086,8 +1179,9 @@ public final class TerminalView extends View {
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void autofill(AutofillValue value) {
-        if (value.isText()) {
-            mTermSession.write(value.getTextValue().toString());
+        if (value.isText() && mTermSession != null) {
+            CharSequence text = value.getTextValue();
+            if (!TextUtils.isEmpty(text)) mTermSession.write(text.toString());
         }
 
         resetAutoFill();

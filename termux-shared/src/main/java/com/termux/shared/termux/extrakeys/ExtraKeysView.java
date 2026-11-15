@@ -11,9 +11,6 @@ import android.util.AttributeSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ScheduledExecutorService;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -203,7 +200,12 @@ public final class ExtraKeysView extends GridLayout {
      * and a swipe up action is done on an extra key. */
     protected PopupWindow mPopupWindow;
 
-    protected ScheduledExecutorService mScheduledExecutor;
+    /**
+     * The {@link Runnable} that repeats a key of {@link #mRepetitiveKeys} while it is long pressed.
+     * It is run by {@link #mHandler} on the main thread, since the key events are sent to the
+     * terminal view and session, which must only be accessed from the main thread.
+     */
+    protected Runnable mRepetitiveKeyRunnable;
     protected Handler mHandler;
     protected SpecialButtonsLongHoldRunnable mSpecialButtonsLongHoldRunnable;
     protected int mLongPressCount;
@@ -354,7 +356,7 @@ public final class ExtraKeysView extends GridLayout {
 
     /** Set {@link #mLongPressRepeatDelay}. */
     public void setLongPressRepeatDelay(int longPressRepeatDelay) {
-        if (mLongPressRepeatDelay >= MIN_LONG_PRESS__REPEAT_DELAY && mLongPressRepeatDelay <= MAX_LONG_PRESS__REPEAT_DELAY) {
+        if (longPressRepeatDelay >= MIN_LONG_PRESS__REPEAT_DELAY && longPressRepeatDelay <= MAX_LONG_PRESS__REPEAT_DELAY) {
             mLongPressRepeatDelay = longPressRepeatDelay;
         } else {
             mLongPressRepeatDelay = DEFAULT_LONG_PRESS_REPEAT_DELAY;
@@ -535,14 +537,24 @@ public final class ExtraKeysView extends GridLayout {
     public void startScheduledExecutors(View view, ExtraKeyButton buttonInfo, MaterialButton button) {
         stopScheduledExecutors();
         mLongPressCount = 0;
+        if (mHandler == null)
+            mHandler = new Handler(Looper.getMainLooper());
         if (mRepetitiveKeys.contains(buttonInfo.getKey())) {
             // Auto repeat key if long pressed until ACTION_UP stops it by calling stopScheduledExecutors.
             // Currently, only one (last) repeat key can run at a time. Old ones are stopped.
-            mScheduledExecutor = Executors.newSingleThreadScheduledExecutor();
-            mScheduledExecutor.scheduleWithFixedDelay(() -> {
-                mLongPressCount++;
-                onExtraKeyButtonClick(view, buttonInfo, button);
-            }, mLongPressTimeout, mLongPressRepeatDelay, TimeUnit.MILLISECONDS);
+            // The key is repeated on the main thread and not on a separate thread, since the key
+            // events are sent to the terminal view and session.
+            mRepetitiveKeyRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    mLongPressCount++;
+                    onExtraKeyButtonClick(view, buttonInfo, button);
+                    // Repeat again unless stopped or replaced while sending the key.
+                    if (mRepetitiveKeyRunnable == this)
+                        mHandler.postDelayed(this, mLongPressRepeatDelay);
+                }
+            };
+            mHandler.postDelayed(mRepetitiveKeyRunnable, mLongPressTimeout);
         } else if (isSpecialButton(buttonInfo)) {
             // Lock the key if long pressed by running mSpecialButtonsLongHoldRunnable after
             // waiting for mLongPressTimeout milliseconds. If user does not long press, then the
@@ -550,23 +562,28 @@ public final class ExtraKeysView extends GridLayout {
             // it has a chance to run.
             SpecialButtonState state = mSpecialButtons.get(SpecialButton.valueOf(buttonInfo.getKey()));
             if (state == null) return;
-            if (mHandler == null)
-                mHandler = new Handler(Looper.getMainLooper());
             mSpecialButtonsLongHoldRunnable = new SpecialButtonsLongHoldRunnable(state);
             mHandler.postDelayed(mSpecialButtonsLongHoldRunnable, mLongPressTimeout);
         }
     }
 
     public void stopScheduledExecutors() {
-        if (mScheduledExecutor != null) {
-            mScheduledExecutor.shutdownNow();
-            mScheduledExecutor = null;
+        if (mRepetitiveKeyRunnable != null && mHandler != null) {
+            mHandler.removeCallbacks(mRepetitiveKeyRunnable);
+            mRepetitiveKeyRunnable = null;
         }
 
         if (mSpecialButtonsLongHoldRunnable != null && mHandler != null) {
             mHandler.removeCallbacks(mSpecialButtonsLongHoldRunnable);
             mSpecialButtonsLongHoldRunnable = null;
         }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        // Do not keep repeating a key if the view is detached while the key is held.
+        stopScheduledExecutors();
     }
 
     public class SpecialButtonsLongHoldRunnable implements Runnable {

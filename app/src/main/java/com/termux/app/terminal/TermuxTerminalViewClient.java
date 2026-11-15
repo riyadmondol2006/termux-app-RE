@@ -245,10 +245,14 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             mTermuxTerminalSessionActivityClient.removeFinishedSession(currentSession);
             return true;
         } else if (!mActivity.getProperties().areHardwareKeyboardShortcutsDisabled() &&
-            e.isCtrlPressed() && e.isAltPressed()) {
+            e.isCtrlPressed() && e.isAltPressed() && !isAltGrCharacter(e)) {
             // Get the unmodified code point:
             int unicodeChar = e.getUnicodeChar(0);
 
+            // Only consume the key event if it matched a shortcut, otherwise let the terminal
+            // view handle it, so that Ctrl+Alt+<key> combinations that are not shortcuts are
+            // still sent to the terminal.
+            boolean handled = true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || unicodeChar == 'n'/* next */) {
                 mTermuxTerminalSessionActivityClient.switchToSession(true);
             } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP || unicodeChar == 'p' /* previous */) {
@@ -278,12 +282,25 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             } else if (unicodeChar >= '1' && unicodeChar <= '9') {
                 int index = unicodeChar - '1';
                 mTermuxTerminalSessionActivityClient.switchToSession(index);
+            } else {
+                handled = false;
             }
-            return true;
+            return handled;
         }
 
         return false;
 
+    }
+
+    /**
+     * Check if the key event has right Alt (AltGr) pressed and the keyboard layout maps the key
+     * with AltGr to a character, like AltGr+Q for '@' on German layouts. In that case the user
+     * is composing a character and the key event must not be treated as a Ctrl+Alt shortcut.
+     */
+    private static boolean isAltGrCharacter(KeyEvent e) {
+        int metaState = e.getMetaState();
+        if ((metaState & KeyEvent.META_ALT_RIGHT_ON) == 0) return false;
+        return e.getUnicodeChar(metaState & ~KeyEvent.META_CTRL_MASK) != 0;
     }
 
 
