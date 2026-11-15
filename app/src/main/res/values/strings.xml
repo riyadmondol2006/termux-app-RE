@@ -96,6 +96,16 @@
 
 
 
+    <!-- Permissions -->
+    <string name="title_storage_permission_denied">Storage permission denied</string>
+    <string name="msg_storage_permission_denied">Android will not ask for the storage permission again
+        since it has been denied. To allow &TERMUX_APP_NAME; to access shared storage, open App info ->
+        Permissions -> \"Files\" (\"Files and media\" or \"Storage\" on older Android versions) and
+        allow it, then run `termux-setup-storage` again.</string>
+    <string name="action_open_app_info">Open App info</string>
+
+
+
     <!-- Termux Notifications -->
     <string name="notification_action_exit">Exit</string>
     <string name="notification_action_wake_lock">Acquire wakelock</string>
@@ -202,6 +212,7 @@
                 <string name="termux_terminal_view_terminal_margin_adjustment_on">Terminal margin adjustment will be enabled.
                     It should be enabled to try to fix the issue where soft keyboard covers part of extra keys/terminal view.
                     If it causes screen flickering on your devices, then disable it. (Default)</string>
+
 
 
 

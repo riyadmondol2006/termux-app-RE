@@ -814,12 +814,30 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
                     TermuxInstaller.setupStorageSymlinks(TermuxActivity.this);
                 } else {
-                    if (isPermissionCallback)
-                        Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
-                            getString(com.termux.shared.R.string.msg_storage_permission_not_granted_on_request));
+                    if (isPermissionCallback) {
+                        // If the user denied the runtime permission twice, Android 11+ will not show
+                        // the prompt anymore and the user must grant it from the app info page.
+                        if (PermissionUtils.isLegacyExternalStoragePossible(TermuxActivity.this) &&
+                            PermissionUtils.isPermissionPermanentlyDenied(TermuxActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE))
+                            runOnUiThread(() -> showStoragePermissionDeniedDialog());
+                        else
+                            Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
+                                getString(com.termux.shared.R.string.msg_storage_permission_not_granted_on_request));
+                    }
                 }
             }
         }.start();
+    }
+
+    private void showStoragePermissionDeniedDialog() {
+        if (isFinishing() || isDestroyed()) return;
+        Logger.logInfo(LOG_TAG, "The storage permission has been permanently denied by user");
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.title_storage_permission_denied)
+            .setMessage(R.string.msg_storage_permission_denied)
+            .setPositiveButton(R.string.action_open_app_info, (dialog, which) -> PermissionUtils.openAppDetailsSettings(this))
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
     }
 
     @Override
