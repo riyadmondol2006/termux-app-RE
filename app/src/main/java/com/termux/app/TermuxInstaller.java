@@ -267,7 +267,7 @@ final class TermuxInstaller {
 
         activity.runOnUiThread(() -> {
             try {
-                new AlertDialog.Builder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
                     .setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
                         dialog.dismiss();
                         activity.finish();
@@ -291,7 +291,7 @@ final class TermuxInstaller {
 
         activity.runOnUiThread(() -> {
             try {
-                AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+                com.google.android.material.dialog.MaterialAlertDialogBuilder builder = new com.google.android.material.dialog.MaterialAlertDialogBuilder(activity)
                     .setTitle(R.string.bootstrap_error_package_name_mismatch_title)
                     .setMessage(message)
                     .setCancelable(false)
