@@ -35,6 +35,43 @@ public class DecSetTest extends TerminalTestCase {
 		assertTrue(mTerminal.isCursorEnabled());
 	}
 
+	/** DECSET 1004, controls reporting of focus in and out events (termux/termux-app#3650). */
+	public void testFocusReporting() {
+		withTerminalSized(3, 3);
+		assertTrue("Initially the terminal should be considered focused", mTerminal.hasFocus());
+		mTerminal.onFocusChanged(false);
+		mTerminal.onFocusChanged(true);
+		assertEquals("Focus changes should not be reported when DECSET 1004 is not set", "", mOutput.getOutputAndClear());
+
+		assertEnteringStringGivesResponse("\033[?1004$p", "\033[?1004;2$y");
+		enterString("\033[?1004h"); // Enable focus reporting.
+		assertEnteringStringGivesResponse("\033[?1004$p", "\033[?1004;1$y");
+		assertEquals("Enabling focus reporting should not report the focus", "", mOutput.getOutputAndClear());
+
+		mTerminal.onFocusChanged(false);
+		assertEquals("\033[O", mOutput.getOutputAndClear());
+		assertFalse(mTerminal.hasFocus());
+		mTerminal.onFocusChanged(false);
+		assertEquals("Focus should only be reported when it changes", "", mOutput.getOutputAndClear());
+		mTerminal.onFocusChanged(true);
+		assertEquals("\033[I", mOutput.getOutputAndClear());
+		mTerminal.onFocusChanged(true);
+		assertEquals("", mOutput.getOutputAndClear());
+
+		enterString("\033[?1004l"); // Disable focus reporting.
+		mTerminal.onFocusChanged(false);
+		assertEquals("", mOutput.getOutputAndClear());
+		enterString("\033[?1004h");
+		mTerminal.onFocusChanged(false);
+		assertEquals("The focus should be tracked while focus reporting is disabled", "", mOutput.getOutputAndClear());
+		mTerminal.onFocusChanged(true);
+		assertEquals("\033[I", mOutput.getOutputAndClear());
+
+		enterString("\033c"); // RIS resetting should disable focus reporting.
+		mTerminal.onFocusChanged(false);
+		assertEquals("", mOutput.getOutputAndClear());
+	}
+
 	/** DECSET 2004, controls bracketed paste mode. */
 	public void testBracketedPasteMode() {
 		withTerminalSized(3, 3);

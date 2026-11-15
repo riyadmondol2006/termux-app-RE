@@ -208,7 +208,7 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE = 1 << 6;
     /** DECSET 1002 - like 1000, but report moving mouse while pressed. */
     private static final int DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT = 1 << 7;
-    /** DECSET 1004 - NOT implemented. */
+    /** DECSET 1004 - if to report focus in and out events, see {@link #onFocusChanged(boolean)}. */
     private static final int DECSET_BIT_SEND_FOCUS_EVENTS = 1 << 8;
     /** DECSET 1006 - SGR-like mouse protocol (the modern sane choice). */
     private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR = 1 << 9;
@@ -380,6 +380,9 @@ public final class TerminalEmulator {
      * @see TerminalEmulator#mapDecSetBitToInternalBit(int)
      */
     private int mCurrentDecSetFlags, mSavedDecSetFlags;
+
+    /** If the terminal currently has focus, as last set by {@link #onFocusChanged(boolean)}. */
+    private boolean mHasFocus = true;
 
     /**
      * If insert mode (as opposed to replace mode) is active. In insert mode new characters are inserted, pushing
@@ -1844,7 +1847,7 @@ public final class TerminalEmulator {
             case 1001:
             case 1002:
             case 1003:
-            case 1004:
+            case 1004: // Focus in and out events - setting bit is enough, see onFocusChanged().
             case 1005: // UTF-8 mouse mode, ignore.
             case 1006: // SGR Mouse Mode
             case 1015:
@@ -3543,6 +3546,24 @@ public final class TerminalEmulator {
         if (!Objects.equals(oldTitle, newTitle)) {
             mSession.titleChanged(oldTitle, newTitle);
         }
+    }
+
+    /**
+     * Notify the terminal that it gained or lost focus, like if the window showing it gained or lost
+     * focus or another terminal session is shown instead. If DECSET 1004 is set, send "\033[I"
+     * when focus was gained or "\033[O" when focus was lost. Nothing is sent if the focus did not
+     * change.
+     */
+    public void onFocusChanged(boolean hasFocus) {
+        if (hasFocus == mHasFocus) return;
+        mHasFocus = hasFocus;
+        if (isDecsetInternalBitSet(DECSET_BIT_SEND_FOCUS_EVENTS))
+            mSession.write(hasFocus ? "\033[I" : "\033[O");
+    }
+
+    /** If the terminal currently has focus, as last set by {@link #onFocusChanged(boolean)}. */
+    public boolean hasFocus() {
+        return mHasFocus;
     }
 
     /** If DECSET 2004 is set, prefix paste with "\033[200~" and suffix with "\033[201~". */
