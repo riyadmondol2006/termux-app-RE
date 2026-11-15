@@ -4,8 +4,13 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
+import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.termux.shared.R;
 
 public class ThemeUtils {
 
@@ -81,6 +86,26 @@ public class ThemeUtils {
         int color = typedArray.getColor(0, def);
         typedArray.recycle();
         return color;
+    }
+
+
+
+    /**
+     * Get a {@link Context} that can be used to create Material 3 components, like dialogs with
+     * {@link com.google.android.material.dialog.MaterialAlertDialogBuilder}, which require a
+     * Material Components theme. If the theme of {@code context} is not one, like for an app
+     * using termux-shared with its own theme, then it is wrapped with the
+     * {@link R.style#Theme_BaseActivity_DayNight_NoActionBar} theme.
+     *
+     * @param context The {@link Context} to check. It should be an {@link Activity} {@link Context}
+     *                if it is to be used for dialogs.
+     * @return Returns the {@code context} itself or the wrapped {@link Context}.
+     */
+    public static Context getMaterialThemedContext(@NonNull Context context) {
+        TypedValue value = new TypedValue();
+        if (context.getTheme().resolveAttribute(com.google.android.material.R.attr.colorSurface, value, true))
+            return context;
+        return new ContextThemeWrapper(context, R.style.Theme_BaseActivity_DayNight_NoActionBar);
     }
 
 }

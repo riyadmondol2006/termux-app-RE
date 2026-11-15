@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+     Overrides the androidx.preference default, so that preferences without icons are not indented
+     by an empty icon space, like Material 3 lists.
+    -->
+    <bool name="config_materialPreferenceIconSpaceReserved">false</bool>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+     TermuxActivity base theme with the system splash screen (Android 12+) using the launcher icon
+     background colour, so that only the icon foreground is visible on it.
+    -->
+    <style name="Base.Theme.TermuxActivity" parent="Theme.TermuxApp.DayNight.NoActionBar">
+        <item name="android:windowSplashScreenBackground">@color/termux_brand_slate</item>
+    </style>
+</resources>

@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:android="http://schemas.android.com/apk/res/android">
+<resources>
 
-    <style name="TermuxAlertDialogStyle" parent="@android:style/Theme.Material.Light.Dialog.Alert">
-        <!-- Seen in buttons on alert dialog: -->
-        <item name="android:colorAccent">#212121</item>
+    <!--
+     Material 3 preference theme for SettingsActivity. Uses MaterialSwitch for switch preferences.
+     https://developer.android.com/develop/ui/views/components/settings
+    -->
+    <style name="PreferenceThemeOverlay.TermuxApp" parent="@style/PreferenceThemeOverlay">
+        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.TermuxApp</item>
+        <item name="preferenceCategoryTitleTextAppearance">?attr/textAppearanceTitleSmall</item>
+        <item name="preferenceCategoryTitleTextColor">?attr/colorPrimary</item>
     </style>
 
-    <style name="TermuxActivity.Drawer.ButtonBarStyle.Light" parent="@style/Widget.MaterialComponents.Button.TextButton">
-        <item name="android:textColor">@color/black</item>
-    </style>
-
-    <style name="TermuxActivity.Drawer.ButtonBarStyle.Dark" parent="@style/Widget.MaterialComponents.Button.TextButton">
-        <item name="android:textColor">@color/white</item>
+    <style name="Preference.SwitchPreferenceCompat.TermuxApp" parent="@style/Preference.SwitchPreferenceCompat.Material">
+        <item name="android:widgetLayout">@layout/preference_widget_material_switch</item>
     </style>
 
 </resources>

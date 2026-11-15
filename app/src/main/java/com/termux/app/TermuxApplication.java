@@ -1,8 +1,15 @@
 package com.termux.app;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
+import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.google.android.material.color.DynamicColors;
+import com.google.android.material.color.DynamicColorsOptions;
 import com.termux.BuildConfig;
 import com.termux.shared.errors.Error;
 import com.termux.shared.logger.Logger;
@@ -46,6 +53,12 @@ public class TermuxApplication extends Application {
         // Set NightMode.APP_NIGHT_MODE
         TermuxThemeUtils.setAppNightMode(properties.getNightMode());
 
+        // Use Material You dynamic colors from the wallpaper for the app UI on Android 12+, unless
+        // disabled with the `dynamic-colors` property. The precondition is checked whenever an
+        // activity is created, so a changed property applies to activities recreated after
+        // `termux-reload-settings`. The DayNight overlay follows the night mode of each activity.
+        setDynamicColors();
+
         // Check and create termux files directory. If failed to access it like in case of secondary
         // user or external sd card installation, then don't run files directory related code
         Error error = TermuxFileUtils.isTermuxFilesDirectoryAccessible(this, true, true);
@@ -71,6 +84,39 @@ public class TermuxApplication extends Application {
         if (isTermuxFilesDirectoryAccessible) {
             TermuxShellEnvironment.writeEnvironmentToFile(this);
         }
+    }
+
+    private void setDynamicColors() {
+        if (!DynamicColors.isDynamicColorAvailable()) return;
+
+        DynamicColorsOptions options = new DynamicColorsOptions.Builder()
+            .setThemeOverlay(com.google.android.material.R.style.ThemeOverlay_Material3Expressive_DynamicColors_DayNight)
+            .setPrecondition((activity, theme) -> {
+                TermuxAppSharedProperties appProperties = TermuxAppSharedProperties.getProperties();
+                return appProperties == null || appProperties.isUsingDynamicColors();
+            })
+            .build();
+
+        // Applied before Activity.onCreate().
+        DynamicColors.applyToActivitiesIfAvailable(this, options);
+
+        // Apply again after Activity.onCreate(), so that it is also applied to the theme of the
+        // window decor view, which only exists after setContentView() and is used for the
+        // dialogs of context menus, like the terminal context menu.
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityPostCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+                DynamicColors.applyToActivityIfAvailable(activity, options);
+            }
+
+            @Override public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {}
+            @Override public void onActivityStarted(@NonNull Activity activity) {}
+            @Override public void onActivityResumed(@NonNull Activity activity) {}
+            @Override public void onActivityPaused(@NonNull Activity activity) {}
+            @Override public void onActivityStopped(@NonNull Activity activity) {}
+            @Override public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {}
+            @Override public void onActivityDestroyed(@NonNull Activity activity) {}
+        });
     }
 
     public static void setLogConfig(Context context) {

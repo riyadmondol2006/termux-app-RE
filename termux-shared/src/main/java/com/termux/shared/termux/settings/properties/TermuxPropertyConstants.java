@@ -83,6 +83,7 @@ import java.util.Set;
  *
  * - 0.19.0 (2026-11-15)
  *      - Add `KEY_DISABLE_TERMINAL_SESSION_TITLE_CHANGE_TOAST`.
+ *      - Add `KEY_USE_DYNAMIC_COLORS`.
  */
 
 /**
@@ -156,6 +157,12 @@ public final class TermuxPropertyConstants {
 
     /** Defines the key for whether to use ctrl space workaround to fix the issue where ctrl+space does not work on some ROMs */
     public static final String KEY_USE_CTRL_SPACE_WORKAROUND =  "ctrl-space-workaround"; // Default: "ctrl-space-workaround"
+
+
+
+    /** Defines the key for whether to use Material You dynamic colors from the wallpaper for the
+     * app UI on Android 12+. The terminal colors are not affected. */
+    public static final String KEY_USE_DYNAMIC_COLORS =  "dynamic-colors"; // Default: "dynamic-colors"
 
 
 
@@ -408,6 +415,7 @@ public final class TermuxPropertyConstants {
         KEY_RUN_TERMUX_AM_SOCKET_SERVER,
         KEY_TERMINAL_ONCLICK_URL_OPEN,
         KEY_USE_CTRL_SPACE_WORKAROUND,
+        KEY_USE_DYNAMIC_COLORS,
         KEY_USE_FULLSCREEN,
         KEY_USE_FULLSCREEN_WORKAROUND,
         TermuxConstants.PROP_ALLOW_EXTERNAL_APPS,
@@ -467,7 +475,8 @@ public final class TermuxPropertyConstants {
      */
     public static final Set<String> TERMUX_DEFAULT_TRUE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST = new HashSet<>(Arrays.asList(
         KEY_EXTRA_KEYS_TEXT_ALL_CAPS,
-        KEY_RUN_TERMUX_AM_SOCKET_SERVER
+        KEY_RUN_TERMUX_AM_SOCKET_SERVER,
+        KEY_USE_DYNAMIC_COLORS
     ));
 
     /** Defines the set for keys loaded by termux that have default inverted boolean behaviour with false as default.

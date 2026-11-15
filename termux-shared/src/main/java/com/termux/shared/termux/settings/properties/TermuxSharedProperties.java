@@ -622,6 +622,10 @@ public abstract class TermuxSharedProperties {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_USE_CTRL_SPACE_WORKAROUND, true);
     }
 
+    public boolean isUsingDynamicColors() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_USE_DYNAMIC_COLORS, true);
+    }
+
     public boolean isUsingFullScreen() {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_USE_FULLSCREEN, true);
     }

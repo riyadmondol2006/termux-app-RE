@@ -2,7 +2,6 @@ package com.termux.app;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -65,6 +64,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.Arrays;
 
@@ -736,7 +737,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void showKillSessionDialog(TerminalSession session) {
         if (session == null) return;
 
-        final AlertDialog.Builder b = new AlertDialog.Builder(this);
+        final com.google.android.material.dialog.MaterialAlertDialogBuilder b = new MaterialAlertDialogBuilder(this);
         b.setIcon(android.R.drawable.ic_dialog_alert);
         b.setMessage(R.string.title_confirm_kill_process);
         b.setPositiveButton(android.R.string.yes, (dialog, id) -> {
@@ -765,7 +766,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         } catch (ActivityNotFoundException | IllegalArgumentException e) {
             // The startActivity() call is not documented to throw IllegalArgumentException.
             // However, crash reporting shows that it sometimes does, so catch it here.
-            new AlertDialog.Builder(this).setMessage(getString(R.string.error_styling_not_installed))
+            new MaterialAlertDialogBuilder(this).setMessage(getString(R.string.error_styling_not_installed))
                 .setPositiveButton(R.string.action_styling_install,
                     (dialog, which) -> ActivityUtils.startActivity(this, new Intent(Intent.ACTION_VIEW, Uri.parse(TermuxConstants.TERMUX_STYLING_FDROID_PACKAGE_URL))))
                 .setNegativeButton(android.R.string.cancel, null).show();
@@ -841,7 +842,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void showStoragePermissionDeniedDialog() {
         if (isFinishing() || isDestroyed()) return;
         Logger.logInfo(LOG_TAG, "The storage permission has been permanently denied by user");
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
             .setTitle(R.string.title_storage_permission_denied)
             .setMessage(R.string.msg_storage_permission_denied)
             .setPositiveButton(R.string.action_open_app_info, (dialog, which) -> PermissionUtils.openAppDetailsSettings(this))

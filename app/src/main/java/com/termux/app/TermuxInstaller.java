@@ -1,7 +1,6 @@
 package com.termux.app;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.Build;
@@ -12,6 +11,7 @@ import android.system.Os;
 import android.util.Pair;
 import android.view.WindowManager;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.termux.BuildConfig;
 import com.termux.R;
 import com.termux.shared.file.FileUtils;
@@ -374,7 +374,7 @@ final class TermuxInstaller {
     /** Must be called on the main thread. */
     private static void showBootstrapErrorDialog(Activity activity, Runnable whenDone, Runnable whenFailsafeRequested) {
         try {
-            new AlertDialog.Builder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
+            new MaterialAlertDialogBuilder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body)
                 .setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
                     dialog.dismiss();
                     activity.finish();
@@ -397,7 +397,7 @@ final class TermuxInstaller {
 
         activity.runOnUiThread(() -> {
             try {
-                AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+                MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(activity)
                     .setTitle(R.string.bootstrap_error_package_name_mismatch_title)
                     .setMessage(message)
                     .setCancelable(false)
