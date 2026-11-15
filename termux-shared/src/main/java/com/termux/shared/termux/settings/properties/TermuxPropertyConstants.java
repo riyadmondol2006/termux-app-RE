@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 /*
- * Version: v0.19.0
+ * Version: v0.20.0
  * SPDX-License-Identifier: MIT
  *
  * Changelog
@@ -83,6 +83,8 @@ import java.util.Set;
  *
  * - 0.19.0 (2026-11-15)
  *      - Add `KEY_DISABLE_TERMINAL_SESSION_TITLE_CHANGE_TOAST`.
+ *
+ * - 0.20.0 (2026-11-15)
  *      - Add `KEY_USE_DYNAMIC_COLORS`.
  */
 
