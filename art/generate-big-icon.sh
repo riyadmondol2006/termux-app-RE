@@ -1,23 +1,14 @@
 #!/bin/sh
+# Generates the large logo exports:
+# - logo-512.png: used by README.md.
+# - logo-banner.png: 1280x640, for the GitHub social preview.
+# - fastlane/metadata/android/en-US/images/icon.png: 512x512 store icon.
+# - build/logo-round-512.png: round variant (not committed).
 set -e -u
+cd "$(dirname "$0")"
+. ./render-svg.sh
 
-echo "Generating ~/termux-icons/ic_launcher.png..."
-mkdir -p ~/termux-icons/
-
-vector2svg ../app/src/main/res/drawable/ic_launcher.xml ~/termux-icons/ic_launcher.svg
-
-sed -i "" 's/viewBox="0 0 108 108"/viewBox="18 18 72 72"/' ~/termux-icons/ic_launcher.svg
-
-SIZE=512
-rsvg-convert \
-	-w $SIZE \
-	-h $SIZE \
-	-o ~/termux-icons/ic_launcher_$SIZE.png \
-	~/termux-icons/ic_launcher.svg
-
-rsvg-convert \
-	-b black \
-	-w $SIZE \
-	-h $SIZE \
-	-o ~/termux-icons/ic_launcher_square_$SIZE.png \
-	~/termux-icons/ic_launcher.svg
+render_svg logo.svg 512 512 logo-512.png
+render_svg logo-banner.svg 1280 640 logo-banner.png
+render_svg logo.svg 512 512 ../fastlane/metadata/android/en-US/images/icon.png
+render_svg logo-round.svg 512 512 build/logo-round-512.png

@@ -4,25 +4,35 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Keep in sync with non-adaptive ic_launcher.xml -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,38
-                          h6
-                          l12,16
-                          l-12,16
-                          h-6
-                          l12,-16
-                          "
-        />
+    <!--
+        Termux RE adaptive icon foreground: the Termux ">_" prompt with an "RE" mark.
+        Keep in sync with ic_monochrome.xml, ic_service_notification.xml and the
+        art/logo*.svg masters (same path data, same 0.9 scale around the centre).
+        Content stays inside the 66dp safe zone of the 108dp canvas.
+    -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.9"
+        android:scaleY="0.9">
 
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M56,66
-                          h18
-                          v4
-                          h-18
-                          "
-        />
+        <!-- Chevron (Termux prompt). -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27.5,38h6l12,16l-12,16h-6l12,-16z" />
+
+        <!-- Underscore cursor. -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M49.5,66h31v4h-31z" />
+
+        <!-- "RE". -->
+        <path
+            android:fillColor="#FFB000"
+            android:pathData="M49.5,38H61.5L64.5,41V49L61.5,52H57L64.5,62H58.5L54,56V62H49.5Z
+                              M54,42.5V47.5H60V42.5Z
+                              M68,38H80.5V42.5H72.5V47.5H78.5V52H72.5V57.5H80.5V62H68Z" />
+
+    </group>
 
 </vector>

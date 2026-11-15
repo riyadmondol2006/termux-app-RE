@@ -1,9 +1,10 @@
-#!/bin/bash
+#!/bin/sh
+# Generates the Android TV banner from tv-banner.svg:
+# - app/src/main/res/drawable/banner.png: 320x180, used by android:banner.
+# - build/tv-banner.png: 1280x720 store version (same aspect ratio, not committed).
+set -e -u
+cd "$(dirname "$0")"
+. ./render-svg.sh
 
-echo "Generating feature graphics to ~/termux-icons/termux-feature-graphic.png..."
-mkdir -p ~/termux-icons/
-
-# The Android TV banner on google play (1280x720) has same aspect ratio
-# as the banner in the app (320x180).
-rsvg-convert -w 1280 -h 720 tv-banner.svg > ~/termux-icons/tv-banner.png
-rsvg-convert -w  320 -h 180 tv-banner.svg > ../app/src/main/res/drawable/banner.png
+render_svg tv-banner.svg 320 180 ../app/src/main/res/drawable/banner.png "#16191D"
+render_svg tv-banner.svg 1280 720 build/tv-banner.png "#16191D"
