@@ -13,6 +13,7 @@ Layout, the same as the official Termux repositories:
 
     dists/stable/Release                         (InRelease and Release.gpg are added by signing)
     dists/stable/main/binary-<arch>/Packages     (also .gz and .xz)
+    dists/stable/Contents-<arch>.gz              (which package has which file)
     pool/main/<arch>/<package>_<version>_<arch>.deb
 
 Like aptly, which hosts the official repositories, "all" architecture packages are listed in the
@@ -38,6 +39,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import urllib.error
 import urllib.request
@@ -241,6 +243,27 @@ def download_published(url, debs, workdir):
         list(executor.map(download, debs))
 
 
+def file_list(deb):
+    """Returns the paths of the files and symlinks in a .deb, relative to /."""
+    process = subprocess.Popen(["dpkg-deb", "--fsys-tarfile", deb.path], stdout=subprocess.PIPE)
+    paths = []
+    with tarfile.open(fileobj=process.stdout, mode="r|") as tar:
+        for member in tar:
+            if not member.isdir():
+                paths.append(re.sub(r"^\./", "", member.name))
+    if process.wait() != 0:
+        fail("Failed to list the files of " + deb.path)
+    return paths
+
+
+def write_contents(path, debs, file_lists):
+    """Writes a Contents index in the format of the official Termux repositories, which
+    command-not-found and apt-file read: "<path> <package>" lines."""
+    lines = sorted("%s %s" % (file, deb.package) for deb in debs for file in file_lists[deb.filename])
+    with gzip.GzipFile(path, "wb", mtime=0) as f:
+        f.write(("".join(line + "\n" for line in lines)).encode("utf-8"))
+
+
 def write_compressed(path, data):
     with open(path, "wb") as f:
         f.write(data)
@@ -391,11 +414,14 @@ def main():
         shutil.copyfile(deb.path, target)
 
     dist_dir = os.path.join(args.out, "dists", DISTRIBUTION)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        file_lists = dict(zip((d.filename for d in keep), executor.map(file_list, keep)))
     for arch in ARCHITECTURES:
         debs = sorted((d for d in keep if d.architecture in (arch, "all")), key=lambda d: d.package)
         index_dir = os.path.join(dist_dir, COMPONENT, "binary-" + arch)
         os.makedirs(index_dir)
         write_compressed(os.path.join(index_dir, "Packages"), "\n".join(d.stanza() for d in debs).encode("utf-8"))
+        write_contents(os.path.join(dist_dir, "Contents-%s.gz" % arch), debs, file_lists)
         log("%s: %d packages" % (arch, len(debs)))
     write_release(dist_dir, args.origin)
 

@@ -111,7 +111,7 @@ Run the *Build packages* workflow ([`build_packages.yml`](.github/workflows/buil
 - **1 GB.** GitHub Pages sites are limited to 1 GB. The repository has all four architectures, the Publish packages workflow refuses to deploy more than 950 MiB.
 - **Main packages only.** Packages from termux-packages' `x11-packages` and `root-packages` directories are not supported.
 - **Versions** come from termux-packages at the time of the build and can be ahead of or behind the official repositories.
-- **command-not-found** suggests the packages of the official Termux repository that provide a command, like in Termux. Not all of them are in this repository yet.
+- **command-not-found** suggests the packages of this repository that provide a missing command, as listed in its `Contents-<arch>.gz` files when `command-not-found` was built. A build made before the repository had those files suggests the packages of the official Termux repository instead, and `pkg install` fails for those that are not here yet.
 - Right after a publish, GitHub Pages can serve the old index for up to 10 minutes; `pkg update` may report a hash mismatch until then.
 
 To host the repository in a fork: generate a signing key (`gpg --quick-gen-key "<name>" rsa4096 sign never`), replace `apt-repo/termux-re.gpg` and `apt-repo/termux-re.asc` with its public key, store the ASCII armored private key in the `APT_SIGNING_KEY` secret, enable GitHub Pages with *GitHub Actions* as the source, then run *Build packages* and *Build bootstraps* (or *Repackage bootstraps*).

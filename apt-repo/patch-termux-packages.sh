@@ -10,6 +10,8 @@
 #   fails if a repository in repo.json can't be downloaded.
 # - apt: sources.list points at the Termux RE repository.
 # - termux-keyring: also installs the Termux RE repository signing key.
+# - command-not-found: suggests the packages of the Termux RE repository (with
+#   fix-termux-packages.sh).
 # - termux-tools: every mirror file that `pkg` and `termux-change-repo` choose from points at
 #   the Termux RE repository, and `pkg` uses the default one, so mirror selection can't switch
 #   back to the official repositories. Mirror files of other repositories left over from an
@@ -127,5 +129,9 @@ wrap_step packages/termux-tools/build.sh termux_step_post_make_install <<'EOF'
 	fi
 	PREINST
 EOF
+
+### command-not-found
+# Suggest the packages of the Termux RE repository, see fix-termux-packages.sh.
+printf '\n# Termux RE: added by apt-repo/patch-termux-packages.sh.\nTERMUX_RE_COMMAND_NOT_FOUND_REPO="%s"\n' "$REPO_URL" >> packages/command-not-found/build.sh
 
 echo "Configured $(pwd) for package name '$PACKAGE_NAME' and repository '$REPO_URL'"

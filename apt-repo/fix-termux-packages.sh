@@ -16,10 +16,12 @@
 #     dialog sources that termux-tools needs. invisible-island.net is the site it mirrors.
 # - command-not-found builds its database from the Contents-<arch>.gz files of the repositories
 #   in repo.json, of which it only uses files under the build's own prefix, and it needs the
-#   official repository names. It now always uses the official main repository's file list with
-#   the prefix replaced by the build's prefix, so it suggests the same packages as in Termux,
-#   whatever the package name and repo.json. The root and x11 lists are empty, since those
-#   repositories don't exist for other package names.
+#   official repository names. It now uses the file list of the repository in
+#   TERMUX_RE_COMMAND_NOT_FOUND_REPO, which patch-termux-packages.sh sets to the Termux RE
+#   repository, so it only suggests packages that can be installed. Without it, or if that
+#   repository has no file list yet, it uses the official main repository's file list with the
+#   prefix replaced by the build's prefix, so it suggests the same packages as Termux. The root
+#   and x11 lists are empty, since those repositories don't exist for other package names.
 #
 # Usage: fix-termux-packages.sh <termux-packages dir>
 
@@ -106,15 +108,23 @@ grep -q 'termux_re_upstream_termux_step_pre_configure' "$CNF" && fail "$CNF is a
 cat >> "$CNF" <<'EOF'
 
 # Termux RE: added by apt-repo/fix-termux-packages.sh of the Termux RE app repository. Build the
-# database from the official main repository's file list, with the build's prefix.
+# database from the file list of TERMUX_RE_COMMAND_NOT_FOUND_REPO, or of the official main
+# repository with the build's prefix.
 if declare -F termux_step_pre_configure >/dev/null; then eval "termux_re_upstream_$(declare -f termux_step_pre_configure)"; else termux_re_upstream_termux_step_pre_configure() { :; }; fi
 termux_step_pre_configure() {
 	termux_re_upstream_termux_step_pre_configure
 	local dir="$TERMUX_PKG_TMPDIR/termux-re-command-not-found"
 	rm -rf "$dir"
 	mkdir -p "$dir/main/dists/stable" "$dir/empty/dists/stable"
-	termux_download "https://packages-cf.termux.dev/apt/termux-main/dists/stable/Contents-$TERMUX_ARCH.gz" "$dir/official.gz" SKIP_CHECKSUM
-	gzip -dc "$dir/official.gz" | sed "s|^data/data/com\.termux/files/usr/|${TERMUX_PREFIX#/}/|" | gzip -n > "$dir/main/dists/stable/Contents-$TERMUX_ARCH.gz"
+	local contents="dists/stable/Contents-$TERMUX_ARCH.gz"
+	if [ -n "${TERMUX_RE_COMMAND_NOT_FOUND_REPO:-}" ] && \
+			curl -fsSL --retry 3 -o "$dir/main/$contents" "$TERMUX_RE_COMMAND_NOT_FOUND_REPO/$contents?nocache=$RANDOM$RANDOM"; then
+		echo "Using the file list of $TERMUX_RE_COMMAND_NOT_FOUND_REPO"
+	else
+		echo "Using the file list of the official repository"
+		termux_download "https://packages-cf.termux.dev/apt/termux-main/$contents" "$dir/official.gz" SKIP_CHECKSUM
+		gzip -dc "$dir/official.gz" | sed "s|^data/data/com\.termux/files/usr/|${TERMUX_PREFIX#/}/|" | gzip -n > "$dir/main/$contents"
+	fi
 	gzip -n < /dev/null > "$dir/empty/dists/stable/Contents-$TERMUX_ARCH.gz"
 	jq -n --arg main "file://$dir/main" --arg empty "file://$dir/empty" '{
 		"pkg_format": "debian",
