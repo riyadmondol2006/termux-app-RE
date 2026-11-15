@@ -200,4 +200,36 @@ public class KeyHandlerTest extends TestCase {
         assertKeysEquals("\033[3~", KeyHandler.getCode(KeyEvent.KEYCODE_NUMPAD_DOT, 0, false, false));
 	}
 
+	public void testCodePointWithCtrl() {
+		assertEquals(1, KeyHandler.getCodePointWithCtrl('a'));
+		assertEquals(26, KeyHandler.getCodePointWithCtrl('z'));
+		assertEquals(1, KeyHandler.getCodePointWithCtrl('A'));
+		assertEquals(26, KeyHandler.getCodePointWithCtrl('Z'));
+		assertEquals(0, KeyHandler.getCodePointWithCtrl(' '));
+		assertEquals(0, KeyHandler.getCodePointWithCtrl('2'));
+		assertEquals(27, KeyHandler.getCodePointWithCtrl('['));
+		assertEquals(27, KeyHandler.getCodePointWithCtrl('3'));
+		assertEquals(28, KeyHandler.getCodePointWithCtrl('\\'));
+		assertEquals(28, KeyHandler.getCodePointWithCtrl('4'));
+		assertEquals(29, KeyHandler.getCodePointWithCtrl(']'));
+		assertEquals(29, KeyHandler.getCodePointWithCtrl('5'));
+		assertEquals(30, KeyHandler.getCodePointWithCtrl('^'));
+		assertEquals(30, KeyHandler.getCodePointWithCtrl('6'));
+		assertEquals(31, KeyHandler.getCodePointWithCtrl('_'));
+		assertEquals(31, KeyHandler.getCodePointWithCtrl('7'));
+		assertEquals(31, KeyHandler.getCodePointWithCtrl('/'));
+		assertEquals(127, KeyHandler.getCodePointWithCtrl('8'));
+
+		// Ctrl+@ should send NUL and Ctrl+? should send DEL (termux/termux-app#3896).
+		assertEquals(0, KeyHandler.getCodePointWithCtrl('@'));
+		assertEquals(127, KeyHandler.getCodePointWithCtrl('?'));
+
+		// Code points not modified by ctrl.
+		assertEquals('1', KeyHandler.getCodePointWithCtrl('1'));
+		assertEquals('9', KeyHandler.getCodePointWithCtrl('9'));
+		assertEquals('~', KeyHandler.getCodePointWithCtrl('~'));
+		assertEquals(0xE9, KeyHandler.getCodePointWithCtrl(0xE9));
+		assertEquals(0x1F600, KeyHandler.getCodePointWithCtrl(0x1F600));
+	}
+
 }
