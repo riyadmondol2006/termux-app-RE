@@ -52,6 +52,7 @@ The amber and slate colors of the icon are used on Android 11 and older, and whe
 - **CI** builds and tests on every push, signs release APKs with your own key, publishes tagged versions as releases, and can build bootstraps for the fork's package name.
 - **New icon**, so you can tell it apart from Termux on the home screen.
 - **Material 3 Expressive UI** for the drawer, settings and dialogs, with Material You dynamic colors on Android 12+ (set `dynamic-colors = false` in `~/.termux/termux.properties` for the fixed amber and slate scheme of the icon). The terminal keeps its own colors from `colors.properties`.
+- **Update notices.** Release builds check this repository's GitHub releases once a day and offer the APK for the device when a newer version is out (*Settings → Check for updates*). See [Updating and uninstalling](#updating-and-uninstalling).
 - **Permissions screen** under *Settings → Termux → Permissions* for the permissions Android 13+ makes easy to lose: notifications (the session notification with *Exit* and *Acquire wakelock*), *Display over other apps* (needed for `am start`/`termux-open` from the background), running in the background, and file access. If storage access was denied permanently, `termux-setup-storage` now explains how to grant it from App info.
 - **Bug fixes** for open upstream issues, listed below.
 
@@ -94,7 +95,7 @@ If you need the official repositories instead, build with `-PtermuxPackageName=c
 
 Requirements: Android 7.0 or newer.
 
-- **Releases:** pushing a `v*` tag publishes the signed release APKs to [GitHub Releases](https://github.com/riyadmondol2006/termux-app-RE/releases).
+- **Releases:** signed release APKs are published on [GitHub Releases](https://github.com/riyadmondol2006/termux-app-RE/releases). See [Releases](#releases) for how they are made.
 - **Every push:** release and debug APKs are uploaded under *Artifacts* on the run in [GitHub Actions](https://github.com/riyadmondol2006/termux-app-RE/actions); you must be logged into GitHub to download them. Release APKs are signed with the fork's release key. Debug APKs are signed with the publicly known test key `app/testkey_untrusted.jks` inherited from upstream. Anyone can sign an APK with that key and it will install as an update over a debug build, so only install debug APKs that come from this repository.
 
 ### Which APK to download
@@ -112,6 +113,8 @@ APKs are split by CPU architecture (ABI), plus one universal APK that contains a
 To check a device's ABI, run `adb shell getprop ro.product.cpu.abi`.
 
 ### Updating and uninstalling
+
+Release builds check for a new release when the terminal is opened, at most once a day, and show a dialog with the release notes. *Download* opens the release APK for the device's ABI in the browser; install it to update. *Skip this version* hides the notice until the next release. The check only requests this repository's release list from the GitHub API, with the app name and version as the user agent, and sends nothing else. Turn it off, or check right away, under *Settings → Check for updates*. Debug builds only check when you ask, since release APKs can't be installed over them.
 
 Android only installs an update that is signed with the same key as the installed app. Release and debug builds use different keys, so to switch between them you have to uninstall first, which deletes the app's data. [Back up](https://wiki.termux.com/wiki/Backing_up_Termux) your home directory before you uninstall. Uninstalling Termux RE doesn't affect an installed official Termux, and the other way round.
 
@@ -175,7 +178,7 @@ To sign release builds locally, pass the keystore with the `termuxReleaseKeystor
 
 ### CI and release signing
 
-GitHub Actions runs the unit tests and builds release and debug APKs on every push and pull request ([`build.yml`](.github/workflows/build.yml)). Pushing a tag like `v0.119.0` also publishes a GitHub release. Release APKs are signed with a keystore that is stored in four repository secrets; without them (for example in pull requests from forks) release APKs are unsigned and tags are not published:
+GitHub Actions runs the unit tests and builds release and debug APKs on every push and pull request ([`build.yml`](.github/workflows/build.yml)). Releases are published by the same workflow, see [Releases](#releases). Release APKs are signed with a keystore that is stored in four repository secrets; without them (for example in pull requests from forks) release APKs are unsigned and tags are not published:
 
 | Secret | Value |
 | --- | --- |
@@ -204,6 +207,23 @@ gh secret set KEY_PASSWORD
 ```
 
 Keep the keystore and its password backed up somewhere safe, and never commit them. If you lose the key, users can't update to your new builds without uninstalling first.
+
+### Releases
+
+The app version comes from git tags, so it never has to be edited by hand:
+
+- A release is the tag `v<major>.<minor>.<patch>` (or `v<major>.<minor>.<patch>-<prerelease>`, published as a pre-release).
+- Builds of a tagged commit get its version, like `1.2.0`. Later commits get the newest tag plus build metadata, like `1.2.0+3.g1a2b3c4` locally and `1.2.0+1a2b3c4` in CI, which counts as the same version for updates. Without git or tags, the fallback in [`app/build.gradle`](app/build.gradle) (`1.0.0`) is used.
+- The `versionCode` is computed from the version as `major * 1000000 + minor * 1000 + patch`, so every release can be installed over the previous one. The `TERMUX_APP_VERSION_NAME` and `TERMUX_APP_VERSION_CODE` environment variables override both.
+
+To publish a release, open *Actions → Build → Run workflow* on `master` and choose **release**: `patch`, `minor` or `major` bumps that part of the newest release tag (the first release is `1.0.0`), or enter an exact **version**. The workflow runs the tests, builds the APKs with that version, creates the tag on the built commit and publishes the GitHub release with the signed release APKs, their SHA-256 sums and notes generated from the changes since the previous release. With the GitHub CLI:
+
+```sh
+gh workflow run build.yml --ref master -f release=patch
+gh workflow run build.yml --ref master -f version=1.2.0
+```
+
+Pushing a tag yourself (`git tag v1.2.0 && git push origin v1.2.0`) publishes a release the same way. A release is refused if the APKs would be unsigned, or if no `bootstrap-<package name>-*` release exists for the app's package name, since the APKs would then embed the official bootstrap, which doesn't work for it (see [Packages and the bootstrap](#packages-and-the-bootstrap)).
 
 ## Native code
 
