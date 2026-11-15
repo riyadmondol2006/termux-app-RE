@@ -47,6 +47,7 @@ fi
 # Resolve subpackages to the package that builds them, without duplicates.
 declare -a PACKAGES=()
 declare -a UNKNOWN=()
+declare -A NAMES=() # the requested names that each package builds
 for name in "$@"; do
 	pkg=""
 	if [ -f "packages/$name/build.sh" ]; then
@@ -60,6 +61,7 @@ for name in "$@"; do
 		continue
 	fi
 	echo "$name" >> "$ROOTS_FILE"
+	NAMES[$pkg]="${NAMES[$pkg]:-} $name"
 	if [[ " ${PACKAGES[*]} " != *" $pkg "* ]]; then
 		[ "$pkg" != "$name" ] && echo "Building $name through $pkg"
 		PACKAGES+=("$pkg")
@@ -76,7 +78,11 @@ package_version() {
 declare -a BUILT=() SKIPPED=() FAILED=() NOT_STARTED=()
 for pkg in "${PACKAGES[@]}"; do
 	version="$(package_version "$pkg")"
-	if [ "$FORCE" != "true" ] && [ -n "$version" ] && grep -qxF "$pkg $version" <<< "$PUBLISHED"; then
+	published=true
+	for name in ${NAMES[$pkg]}; do
+		grep -qxF "$name $version" <<< "$PUBLISHED" || published=false
+	done
+	if [ "$FORCE" != "true" ] && [ -n "$version" ] && [ "$published" = true ]; then
 		echo "Skipping $pkg $version, it is already in the repository"
 		SKIPPED+=("$pkg $version")
 		continue
