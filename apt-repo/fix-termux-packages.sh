@@ -5,10 +5,13 @@
 # - scripts/build-bootstraps.sh builds packages by name, and some of its names are now
 #   subpackages, like bzip2 of libbz2, which build-package.sh can't build by name. They are
 #   replaced by the package that builds them; their .deb files end up in output/ like before.
-# - git.kernel.org often times out from GitHub Actions runners, for example for the dash
-#   sources. Its snapshots are `git archive | gzip -n` of a tag, so when one can't be downloaded,
-#   termux_download makes it from the kernel.googlesource.com mirror of the repository instead.
-#   It is only used if it has exactly the checksum the package expects.
+# - Source downloads that fail are tried from a second place, and only used if they have exactly
+#   the checksum the package expects:
+#   - git.kernel.org often times out from GitHub Actions runners, for example for the dash
+#     sources. Its snapshots are `git archive | gzip -n` of a tag, so termux_download makes them
+#     from the kernel.googlesource.com mirror of the repository instead.
+#   - downloads.apache.org only has the newest releases, older ones move to archive.apache.org,
+#     for example apr-util 1.6.5, a build dependency of git.
 #
 # Usage: fix-termux-packages.sh <termux-packages dir>
 
@@ -33,20 +36,25 @@ for name in $(grep -oP '^\s*PACKAGES\+=\("\K[a-z0-9][a-z0-9+._-]*(?="\))' "$BOOT
 	echo "Bootstrap package $name is built through $parent"
 done
 
-### git.kernel.org snapshot fallback
+### Source download fallbacks
 DOWNLOAD=scripts/build/termux_download.sh
 grep -q '^termux_download() {' "$DOWNLOAD" || fail "termux_download not found in $DOWNLOAD"
 grep -q 'termux_re_upstream_termux_download' "$DOWNLOAD" && fail "$DOWNLOAD is already patched"
 cat >> "$DOWNLOAD" <<'EOF'
 
 # Termux RE: added by apt-repo/fix-termux-packages.sh of the Termux RE app repository.
-# git.kernel.org often times out from GitHub Actions runners. Its cgit snapshots are
-# `git archive | gzip -n` of a tag, so make one that can't be downloaded from the
-# kernel.googlesource.com mirror instead, and use it only if it has the expected checksum.
+# Sources that can't be downloaded are tried from a second place, see there.
 eval "termux_re_upstream_$(declare -f termux_download)"
 termux_download() {
 	termux_re_upstream_termux_download "$@" && return 0
 	local status=$? url="$1" destination="$2" checksum="${3:-}"
+	if [[ "$checksum" =~ ^[0-9a-f]{64}$ && "$url" =~ ^https://(downloads|www)\.apache\.org/(dist/)?(.+)$ ]]; then
+		echo "Trying the Apache archive instead"
+		termux_re_upstream_termux_download "https://archive.apache.org/dist/${BASH_REMATCH[3]}" "$destination" "$checksum" && return 0
+		return $status
+	fi
+	# git.kernel.org cgit snapshots are `git archive | gzip -n` of a tag: make the snapshot from
+	# the kernel.googlesource.com mirror.
 	if [[ ! "$checksum" =~ ^[0-9a-f]{64}$ ]] || \
 			[[ ! "$url" =~ ^https://git\.kernel\.org/pub/scm/(.+)\.git/snapshot/(([^/]+)-([^/]+))\.tar\.gz$ ]]; then
 		return $status
@@ -76,4 +84,4 @@ termux_download() {
 	return $status
 }
 EOF
-echo "termux_download falls back to kernel.googlesource.com for git.kernel.org snapshots"
+echo "termux_download falls back to kernel.googlesource.com and archive.apache.org"

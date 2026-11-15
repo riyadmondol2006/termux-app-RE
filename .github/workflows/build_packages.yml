@@ -169,11 +169,21 @@ jobs:
             fi
           done
 
+      - name: Collect packages
+        # Artifact file names can't contain ":", which versions with an epoch have. The file
+        # names don't matter, the repository is built from the package metadata.
+        run: |
+          mkdir debs
+          for deb in termux-packages/output/*.deb; do
+            [ -e "$deb" ] && cp "$deb" "debs/$(basename "$deb" | tr ':' '_')"
+          done
+          ls debs | wc -l
+
       - name: Upload packages
         uses: actions/upload-artifact@v7
         with:
           name: debs-${{ matrix.arch }}
-          path: termux-packages/output/*.deb
+          path: debs/*.deb
           if-no-files-found: warn
           retention-days: 14
 
