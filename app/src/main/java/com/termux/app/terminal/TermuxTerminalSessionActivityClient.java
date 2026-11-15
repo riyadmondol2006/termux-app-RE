@@ -381,6 +381,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             TermuxSession newTermuxSession = service.createTermuxSession(null, null, null, workingDirectory, isFailSafe, sessionName);
             if (newTermuxSession == null) return;
 
+            // The service only notifies the sessions list if this client is already set as its
+            // client, which is not the case yet if called from TermuxActivity.onServiceConnected().
+            termuxSessionListNotifyUpdated();
+
             TerminalSession newTerminalSession = newTermuxSession.getTerminalSession();
             setCurrentSession(newTerminalSession);
 
@@ -436,6 +440,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (service == null) return;
 
         int index = service.removeTermuxSession(finishedSession);
+        termuxSessionListNotifyUpdated();
 
         int size = service.getTermuxSessionsSize();
         if (size == 0) {
