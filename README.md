@@ -32,7 +32,7 @@ If you want the official app, install Termux from one of the sources in the [ups
 
 - **App name and package.** The app is called Termux RE and its default package name is `com.termux.re`, so it installs side by side with official Termux. Its files live in `/data/data/com.termux.re/files`, separate from Termux's. The package name is a single Gradle property, `termuxPackageName` in `gradle.properties`.
 - **Android 7.0+ only** (minSdk 24). Only the `apt-android-7` bootstrap variant is built. The old `apt-android-5` variant was dropped: on current Android its APKs only showed the error that the bootstrap variant is not compatible with the Android version.
-- **Toolchain:** compileSdk 37, Android Gradle Plugin 9.5, Gradle 9.9, NDK r30 and Java 17.
+- **Toolchain:** compileSdk 37, Android Gradle Plugin 9.5, Gradle 9.9, NDK r30 and Java 17. The JNI libraries are written in Rust (see [Native code](#native-code)).
 - **targetSdk stays at 28 on purpose.** With targetSdk 29 or higher, Android blocks executing files from the app's data directory (W^X), which Termux depends on: every program under `$PREFIX` is run from there. As a result, Termux RE can't be published on Google Play, which requires a much higher targetSdk.
 - **CI** builds and tests on every push, signs release APKs with your own key, publishes tagged versions as releases, and can build bootstraps for the fork's package name.
 - **New icon**, so you can tell it apart from Termux on the home screen.
@@ -114,6 +114,7 @@ You need:
 - JDK 17 or newer (CI uses JDK 21).
 - The Android SDK with platform 37.
 - The NDK version set as `ndkVersion` in `gradle.properties` (r30).
+- Rust, installed with [rustup](https://rustup.rs). Run `rustup toolchain install` in the repository root to install the toolchain version and Android targets pinned in [`rust-toolchain.toml`](rust-toolchain.toml).
 
 Gradle is provided by the wrapper.
 
@@ -178,7 +179,18 @@ Keep the keystore and its password backed up somewhere safe, and never commit th
 
 ## Native code
 
-> **TODO:** describe the app's native code here.
+The app's two JNI libraries are written in Rust. Both are `no_std` crates that only depend on `libc` and `jni-sys`, keep the exact JNI interface of the C/C++ code they replaced, and are linked with 16 KB page alignment:
+
+| Library | Crate | Does |
+| --- | --- | --- |
+| `libtermux.so` | [`terminal-emulator/src/main/rust`](terminal-emulator/src/main/rust) | Creates the pseudoterminal, forks and execs the shell, resizes the terminal and waits for the process. Only async-signal-safe calls are made in the forked child. Signal dispositions are reset before exec, so programs don't inherit the app's ignored `SIGHUP` and survive exiting the app (upstream [#935](https://github.com/termux/termux-app/issues/935)). |
+| `liblocal-socket.so` | [`termux-shared/src/main/rust`](termux-shared/src/main/rust) | The Unix domain socket server used by `termux-am`, including peer credential checks. It is about 30 KB per ABI instead of about 780 KB for the C++ version, and fixes a buffer overflow on short reads. |
+
+The terminal emulator itself (`TerminalEmulator`, `TerminalBuffer`, `TerminalView`) stays in Java: it is bounds-checked code without memory-safety problems, and the renderer reads the buffer on every frame, which would mean JNI calls per frame from Rust.
+
+`app/src/main/cpp` only embeds the bootstrap zip into `libtermux-bootstrap.so` and is still built with `ndk-build`.
+
+Gradle runs cargo through [`gradle/rust-jni.gradle`](gradle/rust-jni.gradle) with the NDK's clang as linker, and `./gradlew test` also runs the crates' host unit tests.
 
 ## Debugging and reporting issues
 
