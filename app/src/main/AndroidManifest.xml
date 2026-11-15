@@ -21,12 +21,33 @@
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 17 (API 37) local network protection requires the ACCESS_LOCAL_NETWORK runtime
+    permission for LAN access, like for ssh and servers. Apps targeting API < 37 that do not declare
+    it get it granted automatically. Do NOT declare it while targeting API < 37, since then it
+    becomes a normal runtime permission that is not granted, and LAN access is blocked. Declare and
+    request it at runtime only when targetSdkVersion is raised to 37 or higher. -->
+
+    <!-- Shared storage for `termux-setup-storage`. While targetSdkVersion is < 30, the legacy
+    READ/WRITE_EXTERNAL_STORAGE permissions give full shared storage access on all Android versions,
+    including Android 13+ where they are split into READ_MEDIA_* by the system for apps targeting
+    API < 33. Do NOT add `android:maxSdkVersion` to them while targeting API < 30, as that would
+    remove the permissions on newer Android versions and break `termux-setup-storage`.
+    MANAGE_EXTERNAL_STORAGE ("All files access") is requested instead when targeting API >= 30.
+    READ_MEDIA_* are not declared since Termux needs access to all files, not just media files. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Android 13+ runtime permission for notifications, like the TermuxService notification with
+    "Exit" and "Acquire wakelock" actions. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14+ foreground service type permission for TermuxService and RunCommandService. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_LOGS" />
@@ -193,17 +214,30 @@
             android:exported="false" />
 
 
+        <!-- The foreground service keeps user started terminal sessions and commands (and all their
+        child processes) alive while the app is in background, for as long as the user wants. None
+        of the specific foreground service types fit a general purpose terminal, so `specialUse`
+        is used, which also has no time limit unlike `dataSync` and `shortService`. -->
         <service
             android:name=".app.TermuxService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Terminal emulator: keeps user started terminal sessions and commands, and their processes, running in the background until the user exits them." />
+        </service>
 
         <service
             android:name=".app.RunCommandService"
             android:exported="true"
+            android:foregroundServiceType="specialUse"
             android:permission="${TERMUX_PACKAGE_NAME}.permission.RUN_COMMAND">
             <intent-filter>
                 <action android:name="${TERMUX_PACKAGE_NAME}.RUN_COMMAND" />
             </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Terminal emulator: briefly runs in foreground to pass commands sent by other apps with the RUN_COMMAND permission to the terminal service." />
         </service>
 
 
