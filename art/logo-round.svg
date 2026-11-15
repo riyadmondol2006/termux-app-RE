@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Termux RE logo (round). Mark coordinates match app/src/main/res/drawable/ic_foreground.xml. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="512" height="512">
+<title>Termux RE</title>
+<circle cx="54" cy="54" r="36" fill="#16191D"/>
+<g transform="matrix(0.9 0 0 0.9 5.4 5.4)">
+  <path fill="#FFFFFF" d="M27.5,38h6l12,16l-12,16h-6l12,-16z"/>
+  <path fill="#FFFFFF" d="M49.5,66h31v4h-31z"/>
+  <path fill="#FFB000" d="M49.5,38H61.5L64.5,41V49L61.5,52H57L64.5,62H58.5L54,56V62H49.5Z M54,42.5V47.5H60V42.5Z M68,38H80.5V42.5H72.5V47.5H78.5V52H72.5V57.5H80.5V62H68Z"/>
+</g>
+</svg>

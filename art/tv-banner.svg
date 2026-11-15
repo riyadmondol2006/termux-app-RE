@@ -1,23 +1,19 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
-  This is a tv banner graphic:
-    https://developer.android.com/design/tv/patterns.html#banner
-  - Size: 320 x 180 px, xhdpi resource in app
-  - Size: 1280 x 720 in google play.
-  - Text must be included in the image. If your app is available in more
-    than one language, you must provide versions of the banner image for each supported language.
- -->
-<svg xmlns="http://www.w3.org/2000/svg"
-     version="1.1"
-     viewBox="0 0 1280 720">
-
- <rect fill="#0" width="100%" height="100%" />
-
- <text id="shell_prompt"
-       x="200"
-       y="410"
-       style="fill: #ffffff; font-size: 210px; font-family: Menlo, Monospace;">
-   <tspan>Termux  ▌</tspan>
- </text>
-
+  Android TV banner: https://developer.android.com/design/ui/tv/guides/system/tv-app-icon-guidelines
+  - 320x180 px xhdpi resource in the app (app/src/main/res/drawable/banner.png), 1280x720 for stores.
+  - The app name must be included as text.
+  "Termux" is JetBrains Mono ExtraBold (SIL OFL 1.1) converted to outlines.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+<title>Termux RE</title>
+<rect width="1280" height="720" fill="#16191D"/>
+<g transform="matrix(4.688 0 0 4.688 100.34 106.875)">
+<path fill="#FFFFFF" d="M27.5,38h6l12,16l-12,16h-6l12,-16z"/>
+<path fill="#FFFFFF" d="M57.582 62H62.514V42.438H68.596V38H51.5V42.438H57.582ZM78.821 62.329C82.733 62.329 85.725 60.225 86.415 57.068H81.582C81.385 57.956 80.201 58.384 78.821 58.384C76.684 58.384 75.599 57.364 75.599 55.096V54.175H86.678V50.822C86.678 46.482 83.621 43.589 78.821 43.589C73.988 43.589 70.897 46.482 70.897 50.822V55.096C70.897 59.436 73.988 62.329 78.821 62.329ZM75.599 50.822C75.599 48.586 76.651 47.238 78.821 47.238C80.958 47.238 81.977 48.521 81.977 50.756V51.184L75.599 51.249ZM90.492 62H95.423V51.216C95.423 49.079 96.475 47.863 98.316 47.863C100.158 47.863 101.21 48.948 101.21 50.822V52.301H106.141V50.493C106.141 46.186 103.971 43.589 100.322 43.589C97.626 43.589 95.785 45.003 95.259 47.337V43.918H90.492ZM107.653 62H111.895V48.751C111.895 47.732 112.322 47.173 113.144 47.173C113.966 47.173 114.327 47.732 114.327 48.751V62H118.207V48.751C118.207 47.732 118.568 47.173 119.39 47.173C120.212 47.173 120.64 47.732 120.64 48.751V62H124.881V48.192C124.881 45.496 123.204 43.589 121.067 43.589C119.358 43.589 118.141 44.773 117.977 46.614C117.648 44.805 116.366 43.589 114.788 43.589C113.045 43.589 111.895 44.871 111.763 46.712H111.697V43.918H107.653ZM135.007 62.329C139.807 62.329 142.766 59.567 142.766 54.964V43.918H137.834V54.932C137.834 56.97 136.815 58.055 135.007 58.055C133.166 58.055 132.179 56.97 132.179 54.932V43.918H127.248V54.964C127.248 59.534 130.141 62.329 135.007 62.329ZM144.738 62H150.229L152.892 57.726C153.253 57.134 153.582 56.345 153.747 55.918C153.911 56.345 154.273 57.134 154.634 57.726L157.264 62H162.755L156.541 52.63L162.327 43.918H156.837L154.601 47.534C154.24 48.126 153.911 48.915 153.747 49.342C153.582 48.915 153.253 48.126 152.892 47.534L150.656 43.918H145.166L150.985 52.63Z"/>
+<g transform="translate(122.255 0)">
+  <path fill="#FFFFFF" d="M49.5,66h31v4h-31z"/>
+  <path fill="#FFB000" d="M49.5,38H61.5L64.5,41V49L61.5,52H57L64.5,62H58.5L54,56V62H49.5Z M54,42.5V47.5H60V42.5Z M68,38H80.5V42.5H72.5V47.5H78.5V52H72.5V57.5H80.5V62H68Z"/>
+</g>
+</g>
 </svg>

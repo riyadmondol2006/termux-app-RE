@@ -3,22 +3,28 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+
     <!--
-        Updated notification icon compliant with system icons guidelines
-        https://material.io/design/iconography/system-icons.html
+        Notification icon: white silhouette of the Termux RE mark, fitted to the 20dp live area
+        of a 24dp system icon (https://m3.material.io/styles/icons/designing-icons).
+        The path data is the same as ic_foreground.xml (108 grid); the group maps the mark's
+        53x32 bounding box (27.5,38)-(80.5,70) to (2,5.96)-(22,18.04).
     -->
-
-    <group>
-        <clip-path
-            android:pathData="M0,0h24v24h-24z"/>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.37736"
+        android:scaleY="0.37736"
+        android:translateX="-42"
+        android:translateY="-42">
 
         <path
-            android:pathData="M5,4H2L8,12L2,20H5L11,12L5,4Z"
-            android:fillColor="#ffffff"/>
-
-        <path
-            android:pathData="M13,18H22V20H13V18Z"
-            android:fillColor="#ffffff"/>
+            android:fillColor="#FFFFFF"
+            android:pathData="M27.5,38h6l12,16l-12,16h-6l12,-16z
+                              M49.5,66h31v4h-31z
+                              M49.5,38H61.5L64.5,41V49L61.5,52H57L64.5,62H58.5L54,56V62H49.5Z
+                              M54,42.5V47.5H60V42.5Z
+                              M68,38H80.5V42.5H72.5V47.5H78.5V52H72.5V57.5H80.5V62H68Z" />
 
     </group>
 </vector>
