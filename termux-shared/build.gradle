@@ -12,11 +12,6 @@ android {
     defaultConfig {
         minSdk = project.properties.minSdkVersion.toInteger()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        externalNativeBuild {
-            ndkBuild {
-                cppFlags ''
-            }
-        }
     }
 
     buildTypes {
@@ -32,12 +27,6 @@ android {
 
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    externalNativeBuild {
-        ndkBuild {
-            path = file('src/main/cpp/Android.mk')
-        }
     }
 
     publishing {
@@ -87,4 +76,12 @@ afterEvaluate {
             }
         }
     }
+}
+
+// liblocal-socket.so, built from the Rust crate in src/main/rust.
+apply from: rootProject.file("gradle/rust-jni.gradle")
+rustJni {
+    crateDirectory = file("src/main/rust")
+    cargoLibraryName = "local_socket"
+    libraryName = "local-socket"
 }
