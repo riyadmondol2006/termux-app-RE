@@ -12,8 +12,8 @@
 #   the job time limit.
 #
 # Built .deb files end up in output/. Writes a summary in markdown to $SUMMARY_FILE and the
-# packages that were asked for to $ROOTS_FILE if set: those named, and for a package all its
-# subpackages except -static ones. The repository keeps them with their runtime dependencies.
+# packages that were asked for to $ROOTS_FILE if set, which the repository keeps with their
+# runtime dependencies. Name subpackages, like python-ensurepip-wheels, to have them kept too.
 # Exits with 1 if a package failed or was not built in time.
 #
 # Usage: build-packages.sh <arch> <repository url> <deadline as unix time> <force: true|false> <package>...
@@ -60,13 +60,6 @@ for name in "$@"; do
 		continue
 	fi
 	echo "$name" >> "$ROOTS_FILE"
-	if [ "$pkg" = "$name" ]; then
-		for subpackage in "packages/$pkg"/*.subpackage.sh; do
-			[ -e "$subpackage" ] || continue
-			subpackage="$(basename "$subpackage" .subpackage.sh)"
-			[[ "$subpackage" == *-static ]] || echo "$subpackage" >> "$ROOTS_FILE"
-		done
-	fi
 	if [[ " ${PACKAGES[*]} " != *" $pkg "* ]]; then
 		[ "$pkg" != "$name" ] && echo "Building $name through $pkg"
 		PACKAGES+=("$pkg")

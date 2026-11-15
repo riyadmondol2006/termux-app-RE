@@ -1,8 +1,9 @@
-# Packages the "Build packages" workflow builds when it is started without a package list.
-# Names are termux-packages package or subpackage names (a subpackage, like curl, is built
-# through the package it comes from, like libcurl). Their dependencies are built and published
-# too. Packages whose current version is already in the repository are skipped, so running the
-# workflow again only builds what changed in termux-packages.
+# Packages the "Build packages" workflow builds when it is started without a package list, and
+# that the repository always keeps. Names are termux-packages package or subpackage names (a
+# subpackage, like curl, is built through the package it comes from, like libcurl). Their runtime
+# dependencies are published too, other subpackages only when they are listed. Packages whose
+# current version is already in the repository are skipped, so running the workflow again only
+# builds what changed in termux-packages.
 
 # Everything in the bootstrap, so `pkg upgrade` and `pkg reinstall` work for it, and the apt,
 # termux-keyring and termux-tools packages that point at this repository.
@@ -10,8 +11,8 @@ apt bash bzip2 command-not-found coreutils dash debianutils diffutils dos2unix e
 gawk grep gzip inetutils less lsof nano net-tools patch procps psmisc sed tar termux-core
 termux-exec termux-keyring termux-tools unzip util-linux
 
-# Programming
-python python-pip make
+# Programming (python-ensurepip-wheels for python -m venv)
+python python-pip python-ensurepip-wheels make
 # Version control and remote access
 git openssh rsync
 # Editors, shells and terminal tools (nano is in the bootstrap)
