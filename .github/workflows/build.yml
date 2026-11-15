@@ -3,6 +3,12 @@ name: Build
 # Builds, tests and uploads APKs on every push and pull request. Pushing a "v*" tag also
 # publishes a GitHub release with the signed release APKs.
 #
+# To publish a release without making a tag by hand, run this workflow from the Actions tab and
+# choose "release": patch, minor or major bumps that part of the newest "v*" tag (the first
+# release uses the fallback version in app/build.gradle), or enter an exact "version". The
+# workflow then builds that version, creates the "v<version>" tag on the built commit and
+# publishes the release. The app version is always taken from the tag, see app/build.gradle.
+#
 # Release APKs are signed with the KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and
 # KEY_PASSWORD repository secrets. Builds without them (like pull requests from forks)
 # produce unsigned release APKs.
@@ -13,6 +19,16 @@ on:
     tags: [ 'v*' ]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Publish a release by bumping the newest v* tag (none: only build)'
+        type: choice
+        options: [ 'none', 'patch', 'minor', 'major' ]
+        default: 'none'
+      version:
+        description: 'Or publish a release with this exact version, like 1.2.0 or 1.3.0-beta.1'
+        type: string
+        required: false
 
 concurrency:
   group: build-${{ github.ref }}
@@ -28,6 +44,9 @@ jobs:
     steps:
       - name: Clone repository
         uses: actions/checkout@v7
+        with:
+          # The app version comes from the newest "v*" tag, see app/build.gradle.
+          fetch-depth: 0
 
       - name: Setup java 21
         uses: actions/setup-java@v6
@@ -56,6 +75,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE: ${{ inputs.release }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
 
@@ -63,18 +84,47 @@ jobs:
             GITHUB_SHA="${{ github.event.pull_request.head.sha }}" # Do not use the merge commit
           fi
 
-          VERSION_NAME="$(sed -n -E 's/^\s+versionName = "([^"]+)"$/\1/p' app/build.gradle | head -n 1)"
-          test -n "$VERSION_NAME" || { echo "Failed to read versionName from app/build.gradle"; exit 1; }
+          RELEASE_VERSION=""
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            TAG_VERSION_NAME="${GITHUB_REF#refs/tags/v}"
-            APK_VERSION_TAG="v$TAG_VERSION_NAME"
+            RELEASE_VERSION="${GITHUB_REF#refs/tags/v}"
+          elif [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ] && [ -n "$INPUT_VERSION" ]; then
+            RELEASE_VERSION="${INPUT_VERSION#v}"
+          elif [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ] && [ "$INPUT_RELEASE" != "none" ]; then
+            LATEST_VERSION="$(git tag --list 'v[0-9]*' | sed 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+            if [ -z "$LATEST_VERSION" ]; then
+              # First release: the fallback version of app/build.gradle, as there is no tag yet.
+              RELEASE_VERSION="$(./gradlew -q :app:versionName | tail -n 1)"
+              RELEASE_VERSION="${RELEASE_VERSION%%+*}"
+            else
+              IFS=. read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
+              case "$INPUT_RELEASE" in
+                patch) PATCH=$((PATCH + 1)) ;;
+                minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+                major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              esac
+              RELEASE_VERSION="$MAJOR.$MINOR.$PATCH"
+            fi
+          fi
+
+          if [ -n "$RELEASE_VERSION" ]; then
+            if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "Invalid release version '$RELEASE_VERSION', expected major.minor.patch(-prerelease)"; exit 1
+            fi
+            if [[ "$GITHUB_REF" != refs/tags/v* ]] && git rev-parse -q --verify "refs/tags/v$RELEASE_VERSION" >/dev/null; then
+              echo "The tag v$RELEASE_VERSION already exists"; exit 1
+            fi
+            TAG_VERSION_NAME="$RELEASE_VERSION"
             echo "IS_RELEASE=true" >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=v$RELEASE_VERSION" >> "$GITHUB_ENV"
           else
+            # The newest "v*" tag, or the fallback version of app/build.gradle if there is none.
             # The "+" build metadata keeps semantic versioning precedence intact.
-            TAG_VERSION_NAME="$VERSION_NAME+${GITHUB_SHA:0:7}"
-            APK_VERSION_TAG="v$TAG_VERSION_NAME"
+            VERSION_NAME="$(./gradlew -q :app:versionName | tail -n 1)"
+            test -n "$VERSION_NAME" || { echo "Failed to get the versionName from app/build.gradle"; exit 1; }
+            TAG_VERSION_NAME="${VERSION_NAME%%+*}+${GITHUB_SHA:0:7}"
             echo "IS_RELEASE=false" >> "$GITHUB_ENV"
           fi
+          APK_VERSION_TAG="v$TAG_VERSION_NAME"
           echo "TERMUX_APP_VERSION_NAME=$TAG_VERSION_NAME" >> "$GITHUB_ENV"
           echo "APK_VERSION_TAG=$APK_VERSION_TAG" >> "$GITHUB_ENV"
 
@@ -173,8 +223,17 @@ jobs:
             echo "Refusing to publish a release with unsigned APKs. Add the signing secrets."
             exit 1
           fi
-          PRERELEASE=""
-          if [[ "$APK_VERSION_TAG" == *-* ]]; then PRERELEASE="--prerelease"; fi
-          gh release create "${GITHUB_REF#refs/tags/}" --repo "$GITHUB_REPOSITORY" \
-            --title "Termux RE $APK_VERSION_TAG" --generate-notes $PRERELEASE \
+          if [ -z "${TERMUX_BOOTSTRAP_URL:-}" ] && [ "$PACKAGE_NAME" != "com.termux" ]; then
+            echo "Refusing to publish a release with the official bootstrap, which does not work for '$PACKAGE_NAME'. Run the 'Build bootstraps' workflow first."
+            exit 1
+          fi
+          # Mark app releases as the latest release explicitly, other releases of the repository,
+          # like bootstrap releases, should not be.
+          RELEASE_TYPE="--latest"
+          if [[ "$APK_VERSION_TAG" == *-* ]]; then RELEASE_TYPE="--prerelease"; fi
+          # Prepended to the notes generated from the changes since the previous release.
+          NOTES="Download the APK for your device, \`arm64-v8a\` for nearly all current phones, or \`universal\` if unsure. See [Installation](https://github.com/$GITHUB_REPOSITORY#installation) and [Packages and the bootstrap](https://github.com/$GITHUB_REPOSITORY#packages-and-the-bootstrap). Updates must be signed with the same key: release APKs don't install over debug builds."
+          # For a workflow_dispatch release, this creates the tag on the built commit.
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Termux RE $APK_VERSION_TAG" --notes "$NOTES" --generate-notes $RELEASE_TYPE \
             "$OUT_DIR"/*-release_*.apk "$OUT_DIR"/sha256sums.txt
