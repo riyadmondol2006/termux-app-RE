@@ -39,9 +39,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Setup Rust
-        if: hashFiles('rust-toolchain.toml') != ''
+        shell: bash
         run: |
-          # Installs the toolchain and Android targets pinned in rust-toolchain.toml.
+          # The JNI libraries are written in Rust. Install the toolchain and Android targets
+          # pinned in rust-toolchain.toml.
+          if ! command -v rustup >/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
           rustup toolchain install
           rustup show
 
