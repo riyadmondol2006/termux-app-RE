@@ -1,5 +1,6 @@
 package com.termux.app;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -167,6 +168,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mIsActivityRecreated = false;
 
     /**
+     * If the Android 13+ notification permission should be requested once the service is connected.
+     */
+    private boolean mShouldRequestNotificationsPermission = false;
+
+    /**
      * The {@link TermuxActivity} is in an invalid state and must not be run.
      */
     private boolean mIsInvalidState;
@@ -201,6 +207,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (savedInstanceState != null)
             mIsActivityRecreated = savedInstanceState.getBoolean(ARG_ACTIVITY_RECREATED, false);
+
+        mShouldRequestNotificationsPermission = !mIsActivityRecreated;
 
         // Delete ReportInfo serialized object files from cache older than 14 days
         ReportActivity.deleteReportInfoFilesOlderThanXDays(this, 14, false);
@@ -315,6 +323,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onResume();
 
+        // Show the service notification if notifications have been enabled since it was posted
+        if (mTermuxService != null)
+            mTermuxService.repostNotificationIfMissing();
+
         // Check if a crash happened on last run of the app or if a plugin crashed and show a
         // notification with the crash details if it did
         TermuxCrashUtils.notifyAppCrashFromCrashLogFile(this, LOG_TAG);
@@ -427,6 +439,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
+
+        requestNotificationsPermissionIfNeeded();
     }
 
     @Override
@@ -761,6 +775,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
     /**
+     * Request the Android 13+ notification permission if notifications are not enabled and the app
+     * can request it, i.e. it targets API 33+. For apps targeting API < 33, the system itself
+     * requests it when the app is started from the launcher, and denies requests made by the app.
+     * The user can also enable notifications from Termux Settings -> Termux -> Permissions.
+     */
+    private void requestNotificationsPermissionIfNeeded() {
+        if (!mShouldRequestNotificationsPermission) return;
+        mShouldRequestNotificationsPermission = false;
+
+        if (!PermissionUtils.canRequestNotificationsPermission(this) || !mIsVisible ||
+            PermissionUtils.checkNotificationsEnabled(this) ||
+            PermissionUtils.checkPermission(this, Manifest.permission.POST_NOTIFICATIONS))
+            return;
+
+        PermissionUtils.requestPermission(this, Manifest.permission.POST_NOTIFICATIONS,
+            PermissionUtils.REQUEST_GRANT_POST_NOTIFICATIONS_PERMISSION);
+    }
+
+    /**
      * For processes to access primary external storage (/sdcard, /storage/emulated/0, ~/storage/shared),
      * termux needs to be granted legacy WRITE_EXTERNAL_STORAGE or MANAGE_EXTERNAL_STORAGE permissions
      * if targeting targetSdkVersion 30 (android 11) and running on sdk 30 (android 11) and higher.
@@ -804,6 +837,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Logger.logVerbose(LOG_TAG, "onRequestPermissionsResult: requestCode: " + requestCode + ", permissions: "  + Arrays.toString(permissions) + ", grantResults: "  + Arrays.toString(grantResults));
         if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
             requestStoragePermission(true);
+        } else if (requestCode == PermissionUtils.REQUEST_GRANT_POST_NOTIFICATIONS_PERMISSION) {
+            if (mTermuxService != null)
+                mTermuxService.repostNotificationIfMissing();
         }
     }
 

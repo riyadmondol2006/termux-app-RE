@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.service.notification.StatusBarNotification;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -863,6 +864,29 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         } else {
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(TermuxConstants.TERMUX_APP_NOTIFICATION_ID, buildNotification());
         }
+    }
+
+    /**
+     * Post the foreground service notification again if it is not currently shown. The notification
+     * is not shown if it was posted while notifications were disabled, like if the user had not yet
+     * allowed the Android 13+ notification permission when the service was started, and the system
+     * does not show it once notifications are enabled until it is posted again. On Android 14+, the
+     * user can also dismiss the notification.
+     */
+    public synchronized void repostNotificationIfMissing() {
+        if (mWantsToStop) return;
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager == null || !notificationManager.areNotificationsEnabled()) return;
+
+        for (StatusBarNotification notification : notificationManager.getActiveNotifications()) {
+            if (notification.getId() == TermuxConstants.TERMUX_APP_NOTIFICATION_ID) return;
+        }
+
+        Notification notification = buildNotification();
+        if (notification == null) return;
+        Logger.logDebug(LOG_TAG, "Reposting missing notification");
+        notificationManager.notify(TermuxConstants.TERMUX_APP_NOTIFICATION_ID, notification);
     }
 
 
