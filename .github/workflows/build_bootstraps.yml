@@ -136,10 +136,14 @@ jobs:
         if: inputs.source == 'build'
         working-directory: termux-packages
         # Source downloads sometimes fail on GitHub's runners. Another attempt resumes in the same
-        # container: packages that were built already are not built again.
+        # container: packages that were built already are not built again. The archive is written
+        # to output/, see apt-repo/fix-termux-packages.sh.
         run: |
           for attempt in 1 2 3 4; do
-            ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}" < /dev/null && exit 0
+            if ./scripts/run-docker.sh ./scripts/build-bootstraps.sh --architectures "${{ matrix.arch }}" < /dev/null; then
+              mv "output/bootstrap-${{ matrix.arch }}.zip" .
+              exit 0
+            fi
             echo "::warning::Building the bootstrap failed (attempt $attempt)"
             [ "$attempt" -lt 4 ] && sleep 120
           done

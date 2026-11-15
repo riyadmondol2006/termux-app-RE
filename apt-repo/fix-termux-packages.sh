@@ -5,6 +5,10 @@
 # - scripts/build-bootstraps.sh builds packages by name, and some of its names are now
 #   subpackages, like bzip2 of libbz2, which build-package.sh can't build by name. They are
 #   replaced by the package that builds them; their .deb files end up in output/ like before.
+# - The Docker container of termux-packages may only write to output/ of the checkout (its
+#   restricted AppArmor profile), but build-bootstraps.sh moves the bootstrap archives to the
+#   checkout itself and ignores that this fails. They are moved to output/ instead, and a
+#   failure fails the build.
 # - Source downloads that fail are tried from a second place, and only used if they have exactly
 #   the checksum the package expects:
 #   - git.kernel.org often times out from GitHub Actions runners, for example for the dash
@@ -45,6 +49,13 @@ for name in $(grep -oP '^\s*PACKAGES\+=\("\K[a-z0-9][a-z0-9+._-]*(?="\))' "$BOOT
 	sed -i -E "s/^(\s*)PACKAGES\+=\(\"$name\"\)/\1PACKAGES+=(\"$parent\") # Termux RE: builds the $name subpackage/" "$BOOTSTRAPS"
 	echo "Bootstrap package $name is built through $parent"
 done
+
+### Bootstrap archives in output/
+MOVE='	mv -f "${BOOTSTRAP_TMPDIR}/bootstrap-${1}.zip" "$TERMUX_PACKAGES_DIRECTORY/"'
+grep -qxF "$MOVE" "$BOOTSTRAPS" || fail "build-bootstraps.sh no longer moves the archives to the checkout"
+sed -i "s|^\tmv -f \"\${BOOTSTRAP_TMPDIR}/bootstrap-\${1}.zip\" \"\$TERMUX_PACKAGES_DIRECTORY/\"\$|\tmv -f \"\${BOOTSTRAP_TMPDIR}/bootstrap-\${1}.zip\" \"\$TERMUX_BUILT_DEBS_DIRECTORY/\" \|\| return 1 # Termux RE: output/ is writable in Docker|" "$BOOTSTRAPS"
+grep -qF '"$TERMUX_BUILT_DEBS_DIRECTORY/" || return 1 # Termux RE' "$BOOTSTRAPS" || fail "Failed to change where build-bootstraps.sh puts the archives"
+echo "Bootstrap archives are written to output/"
 
 ### Source download fallbacks
 DOWNLOAD=scripts/build/termux_download.sh
