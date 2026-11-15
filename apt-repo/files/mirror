@@ -1,0 +1,4 @@
+# This file is sourced by pkg
+# Termux RE package repository, packages built for @PACKAGE_NAME@
+WEIGHT=1
+MAIN="@REPO_URL@"

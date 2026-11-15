@@ -1,0 +1,30 @@
+# Packages the "Build packages" workflow builds when it is started without a package list.
+# Names are termux-packages package or subpackage names (a subpackage, like curl, is built
+# through the package it comes from, like libcurl). Their dependencies are built and published
+# too. Packages whose current version is already in the repository are skipped, so running the
+# workflow again only builds what changed in termux-packages.
+
+# Everything in the bootstrap, so `pkg upgrade` and `pkg reinstall` work for it, and the apt,
+# termux-keyring and termux-tools packages that point at this repository.
+apt bash bzip2 command-not-found coreutils dash debianutils diffutils dos2unix ed findutils
+gawk grep gzip inetutils less lsof nano net-tools patch procps psmisc sed tar termux-core
+termux-exec termux-keyring termux-tools unzip util-linux
+
+# Programming
+python python-pip make
+# Version control and remote access
+git openssh rsync
+# Editors, shells and terminal tools (nano is in the bootstrap)
+vim zsh tmux htop ncurses-utils
+# Networking
+curl wget openssl-tool
+# Files, archives and data
+zip file tree jq which
+# Manual pages
+mandoc
+# Run other Linux distributions (Debian, Ubuntu, Arch, ...) with their own package managers
+proot proot-distro
+
+# Heavy, built last: Node.js takes a large part of the 6 hour job limit. If it runs out of time,
+# run the workflow again, everything else is skipped then.
+nodejs-lts

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Termux RE packages</title>
+<meta name="description" content="The apt package repository of Termux RE, packages built for @PACKAGE_NAME@.">
+<style>
+  :root { color-scheme: light dark; --bg: #fafafa; --fg: #1d1d1f; --muted: #5f6368; --line: #dadce0; --code: #eef0f3; --accent: #0b57d0; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121314; --fg: #e8eaed; --muted: #9aa0a6; --line: #3c4043; --code: #202124; --accent: #8ab4f8; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.8rem; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 32px 0 8px; }
+  p, li { color: var(--fg); }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  code, pre { font: 0.9em/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code); border-radius: 6px; }
+  code { padding: 1px 5px; overflow-wrap: anywhere; }
+  pre { padding: 12px 14px; overflow-x: auto; }
+  pre code { padding: 0; background: none; }
+  .table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--bg); }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+<h1>Termux RE packages</h1>
+<p class="muted">@COUNT@ packages built for <code>@PACKAGE_NAME@</code> from <a href="https://github.com/termux/termux-packages">termux-packages</a>. Updated @DATE@.</p>
+
+<p>Termux packages only work in the app they were built for, because their install prefix
+<code>/data/data/&lt;app package name&gt;/files/usr</code> is compiled in. This is the package
+repository of <a href="@APP_REPO_URL@">Termux RE</a>, whose package name is <code>@PACKAGE_NAME@</code>.
+Termux RE is set up to use it: run <code>pkg install &lt;package&gt;</code>. Packages from the
+official Termux repositories don't work in Termux RE, and these don't work in Termux.</p>
+
+<h2>Repository</h2>
+<pre><code>deb @REPO_URL@ stable main</code></pre>
+<p>Signed with the Termux RE repository key, which Termux RE trusts through its
+<code>termux-keyring</code> package:</p>
+<pre><code>@FINGERPRINT@</code></pre>
+<p>Download it as <a href="termux-re.asc">termux-re.asc</a> or <a href="termux-re.gpg">termux-re.gpg</a>.</p>
+
+<h2>Missing a package?</h2>
+<p>Packages are built by the <a href="@APP_REPO_URL@/actions/workflows/build_packages.yml">Build packages</a>
+workflow, which takes a list of termux-packages package names. See
+<a href="@APP_REPO_URL@#packages-and-the-bootstrap">Packages and the bootstrap</a> for its limits.</p>
+
+<h2>Packages</h2>
+<div class="table">
+<table>
+<thead><tr><th>Package</th><th>Version</th><th>Architectures</th><th>Description</th></tr></thead>
+<tbody>
+@PACKAGES@
+</tbody>
+</table>
+</div>
+</main>
+</body>
+</html>
