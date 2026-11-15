@@ -470,6 +470,8 @@ mod tests {
     #[test]
     fn rejects_too_long_path() {
         let fd = create_socket().unwrap();
+        let inode = fd_inode(fd);
+        assert!(inode.is_some());
         let path = [b'a'; 108];
         assert_eq!(
             bind_and_listen(fd, &path, 50),
@@ -477,8 +479,18 @@ mod tests {
                 "createServerSocketNative(): Path passed is too long".into()
             ))
         );
-        // The socket was closed.
-        assert_eq!(unsafe { libc::fcntl(fd, libc::F_GETFD) }, -1);
+        // The socket was closed. Tests run in parallel, so another test may already have reused
+        // the fd number, but it can't refer to the same socket anymore.
+        assert_ne!(fd_inode(fd), inode);
+    }
+
+    /// The inode of the file `fd` refers to, or `None` if `fd` is not open.
+    fn fd_inode(fd: c_int) -> Option<u64> {
+        let mut stat: libc::stat = unsafe { core::mem::zeroed() };
+        if unsafe { libc::fstat(fd, &mut stat) } != 0 {
+            return None;
+        }
+        Some(stat.st_ino as u64)
     }
 
     #[test]
