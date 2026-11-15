@@ -1,0 +1,145 @@
+name: Publish packages
+
+# Publishes the Termux RE apt repository on the GitHub Pages site of this repository, under
+# apt/termux-main. Called by the Build packages and Build bootstraps workflows with the .deb files
+# they built: they are merged into the published repository (the newest version of every package
+# is kept), which is signed with the APT_SIGNING_KEY secret and deployed again. See apt-repo/.
+#
+# Started by hand, it signs and deploys the published repository again, optionally without some
+# packages.
+#
+# APT_SIGNING_KEY is the ASCII armored private key of apt-repo/termux-re.gpg. The workflow fails
+# if they don't match, since apt in Termux RE only trusts that key.
+
+on:
+  workflow_call:
+    inputs:
+      artifact_pattern:
+        description: 'Artifacts of the calling run with .deb files to add'
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      remove:
+        description: 'Packages to remove from the repository, separated by spaces'
+        required: false
+        default: ''
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # Publishing reads the published repository and replaces it, so only one at a time.
+    concurrency:
+      group: apt-repository
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: apt-repo
+          persist-credentials: false
+
+      - name: Download packages
+        if: inputs.artifact_pattern != ''
+        # Build jobs that failed early may not have uploaded anything.
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ inputs.artifact_pattern }}
+          path: new-debs
+
+      - name: Build repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REMOVE: ${{ inputs.remove }}
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          SITE_URL="https://${OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}"
+          REPO_URL="$SITE_URL/apt/termux-main"
+          PACKAGE_NAME="$(sed -n 's/^termuxPackageName=//p' gradle.properties)"
+          test -n "$PACKAGE_NAME" || { echo "Failed to read termuxPackageName from gradle.properties"; exit 1; }
+
+          # Once the site is live, a missing repository means the site could not be read, not
+          # that there is nothing to keep.
+          ARGS=(--url "$REPO_URL" --keyring apt-repo/termux-re.gpg --out site/apt/termux-main
+            --index-page site/index.html --package-name "$PACKAGE_NAME" --app-repo-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY")
+          if curl -fsSL -o /dev/null "$SITE_URL/termux-re.gpg"; then
+            ARGS+=(--expect-existing)
+          fi
+          if [ -d new-debs ]; then
+            echo "New packages:"; find new-debs -name '*.deb' -printf '%P\n' | sort
+            ARGS+=(--new new-debs)
+          fi
+          for package in ${REMOVE//,/ }; do
+            ARGS+=(--remove "$package")
+          done
+          python3 -I apt-repo/apt-repo.py "${ARGS[@]}"
+          cp apt-repo/termux-re.gpg apt-repo/termux-re.asc site/
+          echo "REPO_URL=$REPO_URL" >> "$GITHUB_ENV"
+
+      - name: Sign repository
+        shell: bash
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$APT_SIGNING_KEY" ]; then
+            echo "::error::The APT_SIGNING_KEY secret is not set."; exit 1
+          fi
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          trap 'rm -rf "$GNUPGHOME"' EXIT
+          printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --quiet --import
+          FINGERPRINT="$(gpg --show-keys --with-colons apt-repo/termux-re.gpg | awk -F: '/^fpr/ { print $10; exit }')"
+          DIST=site/apt/termux-main/dists/stable
+          gpg --batch --yes --local-user "$FINGERPRINT!" --digest-algo SHA512 --clearsign --output "$DIST/InRelease" "$DIST/Release"
+          gpg --batch --yes --local-user "$FINGERPRINT!" --digest-algo SHA512 --armor --detach-sign --output "$DIST/Release.gpg" "$DIST/Release"
+          # Check the signatures against the public key that Termux RE trusts.
+          gpgv --keyring apt-repo/termux-re.gpg "$DIST/InRelease"
+          gpgv --keyring apt-repo/termux-re.gpg "$DIST/Release.gpg" "$DIST/Release"
+          cat "$DIST/Release" | sed -n '1,/^MD5Sum:/p'
+
+      - name: Check site size
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIZE_MB="$(( $(du -sb site | cut -f1) / 1024 / 1024 ))"
+          echo "Site size: $SIZE_MB MiB"
+          {
+            echo "### Termux RE package repository"
+            echo
+            echo "\`deb $REPO_URL stable main\`, $SIZE_MB MiB"
+            echo
+            for packages in site/apt/termux-main/dists/stable/main/binary-*/Packages; do
+              arch="${packages%/Packages}"; arch="${arch##*binary-}"
+              echo "- $arch: $(grep -c '^Package:' "$packages" || true) packages"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          # GitHub Pages sites can be at most 1 GB.
+          if [ "$SIZE_MB" -gt 950 ]; then
+            echo "::error::The repository is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB. Remove packages with the remove input."
+            exit 1
+          elif [ "$SIZE_MB" -gt 800 ]; then
+            echo "::warning::The repository is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB."
+          fi
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy site
+        id: deploy
+        uses: actions/deploy-pages@v5

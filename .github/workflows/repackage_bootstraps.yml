@@ -1,0 +1,77 @@
+name: Repackage bootstraps
+
+# Points the bootstrap archives of an existing "bootstrap-<package name>-<n>" release at the
+# Termux RE package repository without rebuilding them, with apt-repo/patch-bootstrap.py: apt
+# uses and trusts the repository and pkg can't switch to the official mirrors. Publishes them
+# as a new "bootstrap-<package name>-<n>-r<run number>" release with a SHA256SUMS file, which
+# the Build workflow then uses as the newest bootstrap release.
+#
+# Bootstraps built by the Build bootstraps workflow are already set up like this. This is for
+# releases built before it did that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: 'Bootstrap release to repackage. Empty: the newest bootstrap-<app package name>-* release'
+        required: false
+        default: ''
+
+permissions: {}
+
+jobs:
+  repackage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: apt-repo
+          persist-credentials: false
+
+      - name: Repackage bootstraps
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TAG: ${{ inputs.source_tag }}
+        run: |
+          set -euo pipefail
+          PACKAGE_NAME="$(sed -n 's/^termuxPackageName=//p' gradle.properties)"
+          test -n "$PACKAGE_NAME" || { echo "Failed to read termuxPackageName from gradle.properties"; exit 1; }
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO_URL="https://${OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/apt/termux-main"
+
+          if [ -z "$SOURCE_TAG" ]; then
+            # The newest release made by the Build bootstraps workflow, not a repackaged one.
+            SOURCE_TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+              --jq "[.[] | select(.tagName | test(\"^bootstrap-${PACKAGE_NAME//./\\\\.}-[0-9]+\$\"))] | sort_by(.createdAt) | last | .tagName // empty")"
+            test -n "$SOURCE_TAG" || { echo "No bootstrap-$PACKAGE_NAME-* release found"; exit 1; }
+          fi
+          [[ "$SOURCE_TAG" =~ ^bootstrap-${PACKAGE_NAME//./\\.}-[0-9A-Za-z.-]+$ ]] || {
+            echo "'$SOURCE_TAG' is not a bootstrap-$PACKAGE_NAME-* release"; exit 1; }
+          echo "Repackaging $SOURCE_TAG"
+
+          mkdir original repackaged
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --dir original --pattern 'bootstrap-*.zip' --pattern SHA256SUMS
+          (cd original && sha256sum --check --strict SHA256SUMS)
+          for arch in aarch64 arm i686 x86_64; do
+            python3 -I apt-repo/patch-bootstrap.py "original/bootstrap-$arch.zip" "repackaged/bootstrap-$arch.zip" "$PACKAGE_NAME" "$REPO_URL"
+            unzip -p "repackaged/bootstrap-$arch.zip" etc/apt/sources.list | grep -qxF "deb $REPO_URL stable main"
+          done
+          cd repackaged
+          sha256sum bootstrap-*.zip > SHA256SUMS
+          cat SHA256SUMS
+
+          if ! curl -fsSL -o /dev/null "$REPO_URL/dists/stable/InRelease"; then
+            echo "::warning::The package repository $REPO_URL is not published yet, pkg won't work with these bootstraps until it is. Run the Build packages workflow."
+          fi
+
+          TAG="$SOURCE_TAG-r$GITHUB_RUN_NUMBER"
+          # Not the latest release: that is the newest app release.
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest=false \
+            --title "Bootstrap for $PACKAGE_NAME ($SOURCE_TAG, Termux RE repository)" \
+            --notes "The bootstrap archives of [$SOURCE_TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$SOURCE_TAG), set up to use the Termux RE package repository \`$REPO_URL\` by run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID." \
+            bootstrap-*.zip SHA256SUMS
+          echo "Published release $TAG" >> "$GITHUB_STEP_SUMMARY"
