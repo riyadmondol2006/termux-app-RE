@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 /*
- * Version: v0.18.0
+ * Version: v0.19.0
  * SPDX-License-Identifier: MIT
  *
  * Changelog
@@ -80,6 +80,9 @@ import java.util.Set;
  *
  * - 0.18.0 (2022-06-13)
  *      - Add `KEY_DISABLE_FILE_SHARE_RECEIVER` and `KEY_DISABLE_FILE_VIEW_RECEIVER`.
+ *
+ * - 0.19.0 (2026-11-15)
+ *      - Add `KEY_DISABLE_TERMINAL_SESSION_TITLE_CHANGE_TOAST`.
  */
 
 /**
@@ -114,6 +117,9 @@ public final class TermuxPropertyConstants {
 
     /** Defines the key for whether a toast will be shown when user changes the terminal session */
     public static final String KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST =  "disable-terminal-session-change-toast"; // Default: "disable-terminal-session-change-toast"
+
+    /** Defines the key for whether a toast will be shown when the title of a terminal session other than the current one changes */
+    public static final String KEY_DISABLE_TERMINAL_SESSION_TITLE_CHANGE_TOAST =  "disable-terminal-session-title-change-toast"; // Default: "disable-terminal-session-title-change-toast"
 
 
 
@@ -395,6 +401,7 @@ public final class TermuxPropertyConstants {
         KEY_DISABLE_FILE_VIEW_RECEIVER,
         KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS,
         KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST,
+        KEY_DISABLE_TERMINAL_SESSION_TITLE_CHANGE_TOAST,
         KEY_ENFORCE_CHAR_BASED_INPUT,
         KEY_EXTRA_KEYS_TEXT_ALL_CAPS,
         KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP,
@@ -443,6 +450,7 @@ public final class TermuxPropertyConstants {
         KEY_DISABLE_FILE_VIEW_RECEIVER,
         KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS,
         KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST,
+        KEY_DISABLE_TERMINAL_SESSION_TITLE_CHANGE_TOAST,
         KEY_ENFORCE_CHAR_BASED_INPUT,
         KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP,
         KEY_TERMINAL_ONCLICK_URL_OPEN,

@@ -594,6 +594,10 @@ public abstract class TermuxSharedProperties {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST, true);
     }
 
+    public boolean areTerminalSessionTitleChangeToastsDisabled() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_DISABLE_TERMINAL_SESSION_TITLE_CHANGE_TOAST, true);
+    }
+
     public boolean isEnforcingCharBasedInput() {
         return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_ENFORCE_CHAR_BASED_INPUT, true);
     }

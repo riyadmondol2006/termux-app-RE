@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.widget.ListView;
 
@@ -35,7 +36,9 @@ import com.termux.terminal.TextStyle;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Map;
 import java.util.Properties;
+import java.util.WeakHashMap;
 
 /** The {@link TerminalSessionClient} implementation that may require an {@link Activity} for its interface methods. */
 public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionClientBase {
@@ -47,6 +50,15 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     private SoundPool mBellSoundPool;
 
     private int mBellSoundId;
+
+    /**
+     * The min time in milliseconds between toasts shown for title changes of the same session, so
+     * that a session that keeps changing its title, like with a spinner, does not flood toasts.
+     */
+    static final long TITLE_CHANGE_TOAST_MIN_INTERVAL = 5000;
+
+    /** The time a toast was last shown for a title change of a session. */
+    private final Map<TerminalSession, Long> mTitleChangeToastTimes = new WeakHashMap<>();
 
     private static final String LOG_TAG = "TermuxTerminalSessionActivityClient";
 
@@ -125,7 +137,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void onTitleChanged(@NonNull TerminalSession updatedSession) {
         if (!mActivity.isVisible()) return;
 
-        if (updatedSession != mActivity.getCurrentSession()) {
+        if (updatedSession != mActivity.getCurrentSession() &&
+            !mActivity.getProperties().areTerminalSessionTitleChangeToastsDisabled() &&
+            shouldShowTitleChangeToast(mTitleChangeToastTimes, updatedSession, SystemClock.elapsedRealtime())) {
             // Only show toast for other sessions than the current one, since the user
             // probably consciously caused the title change to change in the current session
             // and don't want an annoying toast for that.
@@ -133,6 +147,20 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
 
         termuxSessionListNotifyUpdated();
+    }
+
+    /**
+     * Check if a toast should be shown for a title change of {@code session}, which is the case if
+     * one was not already shown for it in the last {@link #TITLE_CHANGE_TOAST_MIN_INTERVAL}
+     * milliseconds. If it should, then {@code now} is stored as the time it was shown.
+     */
+    static <K> boolean shouldShowTitleChangeToast(@NonNull Map<K, Long> toastTimes, @NonNull K session, long now) {
+        Long lastToastTime = toastTimes.get(session);
+        if (lastToastTime != null && now >= lastToastTime && now - lastToastTime < TITLE_CHANGE_TOAST_MIN_INTERVAL)
+            return false;
+
+        toastTimes.put(session, now);
+        return true;
     }
 
     @Override
