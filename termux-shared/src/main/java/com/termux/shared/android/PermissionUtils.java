@@ -17,6 +17,8 @@ import android.provider.Settings;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.common.base.Joiner;
@@ -38,6 +40,7 @@ public class PermissionUtils {
 
     public static final int REQUEST_DISABLE_BATTERY_OPTIMIZATIONS = 2000;
     public static final int REQUEST_GRANT_DISPLAY_OVER_OTHER_APPS_PERMISSION = 2001;
+    public static final int REQUEST_GRANT_POST_NOTIFICATIONS_PERMISSION = 2002;
 
     private static final String LOG_TAG = "PermissionUtils";
 
@@ -435,6 +438,96 @@ public class PermissionUtils {
         }
 
         return true;
+    }
+
+
+
+
+
+    /**
+     * Check if the user has permanently denied a runtime permission, i.e. the system will not show
+     * the permission prompt anymore if it is requested and the user must grant it from the app
+     * info page in Android settings. This must only be called after the permission has been
+     * requested at least once and the request returned with the permission not granted, since
+     * {@link ActivityCompat#shouldShowRequestPermissionRationale(Activity, String)} also returns
+     * {@code false} if permission was never requested.
+     *
+     * @param activity The {@link Activity} that requested the permission.
+     * @param permission The {@link String} name for permission to check.
+     * @return Returns {@code true} if permission has been permanently denied, otherwise {@code false}.
+     */
+    public static boolean isPermissionPermanentlyDenied(@NonNull Activity activity, @NonNull String permission) {
+        return ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED &&
+            !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission);
+    }
+
+    /**
+     * Open the app info page of the app in Android settings, from where the user can manage all its
+     * permissions.
+     *
+     * @param context The context for operations.
+     * @return Returns the {@code error} if starting the activity was not successful, otherwise {@code null}.
+     */
+    public static Error openAppDetailsSettings(@NonNull Context context) {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.parse("package:" + context.getPackageName()));
+        if (!(context instanceof Activity))
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return ActivityUtils.startActivity(context, intent);
+    }
+
+
+
+
+
+    /**
+     * Check if app is allowed to post notifications. On Android 13+, this requires the
+     * {@link Manifest.permission#POST_NOTIFICATIONS} runtime permission. On all Android versions
+     * the user may also disable notifications for the app from Android settings.
+     *
+     * If app targets API < 33 and is running on Android 13+, then the system itself shows the
+     * permission prompt when an activity of the app is started from the launcher after the app
+     * has created a notification channel, but only until the user has denied it once. Check
+     * {@link #canRequestNotificationsPermission(Context)}.
+     *
+     * @param context The context for operations.
+     * @return Returns {@code true} if notifications are enabled, otherwise {@code false}.
+     */
+    public static boolean checkNotificationsEnabled(@NonNull Context context) {
+        return NotificationManagerCompat.from(context).areNotificationsEnabled();
+    }
+
+    /**
+     * Check if the app can request the {@link Manifest.permission#POST_NOTIFICATIONS} permission
+     * itself. On Android 13+, requests by apps targeting API < 33 are denied by the system without
+     * showing the permission prompt (verified on Android 17), since for them the system requests it
+     * itself, so such apps must open the app notification settings instead.
+     *
+     * @param context The context for operations.
+     * @return Returns {@code true} if permission can be requested, otherwise {@code false}.
+     */
+    public static boolean canRequestNotificationsPermission(@NonNull Context context) {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            PackageUtils.getTargetSDKForPackage(context) >= Build.VERSION_CODES.TIRAMISU;
+    }
+
+    /**
+     * Open the notification settings of the app in Android settings.
+     *
+     * @param context The context for operations.
+     * @return Returns the {@code error} if starting the activity was not successful, otherwise {@code null}.
+     */
+    public static Error openAppNotificationSettings(@NonNull Context context) {
+        Logger.logInfo(LOG_TAG, "Opening app notification settings");
+        Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+        intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName());
+        if (!(context instanceof Activity))
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        Error error = ActivityUtils.startActivity(context, intent, true, false);
+        if (error != null)
+            return openAppDetailsSettings(context);
+        return null;
     }
 
 

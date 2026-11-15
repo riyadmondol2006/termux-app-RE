@@ -101,6 +101,16 @@
 
 
 
+    <!-- Permissions -->
+    <string name="title_storage_permission_denied">Storage permission denied</string>
+    <string name="msg_storage_permission_denied">Android will not ask for the storage permission again
+        since it has been denied. To allow &TERMUX_APP_NAME; to access shared storage, open App info ->
+        Permissions -> \"Files\" (\"Files and media\" or \"Storage\" on older Android versions) and
+        allow it, then run `termux-setup-storage` again.</string>
+    <string name="action_open_app_info">Open App info</string>
+
+
+
     <!-- Termux Notifications -->
     <string name="notification_action_exit">Exit</string>
     <string name="notification_action_wake_lock">Acquire wakelock</string>
@@ -111,7 +121,8 @@
     <!-- TermuxService -->
     <string name="error_display_over_other_apps_permission_not_granted_to_start_terminal">&TERMUX_APP_NAME; requires
         \"Display over other apps\" permission to start terminal sessions from background on Android >= 10.
-        Grants it from Settings -> Apps -> &TERMUX_APP_NAME; -> Advanced</string>
+        Grant it from &TERMUX_APP_NAME; Settings -> &TERMUX_APP_NAME; -> Permissions, or from Android
+        Settings -> Apps -> &TERMUX_APP_NAME; -> Advanced.</string>
     <string name="error_termux_service_invalid_execution_command_runner">Invalid execution command runner to TermuxService: `%1$s`</string>
     <string name="error_termux_service_unsupported_execution_command_runner">Unsupported execution command runner to TermuxService: `%1$s`</string>
     <string name="error_termux_service_unsupported_execution_command_shell_create_mode">Unsupported execution command shell create mode to TermuxService: `%1$s`</string>
@@ -207,6 +218,44 @@
                 <string name="termux_terminal_view_terminal_margin_adjustment_on">Terminal margin adjustment will be enabled.
                     It should be enabled to try to fix the issue where soft keyboard covers part of extra keys/terminal view.
                     If it causes screen flickering on your devices, then disable it. (Default)</string>
+
+
+        <!-- Permissions Preferences -->
+        <string name="termux_permissions_preferences_title">Permissions</string>
+        <string name="termux_permissions_preferences_summary">Check and grant permissions needed on newer Android versions</string>
+
+            <!-- Permissions Category -->
+            <string name="termux_permissions_header">Tap to allow, or to manage in Android settings</string>
+
+                <!-- Notifications -->
+                <string name="termux_permission_notifications_title">Notifications</string>
+                <string name="termux_permission_notifications_granted">Allowed.</string>
+                <string name="termux_permission_notifications_not_granted">Not allowed. The &TERMUX_APP_NAME;
+                    notification with the \"Exit\" and \"Acquire wakelock\" actions, and error and crash
+                    report notifications will not be shown.</string>
+
+                <!-- Storage -->
+                <string name="termux_permission_storage_title">Storage</string>
+                <string name="termux_permission_storage_granted">Allowed. Run `termux-setup-storage` to set up the
+                    ~/storage directory.</string>
+                <string name="termux_permission_storage_not_granted">Not allowed. Required to access shared
+                    storage, like with `termux-setup-storage`.</string>
+
+                <!-- Display over other apps -->
+                <string name="termux_permission_display_over_other_apps_title">Display over other apps</string>
+                <string name="termux_permission_display_over_other_apps_granted">Allowed.</string>
+                <string name="termux_permission_display_over_other_apps_not_granted">Not allowed. Required to open
+                    terminal sessions, apps, files and URLs from commands running in background, like with
+                    `am start`, `termux-open` and RUN_COMMAND intents. Select &TERMUX_APP_NAME; in the list of
+                    apps to allow it.</string>
+
+                <!-- Battery optimizations -->
+                <string name="termux_permission_battery_optimizations_title">Run in background</string>
+                <string name="termux_permission_battery_optimizations_granted">Unrestricted. Battery optimizations
+                    are disabled for &TERMUX_APP_NAME;.</string>
+                <string name="termux_permission_battery_optimizations_not_granted">Optimized. Android may restrict
+                    or stop &TERMUX_APP_NAME; and its processes while it is in background, even with a wakelock
+                    held.</string>
 
 
 
