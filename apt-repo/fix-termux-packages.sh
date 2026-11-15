@@ -168,6 +168,14 @@ termux_step_pre_configure() {
 		TERMUX_CACHE_DIR="$TERMUX__CACHE_DIR" TERMUX_PREFIX="$TERMUX__PREFIX" TERMUX_ANDROID_HOME="$TERMUX__HOME"
 }
 EOF
+# A higher revision than termux-tools packages built without this fix, which apt replaces then.
+revision="$(sed -n -E 's/^TERMUX_PKG_REVISION="?([0-9]+)"?$/\1/p' "$TOOLS")"
+if [ -n "$revision" ]; then
+	sed -i -E "s/^TERMUX_PKG_REVISION=\"?[0-9]+\"?$/TERMUX_PKG_REVISION=$((revision + 1)) # Termux RE: +1, see apt-repo\/fix-termux-packages.sh/" "$TOOLS"
+else
+	sed -i -E "0,/^TERMUX_PKG_VERSION=/s//TERMUX_PKG_REVISION=1 # Termux RE: see apt-repo\/fix-termux-packages.sh\n&/" "$TOOLS"
+fi
+grep -qE '^TERMUX_PKG_REVISION=[0-9]+ # Termux RE' "$TOOLS" || fail "Failed to raise the revision of termux-tools"
 grep -q '^termux_step_post_make_install()' "$TOOLS" && cat >> "$TOOLS" <<'EOF'
 if declare -F termux_step_post_make_install >/dev/null; then eval "termux_re_paths_upstream_$(declare -f termux_step_post_make_install)"; fi
 termux_step_post_make_install() {
