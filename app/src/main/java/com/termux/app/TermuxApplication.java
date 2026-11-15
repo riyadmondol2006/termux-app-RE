@@ -11,6 +11,7 @@ import androidx.annotation.Nullable;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.color.DynamicColorsOptions;
 import com.termux.BuildConfig;
+import com.termux.app.update.AppUpdateChecker;
 import com.termux.shared.errors.Error;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxBootstrap;
@@ -59,6 +60,15 @@ public class TermuxApplication extends Application {
         // `termux-reload-settings`. The DayNight overlay follows the night mode of each activity.
         setDynamicColors();
 
+        // Check for a new release of the app when the terminal is shown, see AppUpdateChecker.
+        registerActivityLifecycleCallbacks(new EmptyActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityResumed(@NonNull Activity activity) {
+                if (activity instanceof TermuxActivity)
+                    AppUpdateChecker.checkForUpdateIfDue(activity);
+            }
+        });
+
         // Check and create termux files directory. If failed to access it like in case of secondary
         // user or external sd card installation, then don't run files directory related code
         Error error = TermuxFileUtils.isTermuxFilesDirectoryAccessible(this, true, true);
@@ -103,20 +113,23 @@ public class TermuxApplication extends Application {
         // Apply again after Activity.onCreate(), so that it is also applied to the theme of the
         // window decor view, which only exists after setContentView() and is used for the
         // dialogs of context menus, like the terminal context menu.
-        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+        registerActivityLifecycleCallbacks(new EmptyActivityLifecycleCallbacks() {
             @Override
             public void onActivityPostCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
                 DynamicColors.applyToActivityIfAvailable(activity, options);
             }
-
-            @Override public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {}
-            @Override public void onActivityStarted(@NonNull Activity activity) {}
-            @Override public void onActivityResumed(@NonNull Activity activity) {}
-            @Override public void onActivityPaused(@NonNull Activity activity) {}
-            @Override public void onActivityStopped(@NonNull Activity activity) {}
-            @Override public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {}
-            @Override public void onActivityDestroyed(@NonNull Activity activity) {}
         });
+    }
+
+    /** {@link ActivityLifecycleCallbacks} that do nothing, to override only the needed methods. */
+    private static class EmptyActivityLifecycleCallbacks implements ActivityLifecycleCallbacks {
+        @Override public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {}
+        @Override public void onActivityStarted(@NonNull Activity activity) {}
+        @Override public void onActivityResumed(@NonNull Activity activity) {}
+        @Override public void onActivityPaused(@NonNull Activity activity) {}
+        @Override public void onActivityStopped(@NonNull Activity activity) {}
+        @Override public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {}
+        @Override public void onActivityDestroyed(@NonNull Activity activity) {}
     }
 
     public static void setLogConfig(Context context) {

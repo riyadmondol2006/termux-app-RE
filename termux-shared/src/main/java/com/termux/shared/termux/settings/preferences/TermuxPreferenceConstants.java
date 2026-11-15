@@ -1,7 +1,7 @@
 package com.termux.shared.termux.settings.preferences;
 
 /*
- * Version: v0.16.0
+ * Version: v0.17.0
  *
  * Changelog
  *
@@ -69,6 +69,10 @@ package com.termux.shared.termux.settings.preferences;
  * - 0.16.0 (2022-06-11)
  *      - Added following to `TERMUX_APP`:
  *          `KEY_APP_SHELL_NUMBER_SINCE_BOOT` and `KEY_TERMINAL_SESSION_NUMBER_SINCE_BOOT`.
+ *
+ * - 0.17.0 (2026-11-15)
+ *      - Added following to `TERMUX_APP`:
+ *          `KEY_UPDATE_CHECK_ENABLED`, `KEY_UPDATE_CHECK_LAST_TIME` and `KEY_UPDATE_CHECK_SKIPPED_VERSION`.
  */
 
 import com.termux.shared.shell.command.ExecutionCommand;
@@ -160,6 +164,24 @@ public final class TermuxPreferenceConstants {
          */
         public static final String KEY_TERMINAL_SESSION_NUMBER_SINCE_BOOT = "terminal_session_number_since_boot";
         public static final int DEFAULT_VALUE_TERMINAL_SESSION_NUMBER_SINCE_BOOT = 0;
+
+
+        /**
+         * Defines the key for whether the app checks for new releases of itself.
+         */
+        public static final String KEY_UPDATE_CHECK_ENABLED = "update_check_enabled";
+        public static final boolean DEFAULT_VALUE_UPDATE_CHECK_ENABLED = true;
+
+        /**
+         * Defines the key for the time in milliseconds of the last automatic check for a new release.
+         */
+        public static final String KEY_UPDATE_CHECK_LAST_TIME = "update_check_last_time";
+        public static final long DEFAULT_VALUE_UPDATE_CHECK_LAST_TIME = 0;
+
+        /**
+         * Defines the key for the release version for which the user chose to not be notified again.
+         */
+        public static final String KEY_UPDATE_CHECK_SKIPPED_VERSION = "update_check_skipped_version";
 
 
         /**

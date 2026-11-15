@@ -34,6 +34,17 @@
         app:isPreferenceVisible="false"
         app:fragment="com.termux.app.fragments.settings.TermuxWidgetPreferencesFragment"/>
 
+    <SwitchPreferenceCompat
+        app:key="update_check_enabled"
+        app:title="@string/update_check_preference_title"
+        app:summary="@string/update_check_preference_summary"
+        app:persistent="false"/>
+
+    <Preference
+        app:key="update_check_now"
+        app:title="@string/update_check_now_preference_title"
+        app:persistent="false"/>
+
     <Preference
         app:key="about"
         app:title="@string/about_preference_title"

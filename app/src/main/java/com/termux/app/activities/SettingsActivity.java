@@ -8,8 +8,11 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.SwitchPreferenceCompat;
 
+import com.termux.BuildConfig;
 import com.termux.R;
+import com.termux.app.update.AppUpdateChecker;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.models.ReportInfo;
@@ -17,6 +20,7 @@ import com.termux.app.models.UserAction;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.android.PackageUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAPIAppSharedPreferences;
+import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxFloatAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxTaskerAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxWidgetAppSharedPreferences;
@@ -59,6 +63,8 @@ public class SettingsActivity extends AppCompatActivity {
             if (context == null) return;
 
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
+
+            configureUpdatePreferences(context);
 
             new Thread() {
                 @Override
@@ -106,6 +112,32 @@ public class SettingsActivity extends AppCompatActivity {
                 TermuxWidgetAppSharedPreferences preferences = TermuxWidgetAppSharedPreferences.build(context, false);
                 // If failed to get app preferences, then likely app is not installed, so do not show its preference
                 termuxWidgetPreference.setVisible(preferences != null);
+            }
+        }
+
+        private void configureUpdatePreferences(@NonNull Context context) {
+            TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(context, false);
+
+            SwitchPreferenceCompat updateCheckPreference = findPreference("update_check_enabled");
+            if (updateCheckPreference != null) {
+                updateCheckPreference.setVisible(preferences != null);
+                if (preferences != null) {
+                    updateCheckPreference.setChecked(preferences.isUpdateCheckEnabled());
+                    updateCheckPreference.setOnPreferenceChangeListener((preference, newValue) -> {
+                        preferences.setUpdateCheckEnabled((Boolean) newValue);
+                        return true;
+                    });
+                }
+            }
+
+            Preference updateCheckNowPreference = findPreference("update_check_now");
+            if (updateCheckNowPreference != null) {
+                updateCheckNowPreference.setSummary(context.getString(R.string.update_check_now_preference_summary, BuildConfig.VERSION_NAME));
+                updateCheckNowPreference.setOnPreferenceClickListener(preference -> {
+                    if (getActivity() != null)
+                        AppUpdateChecker.checkForUpdateNow(getActivity());
+                    return true;
+                });
             }
         }
 

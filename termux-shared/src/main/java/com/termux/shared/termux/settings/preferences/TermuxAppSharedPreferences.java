@@ -192,6 +192,33 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
 
 
 
+    public boolean isUpdateCheckEnabled() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_UPDATE_CHECK_ENABLED, TERMUX_APP.DEFAULT_VALUE_UPDATE_CHECK_ENABLED);
+    }
+
+    public void setUpdateCheckEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_UPDATE_CHECK_ENABLED, value, false);
+    }
+
+    public long getUpdateCheckLastTime() {
+        return SharedPreferenceUtils.getLong(mSharedPreferences, TERMUX_APP.KEY_UPDATE_CHECK_LAST_TIME, TERMUX_APP.DEFAULT_VALUE_UPDATE_CHECK_LAST_TIME);
+    }
+
+    public void setUpdateCheckLastTime(long value) {
+        SharedPreferenceUtils.setLong(mSharedPreferences, TERMUX_APP.KEY_UPDATE_CHECK_LAST_TIME, value, false);
+    }
+
+    @Nullable
+    public String getUpdateCheckSkippedVersion() {
+        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_UPDATE_CHECK_SKIPPED_VERSION, null, true);
+    }
+
+    public void setUpdateCheckSkippedVersion(@Nullable String value) {
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_UPDATE_CHECK_SKIPPED_VERSION, value, false);
+    }
+
+
+
     public int getLastNotificationId() {
         return SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_LAST_NOTIFICATION_ID, TERMUX_APP.DEFAULT_VALUE_KEY_LAST_NOTIFICATION_ID);
     }
