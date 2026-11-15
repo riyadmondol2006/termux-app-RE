@@ -6,17 +6,15 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
+    <!-- Material 3 small top app bar. The status bar uses the same surface colour, see themes.xml. -->
+    <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimaryDark"
+        android:background="?attr/colorSurface"
         android:gravity="center_vertical"
         android:minHeight="?attr/actionBarSize"
-        android:theme="@style/ThemeOverlay.AppCompat.DayNight.ActionBar"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight"
         app:titleTextAppearance="@style/TextAppearance.Widget.BaseToolbar.Title"
-        app:subtitleTextAppearance="@style/TextAppearance.Widget.BaseToolbar.Subtitle">
-    </androidx.appcompat.widget.Toolbar>
+        app:subtitleTextAppearance="@style/TextAppearance.Widget.BaseToolbar.Subtitle" />
 
 </LinearLayout>

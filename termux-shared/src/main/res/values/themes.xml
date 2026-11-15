@@ -2,30 +2,77 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!--
      The light themes are only for day mode and must not be defined in night/theme.xml.
-     https://material.io/develop/android/theming/dark
+     https://m3.material.io/develop/android/mdc-android
+     https://github.com/material-components/material-components-android/blob/master/docs/theming/Color.md
+
+     The themes are based on the Material 3 Expressive themes of the Material Components library.
+     The colour roles below are the static (non dynamic) Termux RE scheme, see colors.xml. On
+     Android 12+ the app may replace them with dynamic colours from the wallpaper at runtime, so
+     do not hardcode colours in layouts, reference the colour role attributes instead.
     -->
+
+    <!-- Platform specific bases, see values-v27/themes.xml. -->
+    <style name="Base.Theme.BaseActivity.Light" parent="Theme.Material3Expressive.Light"/>
+    <style name="Base.Theme.BaseActivity.Dark" parent="Theme.Material3Expressive.Dark"/>
 
     <!--
       BaseActivity Light DarkActionBar theme.
-      https://github.com/material-components/material-components-android/blob/1.4.0/lib/java/com/google/android/material/theme/res/values/themes.xml#L33
+      Material 3 has no dark action bar themes, the action bar uses the surface colour.
+      https://github.com/material-components/material-components-android/blob/master/lib/java/com/google/android/material/theme/res/values/themes.xml
      -->
-    <style name="Theme.BaseActivity.Light.DarkActionBar" parent="Theme.MaterialComponents.Light.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/red_400</item>
-        <item name="colorPrimaryVariant">@color/red_800</item>
-        <item name="colorOnPrimary">@color/white</item>
+    <style name="Theme.BaseActivity.Light.DarkActionBar" parent="Base.Theme.BaseActivity.Light">
+        <item name="colorPrimary">@color/termux_light_primary</item>
+        <item name="colorOnPrimary">@color/termux_light_on_primary</item>
+        <item name="colorPrimaryContainer">@color/termux_light_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/termux_light_on_primary_container</item>
+        <item name="colorPrimaryInverse">@color/termux_light_inverse_primary</item>
+        <item name="colorPrimaryFixed">@color/termux_light_primary_fixed</item>
+        <item name="colorPrimaryFixedDim">@color/termux_light_primary_fixed_dim</item>
+        <item name="colorOnPrimaryFixed">@color/termux_light_on_primary_fixed</item>
+        <item name="colorOnPrimaryFixedVariant">@color/termux_light_on_primary_fixed_variant</item>
+        <item name="colorSecondary">@color/termux_light_secondary</item>
+        <item name="colorOnSecondary">@color/termux_light_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/termux_light_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/termux_light_on_secondary_container</item>
+        <item name="colorSecondaryFixed">@color/termux_light_secondary_fixed</item>
+        <item name="colorSecondaryFixedDim">@color/termux_light_secondary_fixed_dim</item>
+        <item name="colorOnSecondaryFixed">@color/termux_light_on_secondary_fixed</item>
+        <item name="colorOnSecondaryFixedVariant">@color/termux_light_on_secondary_fixed_variant</item>
+        <item name="colorTertiary">@color/termux_light_tertiary</item>
+        <item name="colorOnTertiary">@color/termux_light_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/termux_light_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/termux_light_on_tertiary_container</item>
+        <item name="colorTertiaryFixed">@color/termux_light_tertiary_fixed</item>
+        <item name="colorTertiaryFixedDim">@color/termux_light_tertiary_fixed_dim</item>
+        <item name="colorOnTertiaryFixed">@color/termux_light_on_tertiary_fixed</item>
+        <item name="colorOnTertiaryFixedVariant">@color/termux_light_on_tertiary_fixed_variant</item>
+        <item name="colorError">@color/termux_light_error</item>
+        <item name="colorOnError">@color/termux_light_on_error</item>
+        <item name="colorErrorContainer">@color/termux_light_error_container</item>
+        <item name="colorOnErrorContainer">@color/termux_light_on_error_container</item>
+        <item name="android:colorBackground">@color/termux_light_background</item>
+        <item name="colorOnBackground">@color/termux_light_on_background</item>
+        <item name="colorSurface">@color/termux_light_surface</item>
+        <item name="colorOnSurface">@color/termux_light_on_surface</item>
+        <item name="colorSurfaceVariant">@color/termux_light_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/termux_light_on_surface_variant</item>
+        <item name="colorSurfaceDim">@color/termux_light_surface_dim</item>
+        <item name="colorSurfaceBright">@color/termux_light_surface_bright</item>
+        <item name="colorSurfaceContainerLowest">@color/termux_light_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/termux_light_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/termux_light_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/termux_light_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/termux_light_surface_container_highest</item>
+        <item name="colorSurfaceInverse">@color/termux_light_inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/termux_light_inverse_on_surface</item>
+        <item name="colorOutline">@color/termux_light_outline</item>
+        <item name="colorOutlineVariant">@color/termux_light_outline_variant</item>
 
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/grey_900</item>
-        <item name="colorSecondaryVariant">@color/black</item>
-        <item name="colorOnSecondary">@color/white</item>
-
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
-        <item name="colorPrimaryDark" tools:targetApi="l">?attr/colorPrimary</item>
+        <!-- System bars blend with the top app bar. -->
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightStatusBar">true</item>
 
         <!-- Text color. -->
-        <item name="android:textColorPrimary">@color/black</item>
         <item name="android:textColorLink">@color/blue_link_light</item>
 
         <!--
@@ -36,8 +83,11 @@
          at index... TypedValue` will be thrown, since ThemeOverlay would have all the activity
          theme attributes defined.
         -->
-        <item name="alertDialogTheme">@style/ThemeOverlay.BaseDialog.DayNight</item>
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.BaseDialog.DayNight</item>
+        <!-- Dialogs of androidx.appcompat.app.AlertDialog.Builder, like the preference dialogs. -->
+        <item name="alertDialogTheme">@style/ThemeOverlay.BaseDialog.AppCompat.DayNight</item>
+        <!-- Framework dialogs, like the terminal context menu. -->
+        <item name="android:alertDialogTheme">@style/ThemeOverlay.BaseDialog.Framework.DayNight</item>
     </style>
 
     <!-- BaseActivity Light NoActionBar theme. -->
@@ -69,32 +119,44 @@
 
     <!--
       BaseDialog Light theme.
-      https://github.com/material-components/material-components-android/blob/1.4.0/lib/java/com/google/android/material/dialog/res/values/themes.xml#L70
+      Colours come from the context theme, so that dynamic colours apply to dialogs too.
+      https://github.com/material-components/material-components-android/blob/master/docs/components/Dialog.md
      -->
-    <style name="ThemeOverlay.BaseDialog.Light" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/red_400</item>
-        <item name="colorPrimaryVariant">@color/red_800</item>
-        <item name="colorOnPrimary">@color/white</item>
-
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/grey_900</item>
-        <item name="colorSecondaryVariant">@color/black</item>
-        <item name="colorOnSecondary">@color/white</item>
-
-        <!-- Surface color. -->
-        <item name="colorSurface">@color/design_default_color_surface</item>
-        <item name="colorOnSurface">@color/design_default_color_on_surface</item>
-
-        <!-- Dialog title panel style. -->
-        <item name="materialAlertDialogTitlePanelStyle">@style/BaseDialog.Title.Panel</item>
-
+    <style name="ThemeOverlay.BaseDialog.Light" parent="ThemeOverlay.Material3Expressive.MaterialAlertDialog">
         <!-- Dialog message text style. -->
         <item name="materialAlertDialogBodyTextStyle">@style/BaseDialog.Message.Text.Light</item>
     </style>
 
     <!-- BaseDialog DayNight theme. -->
     <style name="ThemeOverlay.BaseDialog.DayNight" parent="ThemeOverlay.BaseDialog.Light"/>
+
+    <!--
+      BaseDialog AppCompat DayNight theme for androidx.appcompat.app.AlertDialog, like the dialogs
+      of androidx.preference, which do not get the Material 3 shape of MaterialAlertDialogBuilder.
+     -->
+    <style name="ThemeOverlay.BaseDialog.AppCompat.DayNight" parent="ThemeOverlay.Material3Expressive.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_background_material3</item>
+    </style>
+
+    <!--
+      BaseDialog Framework Light theme for android.app.AlertDialog, like the dialogs of context
+      menus, which can not use the MaterialAlertDialog themes.
+     -->
+    <style name="ThemeOverlay.BaseDialog.Framework.Light" parent="@android:style/Theme.Material.Light.Dialog.Alert">
+        <!-- Material 3 colours from the context theme (also dynamic colours) and dialog shape. -->
+        <item name="android:colorBackground">?attr/colorSurfaceContainerHigh</item>
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textColorAlertDialogListItem">?attr/colorOnSurface</item>
+        <item name="android:colorAccent">?attr/colorPrimary</item>
+        <item name="android:colorControlNormal">?attr/colorOnSurfaceVariant</item>
+        <item name="android:colorControlHighlight">?attr/colorControlHighlight</item>
+        <item name="android:dialogCornerRadius" tools:targetApi="p">28dp</item>
+        <item name="android:buttonBarButtonStyle">@style/Widget.Material3.Button.TextButton.Dialog.Flush</item>
+    </style>
+
+    <!-- BaseDialog Framework DayNight theme. -->
+    <style name="ThemeOverlay.BaseDialog.Framework.DayNight" parent="ThemeOverlay.BaseDialog.Framework.Light"/>
 
     <!-- BaseDialog extended classes DayNight themes. -->
     <style name="ThemeOverlay.MessageDialog.DayNight" parent="ThemeOverlay.BaseDialog.DayNight"/>

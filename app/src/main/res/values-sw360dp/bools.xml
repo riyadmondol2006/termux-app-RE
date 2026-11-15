@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- androidx.preference sets this to true for sw360dp, see values/bools.xml. -->
+    <bool name="config_materialPreferenceIconSpaceReserved">false</bool>
+</resources>

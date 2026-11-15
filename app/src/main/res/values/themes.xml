@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!--
-     https://material.io/develop/android/theming/dark
+     The base themes and the Material 3 colour scheme are defined in termux-shared, see
+     termux-shared/src/main/res/values/themes.xml. Day and night colours are selected by the
+     DayNight themes, so reference colour role attributes (?attr/colorSurface etc.) here instead of
+     colours.
     -->
 
     <!-- TermuxApp Light DarkActionBar theme. -->
@@ -12,15 +15,21 @@
     <!-- TermuxApp DayNight DarkActionBar theme. -->
     <style name="Theme.TermuxApp.DayNight.DarkActionBar" parent="Theme.BaseActivity.DayNight.DarkActionBar"/>
     <!-- TermuxApp DayNight NoActionBar theme. -->
-    <style name="Theme.TermuxApp.DayNight.NoActionBar" parent="Theme.BaseActivity.DayNight.NoActionBar"/>
+    <style name="Theme.TermuxApp.DayNight.NoActionBar" parent="Theme.BaseActivity.DayNight.NoActionBar">
+        <!-- Material 3 preferences for SettingsActivity. -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.TermuxApp</item>
+    </style>
 
 
-    <!-- TermuxActivity DayNight NoActionBar theme. -->
-    <style name="Theme.TermuxActivity.DayNight.NoActionBar" parent="Theme.TermuxApp.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/black</item>
-        <item name="colorPrimaryVariant">@color/black</item>
+    <!-- TermuxActivity base theme, see values-v31/themes.xml for the splash screen. -->
+    <style name="Base.Theme.TermuxActivity" parent="Theme.TermuxApp.DayNight.NoActionBar"/>
 
+    <!--
+     TermuxActivity DayNight NoActionBar theme.
+     NOTE: Cannot use "Light." since it hides the terminal scrollbar on the default black background.
+     The terminal is always drawn on black, only the drawer and dialogs follow day and night mode.
+    -->
+    <style name="Theme.TermuxActivity.DayNight.NoActionBar" parent="Base.Theme.TermuxActivity">
         <item name="android:windowBackground">@color/black</item>
 
         <!-- Avoid action mode toolbar pushing down terminal content when
@@ -30,20 +39,32 @@
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
 
+        <!-- The system bars are drawn over the black terminal, so always use light bar icons. -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+
         <!-- https://developer.android.com/training/tv/start/start.html#transition-color -->
         <item name="android:windowAllowReturnTransitionOverlap">true</item>
         <item name="android:windowAllowEnterTransitionOverlap">true</item>
 
-        <!-- Left drawer. -->
-        <item name="buttonBarButtonStyle">@style/TermuxActivity.Drawer.ButtonBarStyle.Light</item>
-        <item name="termuxActivityDrawerBackground">@color/white</item>
-        <item name="termuxActivityDrawerImageTint">@color/black</item>
+        <!-- Left drawer (Material 3 modal navigation drawer). -->
+        <item name="termuxActivityDrawerBackground">?attr/colorSurfaceContainerLow</item>
+        <item name="termuxActivityDrawerImageTint">?attr/colorOnSurfaceVariant</item>
 
-        <!-- Extra keys colors. -->
+        <!-- Extra keys colors. The extra keys are drawn on black like the terminal. -->
         <item name="extraKeysButtonTextColor">@color/white</item>
-        <item name="extraKeysButtonActiveTextColor">@color/red_400</item>
+        <item name="extraKeysButtonActiveTextColor">@color/termux_brand_amber</item>
         <item name="extraKeysButtonBackgroundColor">@color/black</item>
-        <item name="extraKeysButtonActiveBackgroundColor">@color/grey_500</item>
+        <item name="extraKeysButtonActiveBackgroundColor">@color/extra_keys_button_active_background</item>
+    </style>
+
+    <!--
+     Theme overlay for the text input view of the terminal toolbar, which is drawn on black in both
+     day and night mode.
+    -->
+    <style name="ThemeOverlay.TermuxActivity.TerminalToolbarTextInput" parent="">
+        <item name="colorControlNormal">@color/termux_dark_outline</item>
+        <item name="colorControlActivated">@color/termux_brand_amber</item>
     </style>
 
 </resources>

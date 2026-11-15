@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+     The navigation bar can only use dark buttons from API 27, so only colour it with the surface
+     colour from here on, older versions keep the default black navigation bar.
+    -->
+    <style name="Base.Theme.BaseActivity.Light" parent="Theme.Material3Expressive.Light">
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Base.Theme.BaseActivity.Dark" parent="Theme.Material3Expressive.Dark">
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>
