@@ -8,6 +8,7 @@ import android.provider.OpenableColumns;
 import android.util.Patterns;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.termux.R;
@@ -53,6 +54,12 @@ public class FileReceiverActivity extends AppCompatActivity {
     private static final String API_TAG = TermuxConstants.TERMUX_APP_NAME + "FileReceiver";
 
     private static final String LOG_TAG = "FileReceiverActivity";
+
+    /** The max length in bytes of a file name, the Linux {@code NAME_MAX}. */
+    static final int MAX_FILE_NAME_BYTES = 255;
+
+    /** The max length of a file extension, including the dot, that is kept when a file name is truncated. */
+    static final int MAX_KEPT_FILE_EXTENSION_LENGTH = 16;
 
     static boolean isSharedTextAnUrl(String sharedText) {
         if (sharedText == null || sharedText.isEmpty()) return false;
@@ -159,8 +166,44 @@ public class FileReceiverActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Truncate a suggested file name so that it fits in {@link #MAX_FILE_NAME_BYTES} bytes when
+     * encoded in UTF-8, while keeping its extension. The file name may be too long, like if it is
+     * the subject of a shared text, in which case the file could not be created.
+     *
+     * @param fileName The file name to truncate.
+     * @return Returns the truncated file name, or {@code fileName} if it is {@code null} or short enough.
+     */
+    @Nullable
+    static String truncateFileName(@Nullable String fileName) {
+        if (fileName == null || getUtf8Length(fileName) <= MAX_FILE_NAME_BYTES) return fileName;
+
+        String extension = "";
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot > 0 && fileName.length() - lastDot <= MAX_KEPT_FILE_EXTENSION_LENGTH)
+            extension = fileName.substring(lastDot);
+        String baseName = fileName.substring(0, fileName.length() - extension.length());
+
+        int maxBaseNameBytes = MAX_FILE_NAME_BYTES - getUtf8Length(extension);
+        int end = 0;
+        int bytes = 0;
+        while (end < baseName.length()) {
+            int codePoint = baseName.codePointAt(end);
+            int codePointBytes = codePoint < 0x80 ? 1 : codePoint < 0x800 ? 2 : codePoint < 0x10000 ? 3 : 4;
+            if (bytes + codePointBytes > maxBaseNameBytes) break;
+            bytes += codePointBytes;
+            end += Character.charCount(codePoint);
+        }
+
+        return baseName.substring(0, end) + extension;
+    }
+
+    private static int getUtf8Length(@NonNull String string) {
+        return string.getBytes(StandardCharsets.UTF_8).length;
+    }
+
     void promptNameAndSave(final InputStream in, final String attachmentFileName) {
-        TextInputDialogUtils.textInput(this, R.string.title_file_received, attachmentFileName,
+        TextInputDialogUtils.textInput(this, R.string.title_file_received, truncateFileName(attachmentFileName),
             R.string.action_file_received_edit, text -> {
                 File outFile = saveStreamWithName(in, text);
                 if (outFile == null) return;
