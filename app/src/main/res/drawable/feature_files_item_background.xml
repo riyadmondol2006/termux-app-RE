@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Background of a list row: the secondary container colour when the row is selected. -->
+<!-- Background of a list row: the secondary container colour when the row is selected. A theme
+     colour can't be used as a drawable directly, so it is the solid colour of a shape. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?attr/colorSecondaryContainer" android:state_activated="true" />
+    <item android:state_activated="true">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/colorSecondaryContainer" />
+        </shape>
+    </item>
     <item android:drawable="@android:color/transparent" />
 </selector>
