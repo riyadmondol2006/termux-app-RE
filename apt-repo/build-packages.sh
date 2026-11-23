@@ -101,7 +101,9 @@ for pkg in "${PACKAGES[@]}"; do
 	start=$(date +%s)
 	# A build that failed to download sources is tried again. It resumes, build-package.sh skips
 	# the dependencies that were built already.
-	for attempt in 1 2 3 4 5 6; do
+	attempt=0 download_retries=0
+	while true; do
+		attempt=$(( attempt + 1 ))
 		echo "::group::Building $pkg $version for $ARCH$([ "$attempt" -gt 1 ] && echo ", attempt $attempt")"
 		timeout --kill-after=120 "$remaining" ./scripts/run-docker.sh ./build-package.sh "${BUILD_ARGS[@]}" "$pkg" < /dev/null 2>&1 | tee "$RUNNER_TEMP_DIR/build.log"
 		status=${PIPESTATUS[0]}
@@ -123,8 +125,9 @@ for pkg in "${PACKAGES[@]}"; do
 			continue
 		fi
 		grep -qE "^Failed to download |Failed to download package repository metadata" "$RUNNER_TEMP_DIR/build.log" || break
+		download_retries=$(( download_retries + 1 ))
 		remaining=$(( DEADLINE - $(date +%s) - 120 ))
-		[ "$attempt" -lt 6 ] && [ "$remaining" -gt 600 ] || break
+		[ "$download_retries" -le 3 ] && [ "$remaining" -gt 600 ] || break
 		echo "::warning::Building $pkg for $ARCH failed to download sources, trying again in 2 minutes"
 		sleep 120
 	done
