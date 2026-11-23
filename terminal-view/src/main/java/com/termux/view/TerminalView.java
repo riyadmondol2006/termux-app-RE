@@ -41,6 +41,7 @@ import androidx.annotation.RequiresApi;
 import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
+import com.termux.view.textselection.TextSelectionActionProvider;
 import com.termux.view.textselection.TextSelectionCursorController;
 
 /** View displaying and interacting with a {@link TerminalSession}. */
@@ -69,6 +70,16 @@ public final class TerminalView extends View {
      * scrolling to the bottom. See {@link #setKeepScrollPositionOnOutput(boolean)}.
      */
     private boolean mKeepScrollPositionOnOutput;
+
+    /** Adds actions to the text selection toolbar, or {@code null}. */
+    @Nullable
+    private TextSelectionActionProvider mTextSelectionActionProvider;
+
+    /** The time and position of the last double tap that selected a word, to detect a triple tap. */
+    private long mWordSelectionTapTime = -1;
+    private float mWordSelectionTapX, mWordSelectionTapY;
+    /** The down time of the triple tap that selected a line, so its single tap is ignored. */
+    private long mLineSelectionTapDownTime = -1;
 
     private Handler mTerminalCursorBlinkerHandler;
     private TerminalCursorBlinkerRunnable mTerminalCursorBlinkerRunnable;
@@ -184,7 +195,8 @@ public final class TerminalView extends View {
                 if (mEmulator == null) return true;
 
                 if (isSelectingText()) {
-                    stopTextSelectionMode();
+                    // The tap that selected a line keeps the selection.
+                    if (event.getDownTime() != mLineSelectionTapDownTime) stopTextSelectionMode();
                     return true;
                 }
                 requestFocus();
@@ -268,8 +280,11 @@ public final class TerminalView extends View {
 
             @Override
             public boolean onDoubleTap(MotionEvent event) {
-                // Do not treat is as a single confirmed tap - it may be followed by zoom.
-                return false;
+                // A double tap is not treated as a single confirmed tap. It selects the word at the
+                // tap, unless the terminal wants mouse events, and a third tap selects the line.
+                if (mEmulator == null || mEmulator.isMouseTrackingActive() || mGestureRecognizer.isInProgress()) return false;
+                selectWordAt(event);
+                return true;
             }
 
             @Override
@@ -646,6 +661,12 @@ public final class TerminalView extends View {
         final int action = event.getAction();
 
         if (isSelectingText()) {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN && isTripleTap(event)) {
+                // Select the whole line at the third tap after a double tap that selected a word.
+                mWordSelectionTapTime = -1;
+                mLineSelectionTapDownTime = event.getDownTime();
+                getTextSelectionCursorController().selectLine(getColumnAndRow(event, true)[1]);
+            }
             updateFloatingToolbarVisibility(event);
             mGestureRecognizer.onTouchEvent(event);
             return true;
@@ -1564,6 +1585,44 @@ public final class TerminalView extends View {
         } else {
             return null;
         }
+    }
+
+    /** Start text selection with the word at {@code event} selected, or select it if already selecting. */
+    private void selectWordAt(MotionEvent event) {
+        if (isSelectingText()) {
+            getTextSelectionCursorController().selectWord(event);
+        } else {
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            startTextSelectionMode(event);
+        }
+        if (isSelectingText()) {
+            mWordSelectionTapTime = event.getEventTime();
+            mWordSelectionTapX = event.getX();
+            mWordSelectionTapY = event.getY();
+        }
+    }
+
+    /** Whether the down {@code event} is a third tap close to a double tap that selected a word. */
+    private boolean isTripleTap(MotionEvent event) {
+        if (mWordSelectionTapTime < 0) return false;
+        // The double tap event is the down event of its first tap.
+        if (event.getEventTime() - mWordSelectionTapTime > 3L * ViewConfiguration.getDoubleTapTimeout()) return false;
+        float slop = ViewConfiguration.get(getContext()).getScaledDoubleTapSlop();
+        float dx = event.getX() - mWordSelectionTapX, dy = event.getY() - mWordSelectionTapY;
+        return dx * dx + dy * dy <= slop * slop;
+    }
+
+    /**
+     * Set the provider of the actions added to the text selection toolbar, or {@code null}.
+     * Must be set before text selection starts to be used for it.
+     */
+    public void setTextSelectionActionProvider(@Nullable TextSelectionActionProvider provider) {
+        mTextSelectionActionProvider = provider;
+    }
+
+    @Nullable
+    public TextSelectionActionProvider getTextSelectionActionProvider() {
+        return mTextSelectionActionProvider;
     }
 
     public void startTextSelectionMode(MotionEvent event) {
