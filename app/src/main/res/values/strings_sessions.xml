@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of the session features in com.termux.app.features.sessions. -->
+<resources>
+
+    <!-- Common -->
+    <string name="feature_sessions_action_create">Create</string>
+    <string name="feature_sessions_action_rename">Rename</string>
+    <string name="feature_sessions_action_delete">Delete</string>
+    <string name="feature_sessions_action_close">Close</string>
+
+    <!-- Workspaces -->
+    <string name="feature_sessions_workspaces_title">Session workspaces</string>
+    <string name="feature_sessions_workspaces_summary">Group sessions into workspaces and switch between them</string>
+    <string name="feature_sessions_workspace_default">Default</string>
+    <string name="feature_sessions_workspace_all">All</string>
+    <plurals name="feature_sessions_workspace_item">
+        <item quantity="one">%1$s (%2$d session)</item>
+        <item quantity="other">%1$s (%2$d sessions)</item>
+    </plurals>
+    <string name="feature_sessions_workspace_item_selected">%1$s · shown</string>
+    <string name="feature_sessions_title_workspaces">Workspaces</string>
+    <string name="feature_sessions_title_new_workspace">New workspace</string>
+    <string name="feature_sessions_title_rename_workspace">Rename workspace</string>
+    <string name="feature_sessions_title_delete_workspace">Delete workspace \"%1$s\"?</string>
+    <string name="feature_sessions_msg_delete_workspace">Its sessions are moved to the Default workspace.</string>
+    <string name="feature_sessions_action_new_workspace">New workspace</string>
+    <string name="feature_sessions_action_switch_to_workspace">Show in drawer</string>
+    <string name="feature_sessions_action_new_session_in_workspace">New session here</string>
+    <string name="feature_sessions_action_rename_workspace">Rename</string>
+    <string name="feature_sessions_action_delete_workspace">Delete</string>
+    <string name="feature_sessions_action_show_all">Show all</string>
+    <string name="feature_sessions_msg_workspace_empty">No sessions in this workspace. Tap New session, or long press a session in All and move it here.</string>
+    <string name="feature_sessions_msg_no_workspaces">No workspaces yet. Create one with New workspace in the drawer.</string>
+
+    <!-- Session menu -->
+    <string name="feature_sessions_title_session">Session</string>
+    <string name="feature_sessions_action_rename_session">Rename</string>
+    <string name="feature_sessions_action_pin_session">Pin to top</string>
+    <string name="feature_sessions_action_unpin_session">Unpin</string>
+    <string name="feature_sessions_action_move_session">Move to workspace…</string>
+    <string name="feature_sessions_action_close_session">Close session</string>
+    <string name="feature_sessions_title_move_session">Move to workspace</string>
+    <string name="feature_sessions_title_close_session">Close session?</string>
+    <string name="feature_sessions_msg_close_session">The programs running in the session are stopped.</string>
+    <string name="feature_sessions_pinned">Pinned</string>
+
+</resources>
