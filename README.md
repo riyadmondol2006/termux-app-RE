@@ -52,7 +52,9 @@ The amber and slate colors of the icon are used on Android 11 and older, and whe
 - **CI** builds and tests on every push, signs release APKs with your own key, publishes tagged versions as releases, and builds bootstraps and an apt package repository for the fork's package name.
 - **New icon**, so you can tell it apart from Termux on the home screen.
 - **Material 3 Expressive UI** for the drawer, settings and dialogs, with Material You dynamic colors on Android 12+ (set `dynamic-colors = false` in `~/.termux/termux.properties` for the fixed amber and slate scheme of the icon). The terminal keeps its own colors from `colors.properties`.
-- **Update notices.** Release builds check this repository's GitHub releases once a day and offer the APK for the device when a newer version is out (*Settings → Check for updates*). See [Updating and uninstalling](#updating-and-uninstalling).
+- **Tools.** The grid button in the drawer opens Tools: Theme Studio, session workspaces, profiles and restore, terminal search, split screen, clipboard history, a command palette, keyboard and toolbar editors, a package manager, a file manager, backup and restore, SSH and Git helpers, a system monitor, a floating terminal and an update manager. See the [feature guide](docs/FEATURES.md).
+- **Update notices.** Release builds check this repository's GitHub releases at most every 6 hours, and a popup offers to download, verify and install the newer version (*Settings → Check for updates*, or *Tools → Update manager*). See [Updating and uninstalling](#updating-and-uninstalling).
+- **AI coding CLIs** need some extra steps on Android. See [docs/ai-cli-tools.md](docs/ai-cli-tools.md).
 - **Permissions screen** under *Settings → Termux → Permissions* for the permissions Android 13+ makes easy to lose: notifications (the session notification with *Exit* and *Acquire wakelock*), *Display over other apps* (needed for `am start`/`termux-open` from the background), running in the background, and file access. If storage access was denied permanently, `termux-setup-storage` now explains how to grant it from App info.
 - **Bug fixes** for open upstream issues, listed below.
 
