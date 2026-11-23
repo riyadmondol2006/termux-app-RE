@@ -64,7 +64,7 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy-again.outputs.page_url }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v7
@@ -203,4 +203,15 @@ jobs:
 
       - name: Deploy site
         id: deploy
+        # Right after the upload, GitHub sometimes doesn't list the site's artifact yet.
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+
+      - name: Wait before deploying again
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 90
+
+      - name: Deploy site again
+        id: deploy-again
+        if: steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@v5
