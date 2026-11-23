@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Background of a list row: the secondary container colour when the row is selected. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="?attr/colorSecondaryContainer" android:state_activated="true" />
+    <item android:drawable="@android:color/transparent" />
+</selector>

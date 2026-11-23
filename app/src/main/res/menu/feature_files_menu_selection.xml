@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/feature_files_action_copy"
+        android:icon="@drawable/feature_files_ic_copy"
+        android:title="@string/feature_files_copy"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/feature_files_action_move"
+        android:icon="@drawable/feature_files_ic_move"
+        android:title="@string/feature_files_move"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/feature_files_action_delete"
+        android:icon="@drawable/feature_files_ic_delete"
+        android:title="@string/feature_files_delete"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/feature_files_action_select_all"
+        android:icon="@drawable/feature_files_ic_select_all"
+        android:title="@string/feature_files_select_all"
+        app:showAsAction="ifRoom" />
+
+    <!-- The actions below need exactly one selected item. -->
+    <item
+        android:id="@+id/feature_files_action_open"
+        android:title="@string/feature_files_open"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/feature_files_action_edit"
+        android:title="@string/feature_files_view_edit"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/feature_files_action_rename"
+        android:title="@string/feature_files_rename"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/feature_files_action_details"
+        android:title="@string/feature_files_details"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/feature_files_action_share"
+        android:title="@string/feature_files_share"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/feature_files_action_open_with"
+        android:title="@string/feature_files_open_with"
+        app:showAsAction="never" />
+</menu>

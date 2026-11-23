@@ -71,7 +71,18 @@
         tools:targetApi="m">
 
         <!-- Files area: document picker and foreground archive operations. -->
-        <activity android:name=".app.features.files.BackupActivity" android:exported="false" />
+        <activity
+            android:name=".app.features.files.BackupActivity"
+            android:exported="false"
+            android:label="@string/feature_files_backup_title"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+        <activity
+            android:name=".app.features.files.FileManagerActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden"
+            android:exported="false"
+            android:label="@string/feature_files_manager"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
         <service android:name=".app.features.files.BackupService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User initiated terminal backup and restore" />
         </service>
