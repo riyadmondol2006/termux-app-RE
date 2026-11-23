@@ -3,4 +3,104 @@
     <string name="feature_files_manager_summary">Browse, edit and organize terminal files</string>
     <string name="feature_files_backup">Backup and restore</string>
     <string name="feature_files_backup_summary">Save and restore home, settings and installed packages</string>
+
+    <!-- File manager: toolbar and menus -->
+    <string name="feature_files_search">Search this folder</string>
+    <string name="feature_files_up">Up one folder</string>
+    <string name="feature_files_locations">Locations</string>
+    <string name="feature_files_location_home">Home</string>
+    <string name="feature_files_location_prefix">Installed packages ($PREFIX)</string>
+    <string name="feature_files_location_storage_links">Storage links</string>
+    <string name="feature_files_location_shared">Shared storage</string>
+    <string name="feature_files_sort">Sort</string>
+    <string name="feature_files_sort_name">Name</string>
+    <string name="feature_files_sort_newest">Newest first</string>
+    <string name="feature_files_sort_largest">Largest first</string>
+    <string name="feature_files_select_all">Select all</string>
+    <string name="feature_files_terminal_here">Open terminal here</string>
+    <string name="feature_files_paste">Paste here</string>
+    <string name="feature_files_new">New</string>
+    <string name="feature_files_new_file">New file</string>
+    <string name="feature_files_new_folder">New folder</string>
+    <string name="feature_files_name_hint">Name</string>
+    <string name="feature_files_exit_selection">Clear selection</string>
+    <string name="feature_files_selected">%1$d selected</string>
+
+    <!-- File manager: actions -->
+    <string name="feature_files_copy">Copy</string>
+    <string name="feature_files_move">Move</string>
+    <string name="feature_files_delete">Delete</string>
+    <string name="feature_files_open">Open</string>
+    <string name="feature_files_view_edit">View / edit text</string>
+    <string name="feature_files_rename">Rename</string>
+    <string name="feature_files_details">Details</string>
+    <string name="feature_files_share">Share</string>
+    <string name="feature_files_open_with">Open with</string>
+    <string name="feature_files_cancel">Cancel</string>
+    <string name="feature_files_close">Close</string>
+    <string name="feature_files_save">Save</string>
+    <string name="feature_files_continue">Continue</string>
+    <string-array name="feature_files_file_menu">
+        <item>@string/feature_files_view_edit</item>
+        <item>@string/feature_files_details</item>
+        <item>@string/feature_files_rename</item>
+        <item>@string/feature_files_share</item>
+        <item>@string/feature_files_open_with</item>
+    </string-array>
+    <string-array name="feature_files_new_menu">
+        <item>@string/feature_files_new_file</item>
+        <item>@string/feature_files_new_folder</item>
+    </string-array>
+    <plurals name="feature_files_delete_title">
+        <item quantity="one">Delete %d item?</item>
+        <item quantity="other">Delete %d items?</item>
+    </plurals>
+    <string name="feature_files_delete_message">This cannot be undone. Symbolic links are deleted without deleting their targets.</string>
+    <string name="feature_files_prefix_warning_title">Modify installed packages?</string>
+    <string name="feature_files_prefix_warning_message">Changing $PREFIX can break Termux or installed packages.</string>
+    <string name="feature_files_working">Working…</string>
+    <string name="feature_files_working_message">Operations may be partially completed if cancelled.</string>
+    <plurals name="feature_files_ready_to_paste">
+        <item quantity="one">%d item is ready. Open a destination folder and choose Paste here.</item>
+        <item quantity="other">%d items are ready. Open a destination folder and choose Paste here.</item>
+    </plurals>
+    <string name="feature_files_nothing_to_paste">Nothing to paste. Copy or move items first.</string>
+    <string name="feature_files_grant_storage">Grant storage permission, then choose Shared storage again.</string>
+    <string name="feature_files_terminal_failed">Could not open a terminal. Open Termux RE and try again.</string>
+
+    <!-- File manager: list -->
+    <string name="feature_files_info_file">%1$s · %2$s</string>
+    <string name="feature_files_info_link">Link · %1$s</string>
+    <plurals name="feature_files_items">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <string name="feature_files_empty_title">This folder is empty</string>
+    <string name="feature_files_empty_body">Use the New button to create a file or folder here.</string>
+    <string name="feature_files_no_matches_title">No matches</string>
+    <string name="feature_files_no_matches_body">Nothing in this folder has \"%1$s\" in its name.</string>
+    <string name="feature_files_denied_title">Cannot open this folder</string>
+    <string name="feature_files_denied_body">Termux RE does not have permission to read it, or it no longer exists.</string>
+    <string name="feature_files_allow_storage">Allow storage access</string>
+    <string name="feature_files_go_up">Go up one folder</string>
+
+    <!-- Backup and restore -->
+    <string name="feature_files_backup_title">Backup and restore</string>
+    <string name="feature_files_backup_intro">Save a compressed Termux RE archive. Settings and ~/.termux are always included. Storage symlinks are saved as links; shared storage contents are not followed.</string>
+    <string name="feature_files_backup_warning">Stop commands that modify files before backing up or restoring. Archives may contain passwords and private keys.</string>
+    <string name="feature_files_backup_options">What to include</string>
+    <string name="feature_files_backup_home">Include entire home directory</string>
+    <string name="feature_files_backup_prefix">Include installed packages ($PREFIX)</string>
+    <string name="feature_files_backup_caches">Skip cache, .cache and tmp directories</string>
+    <string name="feature_files_backup_save_section">Backup</string>
+    <string name="feature_files_backup_save">Save backup</string>
+    <string name="feature_files_backup_restore_section">Restore</string>
+    <string name="feature_files_backup_choose">Choose archive to restore</string>
+    <string name="feature_files_backup_review">Review and restore</string>
+    <string name="feature_files_backup_restore_hint">Choose an archive first. It is checked before you can restore it.</string>
+    <string name="feature_files_backup_status">Status</string>
+    <string name="feature_files_backup_cancel">Cancel current operation</string>
+    <string name="feature_files_backup_confirm_title">Replace matching files?</string>
+    <string name="feature_files_backup_confirm_message">%1$s\n\nExisting files with matching paths will be replaced. Other files remain. This may change settings and installed packages. Restore is not atomic; cancellation leaves completed changes. Stop terminal commands first. Restart Termux after restoring.</string>
+    <string name="feature_files_backup_restore">Restore</string>
 </resources>

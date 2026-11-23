@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/feature_files_action_search"
+        android:icon="@drawable/feature_files_ic_search"
+        android:title="@string/feature_files_search"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"
+        app:showAsAction="ifRoom|collapseActionView" />
+
+    <item
+        android:id="@+id/feature_files_action_up"
+        android:icon="@drawable/feature_files_ic_up"
+        android:title="@string/feature_files_up"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/feature_files_action_locations"
+        android:icon="@drawable/feature_files_ic_home"
+        android:title="@string/feature_files_locations"
+        app:showAsAction="ifRoom">
+        <menu>
+            <item
+                android:id="@+id/feature_files_location_home"
+                android:title="@string/feature_files_location_home" />
+            <item
+                android:id="@+id/feature_files_location_prefix"
+                android:title="@string/feature_files_location_prefix" />
+            <item
+                android:id="@+id/feature_files_location_storage_links"
+                android:title="@string/feature_files_location_storage_links" />
+            <item
+                android:id="@+id/feature_files_location_shared"
+                android:title="@string/feature_files_location_shared" />
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/feature_files_action_paste"
+        android:icon="@drawable/feature_files_ic_paste"
+        android:title="@string/feature_files_paste"
+        android:visible="false"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/feature_files_action_sort"
+        android:icon="@drawable/feature_files_ic_sort"
+        android:title="@string/feature_files_sort"
+        app:showAsAction="never">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/feature_files_sort_name"
+                    android:title="@string/feature_files_sort_name" />
+                <item
+                    android:id="@+id/feature_files_sort_newest"
+                    android:title="@string/feature_files_sort_newest" />
+                <item
+                    android:id="@+id/feature_files_sort_largest"
+                    android:title="@string/feature_files_sort_largest" />
+            </group>
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/feature_files_action_select_all"
+        android:title="@string/feature_files_select_all"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/feature_files_action_terminal"
+        android:title="@string/feature_files_terminal_here"
+        app:showAsAction="never" />
+</menu>
