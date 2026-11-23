@@ -118,6 +118,12 @@ public final class SessionWorkspaces {
         return true;
     }
 
+    /** Add a new {@code session} to the workspace shown in the drawer, if one is selected. */
+    public static void addToSelectedWorkspace(@NonNull Context context, @NonNull TerminalSession session) {
+        String workspaceId = WorkspaceStore.getSelectedWorkspaceId(context);
+        if (workspaceId != null) SessionRegistry.get(session).workspaceId = workspaceId;
+    }
+
     /** Move {@code session} to the workspace with {@code workspaceId} and show that workspace. */
     public static void moveSession(@NonNull TermuxActivity activity, @NonNull TerminalSession session, @NonNull String workspaceId) {
         SessionRegistry.get(session).workspaceId = workspaceId;

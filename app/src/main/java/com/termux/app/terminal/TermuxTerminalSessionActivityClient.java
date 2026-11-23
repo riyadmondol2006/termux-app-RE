@@ -30,7 +30,6 @@ import com.termux.app.features.sessions.SessionRegistry;
 import com.termux.app.features.sessions.SessionStartup;
 import com.termux.app.features.sessions.TerminalProfile;
 import com.termux.app.features.sessions.SessionWorkspaces;
-import com.termux.app.features.sessions.WorkspaceStore;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
@@ -506,11 +505,6 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                 service.createTermuxSession(null, null, null, workingDirectory, true, sessionName) :
                 SessionStartup.createSession(mActivity, service, profile, sessionName, workingDirectory);
             if (newTermuxSession == null) return;
-
-            // Add the session to the workspace shown in the drawer.
-            String workspaceId = WorkspaceStore.getSelectedWorkspaceId(mActivity);
-            if (workspaceId != null)
-                SessionRegistry.get(newTermuxSession.getTerminalSession()).workspaceId = workspaceId;
 
             // The service only notifies the sessions list if this client is already set as its
             // client, which is not the case yet if called from TermuxActivity.onServiceConnected().

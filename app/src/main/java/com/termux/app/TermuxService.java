@@ -25,6 +25,7 @@ import com.termux.R;
 import com.termux.app.event.SystemEventReceiver;
 import com.termux.app.features.sessions.SessionNotifications;
 import com.termux.app.features.sessions.SessionPersistence;
+import com.termux.app.features.sessions.SessionWorkspaces;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
 import com.termux.shared.termux.plugins.TermuxPluginUtils;
@@ -662,6 +663,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         }
 
         mShellManager.mTermuxSessions.add(newTermuxSession);
+
+        // Add the session to the workspace shown in the drawer.
+        SessionWorkspaces.addToSelectedWorkspace(this, newTermuxSession.getTerminalSession());
 
         // Remove the execution command from the pending plugin execution commands list since it has
         // now been processed
