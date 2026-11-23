@@ -54,6 +54,18 @@ public final class FeaturesDialog {
             list.setVisibility(adapter.getItemCount() == 0 ? View.GONE : View.VISIBLE);
             list.scrollToPosition(0);
         };
+        // In landscape the keyboard leaves little room, so leave out the title.
+        if (activity.getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE)
+            content.findViewById(R.id.tools_title).setVisibility(View.GONE);
+        // The search key opens the first match, so "git" and Enter opens Git integration.
+        search.setOnEditorActionListener((view, actionId, event) -> {
+            TermuxFeature first = adapter.getFirstFeature();
+            if (first != null) {
+                dialog.dismiss();
+                first.open(activity);
+            }
+            return true;
+        });
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { filter.run(); }
@@ -94,6 +106,12 @@ public final class FeaturesDialog {
         }
 
         @Override public int getItemCount() { return rows.size(); }
+
+        /** The first feature shown, or {@code null} if nothing matches. */
+        TermuxFeature getFirstFeature() {
+            for (Object row : rows) if (row instanceof TermuxFeature) return (TermuxFeature) row;
+            return null;
+        }
         @Override public int getItemViewType(int position) { return rows.get(position) instanceof Integer ? 0 : 1; }
 
         @NonNull
