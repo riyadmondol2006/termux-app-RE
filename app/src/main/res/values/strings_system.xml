@@ -78,4 +78,56 @@
     <string name="feature_system_floating_notification_text">Tap to show the window. Closing it keeps its session running.</string>
     <string name="feature_system_floating_failed">Could not open the floating terminal: %1$s</string>
 
+    <!-- Update manager -->
+    <string name="feature_system_update_title">Update manager</string>
+    <string name="feature_system_update_summary">Check, download, verify and install new releases of Termux RE</string>
+    <string name="feature_system_update_open">View update</string>
+    <string name="feature_system_update_installed">Installed version: %1$s</string>
+    <string name="feature_system_update_latest">Latest release: %1$s</string>
+    <string name="feature_system_update_latest_unknown">Latest release: not checked yet</string>
+    <string name="feature_system_update_checking">Checking for updates…</string>
+    <string name="feature_system_update_available">Update available</string>
+    <string name="feature_system_update_up_to_date">You have the newest version</string>
+    <string name="feature_system_update_no_release">No release found</string>
+    <string name="feature_system_update_check_failed">Could not check for updates</string>
+    <string name="feature_system_update_downloading">Downloading %1$s</string>
+    <string name="feature_system_update_downloaded">Ready to install</string>
+    <string name="feature_system_update_installing">Installing…</string>
+    <string name="feature_system_update_waiting">Waiting for you to confirm the install</string>
+    <string name="feature_system_update_install_failed">The update was not installed</string>
+    <string name="feature_system_update_check_again">Check</string>
+    <string name="feature_system_update_release_page">Release page</string>
+    <string name="feature_system_update_skip">Skip version</string>
+    <string name="feature_system_update_unskip">Don\'t skip</string>
+    <string name="feature_system_update_download_install">Download and install</string>
+    <string name="feature_system_update_reinstall">Download and reinstall %1$s</string>
+    <string name="feature_system_update_install">Install</string>
+    <string name="feature_system_update_continue">Continue the install</string>
+    <string name="feature_system_update_cancel">Cancel download</string>
+    <string name="feature_system_update_progress">%1$s of %2$s (%3$d%%)</string>
+    <string name="feature_system_update_progress_unknown_total">%1$s</string>
+    <string name="feature_system_update_notes_newer">What\'s new since %1$s</string>
+    <string name="feature_system_update_notes_latest">Release notes</string>
+    <string name="feature_system_update_no_notes">This release has no release notes.</string>
+    <string name="feature_system_update_skipped">You skipped this version, so the automatic check does not mention it. You can still install it here.</string>
+    <string name="feature_system_update_debug_note">This is a debug build, signed with a different key than the releases. Android refuses to install a release over it. To switch to a release, uninstall this build first, which deletes its data.</string>
+    <string name="feature_system_update_verified">The download matches the SHA-256 checksum published on GitHub: %1$s</string>
+    <string name="feature_system_update_not_verified">GitHub does not publish a checksum for this file, so only its size could be checked. Android still checks the signature when installing.</string>
+    <string name="feature_system_update_permission_title">Allow installing updates</string>
+    <string name="feature_system_update_permission_message">Android needs your permission for %1$s to install apps (\"Install unknown apps\"). It is only used to install the update you chose. Turn on \"Allow from this source\" on the next screen, then come back.</string>
+    <string name="feature_system_update_permission_open">Open settings</string>
+    <string name="feature_system_update_error_network">Could not download from GitHub: %1$s</string>
+    <string name="feature_system_update_error_no_apk">This release has no APK for this device (%1$s). Open the release page to download one manually.</string>
+    <string name="feature_system_update_error_untrusted">The release points to a file that is not part of the releases of this app, so it was not downloaded: %1$s</string>
+    <string name="feature_system_update_error_size">The downloaded file has the wrong size (%1$s bytes). It was deleted, try again.</string>
+    <string name="feature_system_update_error_checksum">The downloaded file does not match the SHA-256 checksum published on GitHub, so it was deleted and not installed.\n\nExpected: %1$s\nDownloaded: %2$s</string>
+    <string name="feature_system_update_error_storage">There is not enough free storage to download or install the update.</string>
+    <string name="feature_system_update_error_signature">Android refused the update because it is signed with a different key than the app that is installed.\n\nAndroid only updates an app with a package signed by the same key. This happens when the installed app is a debug or self-built version, or comes from another source than the GitHub releases.\n\nTo install this release, uninstall Termux RE first and install the downloaded APK again. Uninstalling deletes the app data, including your home directory, so back up your files first (for example with termux-setup-storage and cp to shared storage).\n\nSystem message: %1$s</string>
+    <string name="feature_system_update_error_blocked">Android blocked the install. Check that installing unknown apps is allowed for this app, and that no device policy or Play Protect setting blocks it.\n\nSystem message: %1$s</string>
+    <string name="feature_system_update_error_invalid">Android found the APK invalid or not made for this device.\n\nSystem message: %1$s</string>
+    <string name="feature_system_update_error_failed">The install failed.\n\nSystem message: %1$s</string>
+    <string name="feature_system_update_channel">App updates</string>
+    <string name="feature_system_update_notification_title">Confirm the update</string>
+    <string name="feature_system_update_notification_text">Tap to continue installing the update of Termux RE.</string>
+
 </resources>

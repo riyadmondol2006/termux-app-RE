@@ -257,6 +257,16 @@
                 android:value="Terminal emulator: keeps the floating terminal window, which the user opened over other apps, shown until the user closes it." />
         </service>
 
+        <activity
+            android:name=".app.features.system.update.UpdateManagerActivity"
+            android:exported="false"
+            android:label="@string/feature_system_update_title"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+
+        <receiver
+            android:name=".app.features.system.update.InstallResultReceiver"
+            android:exported="false" />
+
 
         <!-- This (or rather, value 2.1 or higher) is needed to make the Samsung Galaxy S8 mark the
         app with "This app is optimized to run in full screen." -->

@@ -16,7 +16,7 @@ import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.termux.BuildConfig;
 import com.termux.R;
-import com.termux.shared.interact.ShareUtils;
+import com.termux.app.features.system.update.UpdateManagerActivity;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.markdown.MarkdownUtils;
 import com.termux.shared.termux.TermuxConstants;
@@ -35,7 +35,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
@@ -64,6 +66,7 @@ public final class AppUpdateChecker {
 
     private static final Pattern GITHUB_REPO_URL_PATTERN = Pattern.compile("^https://github\\.com/([^/]+)/([^/]+?)(?:\\.git)?/*$");
     private static final Pattern RELEASE_TAG_PATTERN = Pattern.compile("^v(\\d+\\.\\d+\\.\\d+)$");
+    private static final Pattern SHA256_DIGEST_PATTERN = Pattern.compile("^sha256:([0-9a-fA-F]{64})$");
     private static final Pattern VERSION_CORE_PATTERN = Pattern.compile("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:[-+].*)?$");
 
     private static final AtomicBoolean sCheckRunning = new AtomicBoolean(false);
@@ -78,18 +81,35 @@ public final class AppUpdateChecker {
     public static final class Release {
         /** The version, like "1.2.0". */
         @NonNull public final String version;
+        /** The name of the release, or the tag if it has none. */
+        @NonNull public final String name;
         /** The release page. */
         @NonNull public final String htmlUrl;
         /** The release notes in markdown. */
         @NonNull public final String notes;
+        /** The publish time like "2026-05-01T12:00:00Z", or an empty string. */
+        @NonNull public final String publishedAt;
         /** The APK for this device, or {@code null} if none was found. */
         @Nullable public final String apkUrl;
+        /** The file name of the APK for this device, or {@code null} if none was found. */
+        @Nullable public final String apkName;
+        /** The size of the APK for this device in bytes, or -1 if unknown. */
+        public final long apkSize;
+        /** The lowercase hex SHA-256 of the APK for this device from the digest GitHub shows for the asset, or {@code null} if there is none. */
+        @Nullable public final String apkSha256;
 
-        Release(@NonNull String version, @NonNull String htmlUrl, @NonNull String notes, @Nullable String apkUrl) {
+        Release(@NonNull String version, @NonNull String name, @NonNull String htmlUrl, @NonNull String notes,
+                @NonNull String publishedAt, @Nullable String apkUrl, @Nullable String apkName, long apkSize,
+                @Nullable String apkSha256) {
             this.version = version;
+            this.name = name;
             this.htmlUrl = htmlUrl;
             this.notes = notes;
+            this.publishedAt = publishedAt;
             this.apkUrl = apkUrl;
+            this.apkName = apkName;
+            this.apkSize = apkSize;
+            this.apkSha256 = apkSha256;
         }
     }
 
@@ -205,8 +225,9 @@ public final class AppUpdateChecker {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.title_update_available)
             .setMessage(MarkdownUtils.getSpannedMarkdownText(activity, message.toString()))
-            .setPositiveButton(R.string.action_update_download, (dialog, which) ->
-                ShareUtils.openUrl(activity, release.apkUrl != null ? release.apkUrl : release.htmlUrl))
+            // The update manager downloads, verifies and installs the APK, and shows all changes.
+            .setPositiveButton(R.string.feature_system_update_open, (dialog, which) ->
+                UpdateManagerActivity.start(activity))
             .setNegativeButton(R.string.action_update_later, null);
         if (preferences != null)
             builder.setNeutralButton(R.string.action_update_skip, (dialog, which) ->
@@ -226,8 +247,18 @@ public final class AppUpdateChecker {
     /** Get the newest release from GitHub, or {@code null} if there is none. Must not be called on the main thread. */
     @Nullable
     private static Release getLatestRelease() throws IOException, JSONException {
+        List<Release> releases = fetchReleases();
+        return releases.isEmpty() ? null : releases.get(0);
+    }
+
+    /**
+     * Get the releases from GitHub that can be installed, newest first, also the ones with a lower
+     * version than the installed one. Empty if there is none. Must not be called on the main thread.
+     */
+    @NonNull
+    public static List<Release> fetchReleases() throws IOException, JSONException {
         String apiUrl = getReleasesApiUrl(TermuxConstants.TERMUX_GITHUB_REPO_URL);
-        if (apiUrl == null) return null;
+        if (apiUrl == null) return new ArrayList<>();
 
         HttpURLConnection connection = (HttpURLConnection) new URL(apiUrl + "?per_page=30").openConnection();
         try {
@@ -241,7 +272,7 @@ public final class AppUpdateChecker {
                 throw new IOException("HTTP " + responseCode + " " + connection.getResponseMessage());
 
             try (InputStream inputStream = connection.getInputStream()) {
-                return getLatestRelease(new JSONArray(readString(inputStream)), Build.SUPPORTED_ABIS);
+                return getReleases(new JSONArray(readString(inputStream)), Build.SUPPORTED_ABIS);
             }
         } finally {
             connection.disconnect();
@@ -281,39 +312,69 @@ public final class AppUpdateChecker {
     @VisibleForTesting
     @Nullable
     static Release getLatestRelease(@NonNull JSONArray releases, @NonNull String[] supportedAbis) throws JSONException {
-        JSONObject latest = null;
-        String latestVersion = null;
+        List<Release> list = getReleases(releases, supportedAbis);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    /**
+     * Get all "v<major>.<minor>.<patch>" releases in a GitHub API releases list, ignoring drafts,
+     * prereleases and releases with other tags, with the highest version first.
+     */
+    @VisibleForTesting
+    @NonNull
+    static List<Release> getReleases(@NonNull JSONArray releases, @NonNull String[] supportedAbis) throws JSONException {
+        List<Release> result = new ArrayList<>();
         for (int i = 0; i < releases.length(); i++) {
             JSONObject release = releases.getJSONObject(i);
             if (release.optBoolean("draft") || release.optBoolean("prerelease")) continue;
             Matcher matcher = RELEASE_TAG_PATTERN.matcher(release.optString("tag_name"));
             if (!matcher.matches()) continue;
-            String version = matcher.group(1);
-            if (latestVersion == null || compareVersions(version, latestVersion) > 0) {
-                latest = release;
-                latestVersion = version;
-            }
+            result.add(parseRelease(release, matcher.group(1), supportedAbis));
         }
-        if (latest == null) return null;
+        // A stable sort, so releases with the same version stay in the order of the API.
+        Collections.sort(result, (a, b) -> compareVersions(b.version, a.version));
+        return result;
+    }
 
+    @NonNull
+    private static Release parseRelease(@NonNull JSONObject release, @NonNull String version, @NonNull String[] supportedAbis) throws JSONException {
+        List<JSONObject> apks = new ArrayList<>();
         List<String> apkNames = new ArrayList<>();
-        List<String> apkUrls = new ArrayList<>();
-        JSONArray assets = latest.optJSONArray("assets");
+        JSONArray assets = release.optJSONArray("assets");
         if (assets != null) {
             for (int i = 0; i < assets.length(); i++) {
                 JSONObject asset = assets.getJSONObject(i);
                 String name = asset.optString("name");
                 String url = asset.optString("browser_download_url");
                 if (name.endsWith(".apk") && !url.isEmpty()) {
+                    apks.add(asset);
                     apkNames.add(name);
-                    apkUrls.add(url);
                 }
             }
         }
         int apkIndex = getApkIndex(apkNames, supportedAbis);
+        JSONObject apk = apkIndex >= 0 ? apks.get(apkIndex) : null;
 
-        return new Release(latestVersion, latest.optString("html_url"), latest.optString("body"),
-            apkIndex >= 0 ? apkUrls.get(apkIndex) : null);
+        String name = release.optString("name");
+        if (name.isEmpty()) name = release.optString("tag_name");
+        return new Release(version, name, release.optString("html_url"), release.optString("body"),
+            release.optString("published_at"),
+            apk != null ? apk.optString("browser_download_url") : null,
+            apk != null ? apk.optString("name") : null,
+            apk != null ? apk.optLong("size", -1) : -1,
+            apk != null ? parseSha256Digest(apk.optString("digest")) : null);
+    }
+
+    /**
+     * Get the lowercase hex SHA-256 from the "digest" of a GitHub release asset, like
+     * "sha256:9feb...", or {@code null} if there is none or it is for another algorithm.
+     */
+    @VisibleForTesting
+    @Nullable
+    static String parseSha256Digest(@Nullable String digest) {
+        if (digest == null) return null;
+        Matcher matcher = SHA256_DIGEST_PATTERN.matcher(digest.trim());
+        return matcher.matches() ? matcher.group(1).toLowerCase(Locale.ROOT) : null;
     }
 
     /**
@@ -344,8 +405,7 @@ public final class AppUpdateChecker {
      * @return Returns a negative number, zero or a positive number if {@code a} is lower than,
      * equal to or higher than {@code b}.
      */
-    @VisibleForTesting
-    static int compareVersions(@Nullable String a, @Nullable String b) {
+    public static int compareVersions(@Nullable String a, @Nullable String b) {
         long[] aCore = parseVersionCore(a);
         long[] bCore = parseVersionCore(b);
         if (aCore == null || bCore == null) return (aCore == null ? 0 : 1) - (bCore == null ? 0 : 1);

@@ -5,6 +5,7 @@ import androidx.annotation.NonNull;
 import com.termux.app.features.TermuxFeature;
 import com.termux.app.features.system.floating.FloatingTerminalFeature;
 import com.termux.app.features.system.monitor.SystemMonitorFeature;
+import com.termux.app.features.system.update.UpdateManagerFeature;
 
 import java.util.List;
 
@@ -17,6 +18,7 @@ public final class SystemFeatures {
     public static void register(@NonNull List<TermuxFeature> features) {
         features.add(new SystemMonitorFeature());
         features.add(new FloatingTerminalFeature());
+        features.add(new UpdateManagerFeature());
     }
 
 }
