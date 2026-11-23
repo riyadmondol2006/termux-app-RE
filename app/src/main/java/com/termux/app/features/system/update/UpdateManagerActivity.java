@@ -57,9 +57,25 @@ public class UpdateManagerActivity extends AppCompatActivity implements UpdateMa
     private boolean mWaitingForInstallPermission;
     @Nullable private Intent mLastConfirmIntent;
 
+    /** Start downloading the latest release once the releases are loaded, see {@link #startAndDownload}. */
+    private static final String EXTRA_DOWNLOAD = "com.termux.app.features.system.update.EXTRA_DOWNLOAD";
+
+    /** Set when the activity was opened to download the update right away. */
+    private boolean mDownloadWhenReady;
+
     /** Open the update manager. */
     public static void start(@NonNull Context context) {
         Intent intent = new Intent(context, UpdateManagerActivity.class);
+        if (!(context instanceof android.app.Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+    }
+
+    /**
+     * Open the update manager and start downloading the latest release, which is then verified and
+     * installed, like after tapping its download button. Used by the update popup.
+     */
+    public static void startAndDownload(@NonNull Context context) {
+        Intent intent = new Intent(context, UpdateManagerActivity.class).putExtra(EXTRA_DOWNLOAD, true);
         if (!(context instanceof android.app.Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         context.startActivity(intent);
     }
@@ -94,6 +110,9 @@ public class UpdateManagerActivity extends AppCompatActivity implements UpdateMa
         });
         mSkip.setOnClickListener(v -> toggleSkip());
         mPrimary.setOnClickListener(v -> onPrimaryClicked());
+
+        // Only once, not again when the activity is recreated.
+        mDownloadWhenReady = savedInstanceState == null && getIntent().getBooleanExtra(EXTRA_DOWNLOAD, false);
     }
 
     @Override
@@ -103,6 +122,7 @@ public class UpdateManagerActivity extends AppCompatActivity implements UpdateMa
         // A fresh check on open, unless a download or install is going on.
         if (!mManager.isBusy() && (mManager.getReleases().isEmpty() || mManager.getState() == UpdateManager.State.IDLE))
             mManager.check();
+        startDownloadFromPopupIfReady();
         render();
     }
 
@@ -130,7 +150,23 @@ public class UpdateManagerActivity extends AppCompatActivity implements UpdateMa
 
     @Override
     public void onUpdateStateChanged() {
+        startDownloadFromPopupIfReady();
         render();
+    }
+
+    /**
+     * When opened from the update popup, download the update as soon as the releases are loaded,
+     * or install it if it was already downloaded.
+     */
+    private void startDownloadFromPopupIfReady() {
+        if (!mDownloadWhenReady) return;
+        UpdateManager.State state = mManager.getState();
+        if (state == UpdateManager.State.READY || state == UpdateManager.State.DOWNLOADED) {
+            mDownloadWhenReady = false;
+            if (mManager.isUpdateAvailable()) onPrimaryClicked();
+        } else if (state == UpdateManager.State.CHECK_FAILED) {
+            mDownloadWhenReady = false;
+        }
     }
 
 

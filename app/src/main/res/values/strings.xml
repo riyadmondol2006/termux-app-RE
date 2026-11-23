@@ -292,7 +292,7 @@
 
     <!-- Update Preferences -->
     <string name="update_check_preference_title">Check for updates</string>
-    <string name="update_check_preference_summary">Show a notice when a new &TERMUX_APP_NAME; release is published on GitHub. Release builds check at most once a day.</string>
+    <string name="update_check_preference_summary">Show a notice when a new &TERMUX_APP_NAME; release is published on GitHub. Release builds check at most every 6 hours, when the terminal is opened.</string>
     <string name="update_check_now_preference_title">Check for updates now</string>
     <string name="update_check_now_preference_summary">Installed version: %1$s</string>
 
@@ -301,7 +301,12 @@
     <string name="msg_update_available">%1$s %2$s is available, you have %3$s.</string>
     <string name="action_update_download">Download</string>
     <string name="action_update_later">Later</string>
-    <string name="action_update_skip">Skip</string>
+    <string name="action_update_skip">Skip this version</string>
+    <string name="action_update_now">Update now</string>
+    <string name="msg_update_available_size">Download size: %1$s. The update is verified before it is installed.</string>
+    <string name="title_app_updated">%1$s updated</string>
+    <string name="msg_app_updated">You now have %1$s %2$s.</string>
+    <string name="action_app_updated_whats_new">What\'s new</string>
     <string name="msg_update_check_running">Checking for updates…</string>
     <string name="msg_update_check_up_to_date">You have the newest version, %1$s.</string>
     <string name="msg_update_check_failed">Failed to check for updates: %1$s</string>

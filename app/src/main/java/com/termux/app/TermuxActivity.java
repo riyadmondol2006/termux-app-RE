@@ -945,6 +945,32 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public void setExtraKeysView(ExtraKeysView extraKeysView) {
         mExtraKeysView = extraKeysView;
+        if (mTerminalToolbarColors != null)
+            extraKeysView.setTerminalColors(mTerminalToolbarColors[0], mTerminalToolbarColors[1]);
+    }
+
+    /** The terminal background and foreground colors used by the terminal toolbar, or {@code null}. */
+    @Nullable private int[] mTerminalToolbarColors;
+
+    /** Get the terminal background and foreground colors used by the terminal toolbar, or {@code null}. */
+    @Nullable
+    public int[] getTerminalToolbarColors() {
+        return mTerminalToolbarColors;
+    }
+
+    /**
+     * Make the terminal toolbar (extra keys, text input and action buttons) match the colors of the
+     * terminal, instead of always being black.
+     */
+    public void updateTerminalToolbarColors(int background, int foreground) {
+        if (mTerminalToolbarColors != null && mTerminalToolbarColors[0] == background && mTerminalToolbarColors[1] == foreground)
+            return;
+        mTerminalToolbarColors = new int[]{background, foreground};
+        View viewPager = findViewById(R.id.terminal_toolbar_view_pager);
+        if (viewPager != null) viewPager.setBackgroundColor(background);
+        if (mExtraKeysView != null) mExtraKeysView.setTerminalColors(background, foreground);
+        EditText textInput = findViewById(R.id.terminal_toolbar_text_input);
+        if (textInput != null) textInput.setTextColor(foreground);
     }
 
     /**

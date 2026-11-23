@@ -58,7 +58,11 @@ import java.util.regex.Pattern;
 public final class AppUpdateChecker {
 
     /** The minimum time between automatic checks. */
-    public static final long AUTO_CHECK_INTERVAL_MILLIS = TimeUnit.HOURS.toMillis(24);
+    public static final long AUTO_CHECK_INTERVAL_MILLIS = TimeUnit.HOURS.toMillis(6);
+
+    /** Remembers the version that last ran, to show a popup after the app was updated. */
+    private static final String VERSION_PREFERENCES = "termux_re_app_version";
+    private static final String KEY_LAST_VERSION_CODE = "last_version_code";
 
     private static final int TIMEOUT_MILLIS = 15000;
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -141,6 +145,44 @@ public final class AppUpdateChecker {
             preferences.setUpdateCheckLastTime(now);
     }
 
+    /**
+     * Show a popup once after the app was updated to a newer version, with a link to the changes
+     * of the release. Not after a new install.
+     */
+    public static void showUpdatedPopupIfUpdated(@NonNull Activity activity) {
+        android.content.SharedPreferences preferences = activity.getSharedPreferences(VERSION_PREFERENCES, Context.MODE_PRIVATE);
+        int current = BuildConfig.VERSION_CODE;
+        int last = preferences.getInt(KEY_LAST_VERSION_CODE, -1);
+        if (last == current) return;
+        preferences.edit().putInt(KEY_LAST_VERSION_CODE, current).apply();
+
+        boolean updated;
+        if (last == -1) {
+            // Versions before this one did not save their version code, so tell an update from a
+            // new install by the install times.
+            try {
+                android.content.pm.PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
+                updated = info.lastUpdateTime > info.firstInstallTime;
+            } catch (Exception e) {
+                updated = false;
+            }
+        } else {
+            updated = current > last;
+        }
+        if (!updated) return;
+
+        Matcher matcher = VERSION_CORE_PATTERN.matcher(BuildConfig.VERSION_NAME);
+        String version = matcher.matches() ? matcher.group(1) + "." + matcher.group(2) + "." + matcher.group(3) : BuildConfig.VERSION_NAME;
+        String repoUrl = TermuxConstants.TERMUX_GITHUB_REPO_URL.replaceAll("(\\.git)?/*$", "");
+        new MaterialAlertDialogBuilder(activity)
+            .setTitle(activity.getString(R.string.title_app_updated, TermuxConstants.TERMUX_APP_NAME))
+            .setMessage(activity.getString(R.string.msg_app_updated, TermuxConstants.TERMUX_APP_NAME, version))
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.action_app_updated_whats_new, (dialog, which) ->
+                com.termux.shared.interact.ShareUtils.openUrl(activity, repoUrl + "/releases/tag/v" + version))
+            .show();
+    }
+
     /** Check for a new release now and show the result, also if there is none or it failed. */
     public static void checkForUpdateNow(@NonNull Activity activity) {
         if (getReleasesApiUrl(TermuxConstants.TERMUX_GITHUB_REPO_URL) == null) {
@@ -215,6 +257,9 @@ public final class AppUpdateChecker {
                                          @Nullable TermuxAppSharedPreferences preferences) {
         StringBuilder message = new StringBuilder(activity.getString(R.string.msg_update_available,
             TermuxConstants.TERMUX_APP_NAME, release.version, installedVersion));
+        if (release.apkSize > 0)
+            message.append("\n\n").append(activity.getString(R.string.msg_update_available_size,
+                android.text.format.Formatter.formatShortFileSize(activity, release.apkSize)));
         String notes = release.notes.trim();
         if (!notes.isEmpty()) {
             if (notes.length() > MAX_RELEASE_NOTES_CHARS)
@@ -225,9 +270,12 @@ public final class AppUpdateChecker {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.title_update_available)
             .setMessage(MarkdownUtils.getSpannedMarkdownText(activity, message.toString()))
-            // The update manager downloads, verifies and installs the APK, and shows all changes.
-            .setPositiveButton(R.string.feature_system_update_open, (dialog, which) ->
-                UpdateManagerActivity.start(activity))
+            // The update manager downloads, verifies and installs the APK. Without an APK for this
+            // device it shows the release instead.
+            .setPositiveButton(release.apkUrl != null ? R.string.action_update_now : R.string.feature_system_update_open, (dialog, which) -> {
+                if (release.apkUrl != null) UpdateManagerActivity.startAndDownload(activity);
+                else UpdateManagerActivity.start(activity);
+            })
             .setNegativeButton(R.string.action_update_later, null);
         if (preferences != null)
             builder.setNeutralButton(R.string.action_update_skip, (dialog, which) ->

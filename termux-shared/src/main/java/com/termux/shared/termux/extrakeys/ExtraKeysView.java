@@ -170,6 +170,12 @@ public final class ExtraKeysView extends GridLayout {
     protected int mButtonActiveTextColor;
     /** The background color for the extra keys button. Defaults to {@link #DEFAULT_BUTTON_BACKGROUND_COLOR}. */
     protected int mButtonBackgroundColor;
+    /** The background color of a special button, like CTRL, while it is active. */
+    protected int mButtonToggledBackgroundColor;
+    /** The corner radius of the key caps in pixels. */
+    protected final float mKeyCornerRadius;
+    /** The space around each key cap in pixels. */
+    protected final int mKeyMargin;
     /** The background color for the extra keys button when its active. Defaults to
      * {@link #DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR}. */
     protected int mButtonActiveBackgroundColor;
@@ -216,6 +222,10 @@ public final class ExtraKeysView extends GridLayout {
 
         setRepetitiveKeys(ExtraKeysConstants.PRIMARY_REPETITIVE_KEYS);
         setSpecialButtons(getDefaultSpecialButtons(this));
+
+        float density = context.getResources().getDisplayMetrics().density;
+        mKeyCornerRadius = 8 * density;
+        mKeyMargin = Math.round(2 * density);
 
         setButtonColors(
             ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR),
@@ -283,6 +293,7 @@ public final class ExtraKeysView extends GridLayout {
         mButtonActiveTextColor = buttonActiveTextColor;
         mButtonBackgroundColor = buttonBackgroundColor;
         mButtonActiveBackgroundColor = buttonActiveBackgroundColor;
+        mButtonToggledBackgroundColor = buttonActiveBackgroundColor;
     }
 
 
@@ -412,9 +423,10 @@ public final class ExtraKeysView extends GridLayout {
                 }
 
                 button.setText(buttonInfo.getDisplay());
-                button.setTextColor(mButtonTextColor);
+                if (!isSpecialButton(buttonInfo)) button.setTextColor(mButtonTextColor);
                 button.setAllCaps(mButtonTextAllCaps);
-                button.setPadding(0, 0, 0, 0);
+                styleKey(button);
+                button.setBackgroundColor(getRestingBackgroundColor(buttonInfo));
 
                 button.setOnClickListener(view -> {
                     performExtraKeyButtonHapticFeedback(view, buttonInfo, button);
@@ -434,7 +446,7 @@ public final class ExtraKeysView extends GridLayout {
                                 // Show popup on swipe up
                                 if (mPopupWindow == null && event.getY() < 0) {
                                     stopScheduledExecutors();
-                                    view.setBackgroundColor(mButtonBackgroundColor);
+                                    view.setBackgroundColor(getRestingBackgroundColor(buttonInfo));
                                     showPopup(view, buttonInfo.getPopup());
                                 }
                                 if (mPopupWindow != null && event.getY() > 0) {
@@ -445,12 +457,12 @@ public final class ExtraKeysView extends GridLayout {
                             return true;
 
                         case MotionEvent.ACTION_CANCEL:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            view.setBackgroundColor(getRestingBackgroundColor(buttonInfo));
                             stopScheduledExecutors();
                             return true;
 
                         case MotionEvent.ACTION_UP:
-                            view.setBackgroundColor(mButtonBackgroundColor);
+                            view.setBackgroundColor(getRestingBackgroundColor(buttonInfo));
                             stopScheduledExecutors();
                             // If ACTION_UP up was not from a repetitive key or was with a key with a popup button
                             if (mLongPressCount == 0 || mPopupWindow != null) {
@@ -478,7 +490,7 @@ public final class ExtraKeysView extends GridLayout {
                 } else {
                     param.height = 0;
                 }
-                param.setMargins(0, 0, 0, 0);
+                param.setMargins(mKeyMargin, mKeyMargin, mKeyMargin, mKeyMargin);
                 param.columnSpec = GridLayout.spec(col, GridLayout.FILL, 1.f);
                 param.rowSpec = GridLayout.spec(row, GridLayout.FILL, 1.f);
                 button.setLayoutParams(param);
@@ -616,11 +628,7 @@ public final class ExtraKeysView extends GridLayout {
         }
         button.setText(extraButton.getDisplay());
         button.setAllCaps(mButtonTextAllCaps);
-        button.setPadding(0, 0, 0, 0);
-        button.setMinHeight(0);
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setMinimumHeight(0);
+        styleKey(button);
         button.setWidth(width);
         button.setHeight(height);
         button.setBackgroundColor(mButtonActiveBackgroundColor);
@@ -640,6 +648,83 @@ public final class ExtraKeysView extends GridLayout {
     }
 
 
+
+    /**
+     * Style {@code button} as a key cap: a rounded rectangle without insets, so it fills its cell.
+     * Also used for buttons outside this view that should look like the extra keys.
+     */
+    public void styleKey(@NonNull MaterialButton button) {
+        button.setPadding(0, 0, 0, 0);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setMinHeight(0);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinimumHeight(0);
+        button.setStrokeWidth(0);
+        button.setCornerRadius(Math.round(mKeyCornerRadius));
+        button.setElevation(0);
+        button.setStateListAnimator(null);
+        button.setRippleColor(android.content.res.ColorStateList.valueOf((mButtonTextColor & 0x00FFFFFF) | 0x33000000));
+        button.setBackgroundColor(mButtonBackgroundColor);
+    }
+
+    /** The background of a key while it is not pressed: active special buttons stand out. */
+    private int getRestingBackgroundColor(@NonNull ExtraKeyButton buttonInfo) {
+        if (isSpecialButton(buttonInfo)) {
+            SpecialButtonState state = mSpecialButtons.get(SpecialButton.valueOf(buttonInfo.getKey()));
+            if (state != null && state.isActive) return mButtonToggledBackgroundColor;
+        }
+        return mButtonBackgroundColor;
+    }
+
+    /** Get {@link #mButtonToggledBackgroundColor}. */
+    public int getButtonToggledBackgroundColor() {
+        return mButtonToggledBackgroundColor;
+    }
+
+    /**
+     * Use colors that match the terminal: key caps slightly lighter or darker than the terminal
+     * background, labels in the terminal foreground color and an amber accent for active special
+     * buttons, readable on both dark and light color schemes.
+     */
+    public void setTerminalColors(int background, int foreground) {
+        boolean light = isLightColor(background);
+        int accent = light ? 0xFF8A5100 : 0xFFFFB000;
+        setButtonColors(foreground, accent,
+            blendColors(background, foreground, light ? 0.10f : 0.14f),
+            blendColors(background, foreground, light ? 0.24f : 0.30f));
+        mButtonToggledBackgroundColor = blendColors(background, accent, light ? 0.20f : 0.26f);
+        setBackgroundColor(background);
+
+        // Update the keys that are shown.
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child instanceof MaterialButton) {
+                MaterialButton button = (MaterialButton) child;
+                button.setTextColor(mButtonTextColor);
+                button.setRippleColor(android.content.res.ColorStateList.valueOf((mButtonTextColor & 0x00FFFFFF) | 0x33000000));
+                button.setBackgroundColor(mButtonBackgroundColor);
+            }
+        }
+        for (SpecialButtonState state : mSpecialButtons.values())
+            state.setIsActive(state.isActive);
+    }
+
+    /** Whether {@code color} is light, so dark text is readable on it. */
+    public static boolean isLightColor(int color) {
+        double r = ((color >> 16) & 0xFF) / 255.0, g = ((color >> 8) & 0xFF) / 255.0, b = (color & 0xFF) / 255.0;
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5;
+    }
+
+    /** Mix {@code to} into {@code from}, {@code ratio} 0 is {@code from} and 1 is {@code to}. Alpha is opaque. */
+    public static int blendColors(int from, int to, float ratio) {
+        float inverse = 1 - ratio;
+        int r = Math.round(((from >> 16) & 0xFF) * inverse + ((to >> 16) & 0xFF) * ratio);
+        int g = Math.round(((from >> 8) & 0xFF) * inverse + ((to >> 8) & 0xFF) * ratio);
+        int b = Math.round((from & 0xFF) * inverse + (to & 0xFF) * ratio);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
 
     /** Check whether a {@link ExtraKeyButton} is a {@link SpecialButton}. */
     public boolean isSpecialButton(ExtraKeyButton button) {

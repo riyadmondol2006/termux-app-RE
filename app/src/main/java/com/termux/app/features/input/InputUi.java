@@ -269,7 +269,10 @@ public final class InputUi {
         HorizontalScrollView scroll = new HorizontalScrollView(a);
         scroll.setTag("input_toolbar");
         LinearLayout row = new LinearLayout(a);
-        scroll.addView(row);
+        // The buttons fill the toolbar height, like the extra keys.
+        scroll.setFillViewport(true);
+        scroll.addView(row, new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
         Runnable refresh =
                 () -> {
                     row.removeAllViews();
@@ -279,12 +282,15 @@ public final class InputUi {
                                 MaterialButton b = new MaterialButton(a);
                                 b.setText(action.title.split(" · ")[0]);
                                 b.setAllCaps(false);
-                                row.addView(b);
+                                styleToolbarButton(a, b);
+                                row.addView(b, toolbarButtonParams(a));
                                 b.setOnClickListener(v -> InputActions.execute(a, action));
                             }
                     MaterialButton edit = new MaterialButton(a);
                     edit.setText(a.getString(com.termux.R.string.feature_input_text_32));
-                    row.addView(edit);
+                    edit.setAllCaps(false);
+                    styleToolbarButton(a, edit);
+                    row.addView(edit, toolbarButtonParams(a));
                     edit.setOnClickListener(v -> toolbarEditor(a));
                 };
         row.setTag(refresh);
@@ -302,6 +308,22 @@ public final class InputUi {
                 });
         refresh.run();
         return scroll;
+    }
+
+    /** Make a toolbar action button look like the extra keys, which share the toolbar. */
+    private static void styleToolbarButton(TermuxActivity a, MaterialButton button) {
+        if (a.getExtraKeysView() != null) a.getExtraKeysView().styleKey(button);
+        int[] colors = a.getTerminalToolbarColors();
+        if (colors != null) button.setTextColor(colors[1]);
+        int padding = Math.round(12 * a.getResources().getDisplayMetrics().density);
+        button.setPadding(padding, 0, padding, 0);
+    }
+
+    private static LinearLayout.LayoutParams toolbarButtonParams(TermuxActivity a) {
+        int margin = Math.round(2 * a.getResources().getDisplayMetrics().density);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT);
+        params.setMargins(margin, margin, margin, margin);
+        return params;
     }
 
     public static void toolbarEditor(TermuxActivity a) {

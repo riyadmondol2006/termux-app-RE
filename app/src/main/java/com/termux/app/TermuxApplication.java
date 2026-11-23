@@ -64,8 +64,10 @@ public class TermuxApplication extends Application {
         registerActivityLifecycleCallbacks(new EmptyActivityLifecycleCallbacks() {
             @Override
             public void onActivityResumed(@NonNull Activity activity) {
-                if (activity instanceof TermuxActivity)
+                if (activity instanceof TermuxActivity) {
+                    AppUpdateChecker.showUpdatedPopupIfUpdated(activity);
                     AppUpdateChecker.checkForUpdateIfDue(activity);
+                }
             }
         });
 
