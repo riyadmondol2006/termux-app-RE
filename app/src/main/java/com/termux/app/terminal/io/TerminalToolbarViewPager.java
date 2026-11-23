@@ -28,7 +28,7 @@ public class TerminalToolbarViewPager {
 
         @Override
         public int getCount() {
-            return 2;
+            return 3;
         }
 
         @Override
@@ -55,6 +55,8 @@ public class TerminalToolbarViewPager {
                     FullScreenWorkAround.apply(mActivity);
                 }
 
+            } else if (position == 2) {
+                layout = com.termux.app.features.input.InputUi.toolbar(mActivity);
             } else {
                 layout = inflater.inflate(R.layout.view_terminal_toolbar_text_input, collection, false);
                 final EditText editText = layout.findViewById(R.id.terminal_toolbar_text_input);
@@ -104,7 +106,7 @@ public class TerminalToolbarViewPager {
 
         @Override
         public void onPageSelected(int position) {
-            if (position == 0) {
+            if (position != 1) {
                 mActivity.getTerminalView().requestFocus();
             } else {
                 final EditText editText = mTerminalToolbarViewPager.findViewById(R.id.terminal_toolbar_text_input);

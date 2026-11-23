@@ -246,6 +246,11 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     @SuppressLint("RtlHardcoded")
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession currentSession) {
+        if (!mActivity.getProperties().areHardwareKeyboardShortcutsDisabled() &&
+            keyCode == KeyEvent.KEYCODE_P && e.isCtrlPressed() && e.isShiftPressed() && !e.isAltPressed()) {
+            if (e.getRepeatCount() == 0) com.termux.app.features.input.InputUi.palette(mActivity);
+            return true;
+        }
         if (handleVirtualKeys(keyCode, e, true)) return true;
 
         if (keyCode == KeyEvent.KEYCODE_ENTER && !currentSession.isRunning()) {
