@@ -10,6 +10,11 @@
 #   failed to download sources is tried again. No package is started after the deadline, and a
 #   running build is stopped at it, so whatever was built in time can still be uploaded before
 #   the job time limit.
+# - build-package.sh breaks a dependency cycle by installing the previous version of a package in
+#   it from the repository, for example libmpg123 for ffmpeg (libmpg123 needs pulseaudio to build,
+#   which needs libsndfile, which needs libmpg123). When the repository doesn't have one yet, that
+#   package is built once without its dependencies (-s), which build-package.sh then uses instead,
+#   and the build is tried again.
 #
 # Built .deb files end up in output/. Writes a summary in markdown to $SUMMARY_FILE and the
 # packages that were asked for to $ROOTS_FILE if set, as "<package> <arch>" lines, which the
@@ -76,7 +81,7 @@ package_version() {
 		termux_extract_dep_info "$2" "packages/$2"' _ "$ARCH" "$1" 2>/dev/null | tail -n 1 | cut -d' ' -f2
 }
 
-declare -a BUILT=() SKIPPED=() FAILED=() NOT_STARTED=()
+declare -a BUILT=() SKIPPED=() FAILED=() NOT_STARTED=() CYCLES=()
 for pkg in "${PACKAGES[@]}"; do
 	version="$(package_version "$pkg")"
 	published=true
@@ -96,15 +101,30 @@ for pkg in "${PACKAGES[@]}"; do
 	start=$(date +%s)
 	# A build that failed to download sources is tried again. It resumes, build-package.sh skips
 	# the dependencies that were built already.
-	for attempt in 1 2 3 4; do
+	for attempt in 1 2 3 4 5 6; do
 		echo "::group::Building $pkg $version for $ARCH$([ "$attempt" -gt 1 ] && echo ", attempt $attempt")"
 		timeout --kill-after=120 "$remaining" ./scripts/run-docker.sh ./build-package.sh "${BUILD_ARGS[@]}" "$pkg" < /dev/null 2>&1 | tee "$RUNNER_TEMP_DIR/build.log"
 		status=${PIPESTATUS[0]}
 		echo "::endgroup::"
 		[ "$status" -eq 0 ] || [ "$status" -eq 124 ] && break
+		cycle="$(sed -n "s/^A circular dependency was found on '\([a-z0-9][a-z0-9+._-]*\)'.*/\1/p" "$RUNNER_TEMP_DIR/build.log" | tail -n 1)"
+		if [ -n "$cycle" ] && grep -qF "ERROR: Download of $cycle from" "$RUNNER_TEMP_DIR/build.log" && \
+				[[ " ${CYCLES[*]} " != *" $cycle "* ]]; then
+			CYCLES+=("$cycle")
+			remaining=$(( DEADLINE - $(date +%s) ))
+			[ "$remaining" -gt 600 ] || break
+			echo "::warning::Building $cycle for $ARCH without its dependencies first, to break a dependency cycle of $pkg"
+			echo "::group::Building $cycle for $ARCH without its dependencies"
+			timeout --kill-after=120 "$remaining" ./scripts/run-docker.sh ./build-package.sh -s "${BUILD_ARGS[@]}" "$cycle" < /dev/null 2>&1
+			cycle_status=$?
+			echo "::endgroup::"
+			[ "$cycle_status" -eq 0 ] || break
+			remaining=$(( DEADLINE - $(date +%s) ))
+			continue
+		fi
 		grep -qE "^Failed to download |Failed to download package repository metadata" "$RUNNER_TEMP_DIR/build.log" || break
 		remaining=$(( DEADLINE - $(date +%s) - 120 ))
-		[ "$attempt" -lt 4 ] && [ "$remaining" -gt 600 ] || break
+		[ "$attempt" -lt 6 ] && [ "$remaining" -gt 600 ] || break
 		echo "::warning::Building $pkg for $ARCH failed to download sources, trying again in 2 minutes"
 		sleep 120
 	done
