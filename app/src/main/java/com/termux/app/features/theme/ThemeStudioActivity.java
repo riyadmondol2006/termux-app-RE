@@ -79,6 +79,21 @@ public class ThemeStudioActivity extends AppCompatActivity {
             } catch (Exception e) { toast(getString(R.string.feature_theme_font_invalid)); }
         });
 
+    /** Use the JetBrains Mono font bundled in assets/theme/fonts (SIL Open Font License 1.1). */
+    private void useBundledFont() {
+        try {
+            File tmp = new File(getCacheDir(), "bundled-font.ttf");
+            try (InputStream in = getAssets().open("theme/fonts/JetBrainsMono-Regular.ttf");
+                 OutputStream out = new FileOutputStream(tmp)) {
+                byte[] buf = new byte[8192]; int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            }
+            Typeface.createFromFile(tmp); // validates the TTF
+            mPendingFont = tmp; refreshPreview();
+            toast(getString(R.string.feature_theme_font_ready));
+        } catch (Exception e) { toast(getString(R.string.feature_theme_font_invalid)); }
+    }
+
     private final ActivityResultLauncher<String[]> mBackgroundLauncher = registerForActivityResult(
         new ActivityResultContracts.OpenDocument(), uri -> {
             if (uri == null) return;
@@ -145,6 +160,10 @@ public class ThemeStudioActivity extends AppCompatActivity {
         fontButton.setText(R.string.feature_theme_import_font);
         fontButton.setOnClickListener(v -> mFontLauncher.launch(new String[]{"font/*", "application/x-font-ttf", "*/*"}));
         mRoot.addView(fontButton);
+        Button bundledFontButton = new Button(this);
+        bundledFontButton.setText(R.string.feature_theme_bundled_font);
+        bundledFontButton.setOnClickListener(v -> useBundledFont());
+        mRoot.addView(bundledFontButton);
 
         addHeader(R.string.feature_theme_cursor_section);
         mCursorSpinner = new Spinner(this);

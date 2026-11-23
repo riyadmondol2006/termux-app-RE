@@ -164,6 +164,37 @@ public final class TermuxThemeManager {
     @NonNull public static File backgroundFile(@NonNull Context context) {
         return new File(context.getFilesDir(), BG_IMAGE_NAME);
     }
+    /**
+     * Load the background image scaled down to at most {@code maxWidth} x {@code maxHeight} (so a
+     * large photo doesn't use tens of MB) with the configured blur applied, or {@code null} if no
+     * background image is set or it can't be decoded.
+     */
+    @Nullable
+    public static android.graphics.Bitmap loadBackgroundBitmap(@NonNull Context context, int maxWidth, int maxHeight) {
+        File file = backgroundFile(context);
+        if (!file.isFile()) return null;
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+        maxWidth = Math.max(1, maxWidth);
+        maxHeight = Math.max(1, maxHeight);
+        int sampleSize = 1;
+        while (bounds.outWidth / (sampleSize * 2) >= maxWidth && bounds.outHeight / (sampleSize * 2) >= maxHeight)
+            sampleSize *= 2;
+        android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+        options.inSampleSize = sampleSize;
+        android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        if (bitmap == null) return null;
+        int blur = getBackgroundBlur(context);
+        if (blur > 0) { // Cheap blur: scale down, then back up with filtering.
+            int w = Math.max(1, bitmap.getWidth() / (blur * 2)), h = Math.max(1, bitmap.getHeight() / (blur * 2));
+            bitmap = android.graphics.Bitmap.createScaledBitmap(
+                android.graphics.Bitmap.createScaledBitmap(bitmap, w, h, true), bitmap.getWidth(), bitmap.getHeight(), true);
+        }
+        return bitmap;
+    }
+
     public static int getBackgroundAlpha(@NonNull Context context) { return prefs(context).getInt(KEY_BG_ALPHA, 100); }
     public static int getBackgroundBlur(@NonNull Context context) { return prefs(context).getInt(KEY_BG_BLUR, 0); }
 

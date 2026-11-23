@@ -13,6 +13,7 @@
     <string name="feature_theme_font">Font</string>
     <string name="feature_theme_font_size">Font size: %1$d sp</string>
     <string name="feature_theme_import_font">Import TTF font…</string>
+    <string name="feature_theme_bundled_font">Use JetBrains Mono</string>
     <string name="feature_theme_font_ready">Font ready — tap Apply to use it</string>
     <string name="feature_theme_font_invalid">That file is not a valid font</string>
     <string name="feature_theme_cursor_section">Cursor</string>

@@ -546,6 +546,7 @@ public final class TerminalView extends View {
     // (dimmed by a translucent background-color overlay) instead of an opaque background.
     private android.graphics.Bitmap mTerminalBackgroundImage;
     private int mTerminalBackgroundAlpha = 255;
+    private final android.graphics.Rect mTerminalBackgroundRect = new android.graphics.Rect();
 
     /** Set a background image behind terminal text; alpha 0-255 controls the background-color overlay opacity. */
     public void setTerminalBackgroundImage(@androidx.annotation.Nullable android.graphics.Bitmap bitmap, int backgroundAlpha) {
@@ -1129,8 +1130,8 @@ public final class TerminalView extends View {
             canvas.drawColor(0XFF000000);
         } else {
             if (mTerminalBackgroundImage != null) {
-                canvas.drawBitmap(mTerminalBackgroundImage, null,
-                    new android.graphics.Rect(0, 0, getWidth(), getHeight()), null);
+                mTerminalBackgroundRect.set(0, 0, getWidth(), getHeight());
+                canvas.drawBitmap(mTerminalBackgroundImage, null, mTerminalBackgroundRect, null);
                 int bg = mEmulator.mColors.mCurrentColors[com.termux.terminal.TextStyle.COLOR_INDEX_BACKGROUND];
                 canvas.drawARGB(mTerminalBackgroundAlpha, (bg >> 16) & 0xFF, (bg >> 8) & 0xFF, bg & 0xFF);
             }
