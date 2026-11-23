@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tools_section_appearance">Appearance</string>
+    <string name="tools_section_sessions">Sessions</string>
+    <string name="tools_section_terminal">Terminal</string>
+    <string name="tools_section_input">Keyboard &amp; input</string>
+    <string name="tools_section_packages">Packages</string>
+    <string name="tools_section_files">Files</string>
+    <string name="tools_section_developer">Developer tools</string>
+    <string name="tools_section_system">System</string>
+    <string name="tools_search_hint">Search tools</string>
+    <string name="tools_no_matches">No tools match</string>
+</resources>
