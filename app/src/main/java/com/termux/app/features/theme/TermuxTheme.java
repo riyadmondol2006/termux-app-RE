@@ -51,7 +51,8 @@ public final class TermuxTheme {
     /** colors.properties content for this theme, in the format read by TerminalColorScheme.updateWith. */
     @NonNull public String toColorsProperties() {
         StringBuilder b = new StringBuilder();
-        b.append("# Termux RE theme: ").append(name).append(" (").append(id).append(")\n");
+        // The name is user input: keep it on the comment line.
+        b.append("# Termux RE theme: ").append(name.replaceAll("[\\r\\n]+", " ")).append(" (").append(id).append(")\n");
         b.append("foreground=").append(toHex(foreground)).append('\n');
         b.append("background=").append(toHex(background)).append('\n');
         b.append("cursor=").append(toHex(cursor)).append('\n');
