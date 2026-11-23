@@ -265,6 +265,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setToolsButtonView();
 
+        setDrawerGestureExclusion();
+
         setSettingsButtonView();
 
         setNewSessionButtonView();
@@ -943,6 +945,26 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public void setExtraKeysView(ExtraKeysView extraKeysView) {
         mExtraKeysView = extraKeysView;
+    }
+
+    /**
+     * With gesture navigation, a swipe from the left edge is the system back gesture, so the drawer
+     * can't be opened by swiping. Exclude the middle of the left edge from system gestures, so a swipe
+     * there opens the drawer. Android allows at most 200dp per edge; back still works from the rest
+     * of the edge and from the right edge.
+     */
+    private void setDrawerGestureExclusion() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return;
+        DrawerLayout drawer = getDrawer();
+        drawer.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (bottom - top == oldBottom - oldTop && right - left == oldRight - oldLeft) return;
+            float density = getResources().getDisplayMetrics().density;
+            int width = Math.round(24 * density);
+            int height = Math.min(view.getHeight(), Math.round(200 * density));
+            int rectTop = (view.getHeight() - height) / 2;
+            view.setSystemGestureExclusionRects(java.util.Collections.singletonList(
+                new android.graphics.Rect(0, rectTop, width, rectTop + height)));
+        });
     }
 
     public DrawerLayout getDrawer() {
