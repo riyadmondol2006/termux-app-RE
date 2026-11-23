@@ -61,7 +61,7 @@
     <string name="feature_system_floating_title">Floating terminal</string>
     <string name="feature_system_floating_summary">A movable, resizable terminal window over other apps</string>
     <string name="feature_system_floating_permission_title">Display over other apps</string>
-    <string name="feature_system_floating_permission_message">The floating terminal is a window drawn over other apps, which needs the \"Display over other apps\" permission. You can also change it in Settings → Termux → Permissions.</string>
+    <string name="feature_system_floating_permission_message">The floating terminal is a window drawn over other apps, which needs the \"Display over other apps\" permission. You can also change it later in the system settings of this app.</string>
     <string name="feature_system_floating_permission_grant">Grant permission</string>
     <string name="feature_system_floating_permission_missing">The \"Display over other apps\" permission is not granted.</string>
     <string name="feature_system_floating_new_session">Open a new session</string>

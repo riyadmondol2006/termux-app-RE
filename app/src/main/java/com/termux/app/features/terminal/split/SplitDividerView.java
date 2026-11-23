@@ -93,6 +93,10 @@ final class SplitDividerView extends View {
         float rawPosition = mSideBySide ? event.getRawX() : event.getRawY();
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                // Leave swipes from the left edge to the drawer, which opens from there. The
+                // middle of that edge is excluded from the back gesture for it, see TermuxActivity.
+                if (!mSideBySide && event.getX() < 24 * getResources().getDisplayMetrics().density)
+                    return false;
                 mDownRawPosition = rawPosition;
                 mDragging = false;
                 getParent().requestDisallowInterceptTouchEvent(true);
