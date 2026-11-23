@@ -6,6 +6,7 @@ androidx-appcompat = "1.8.0"
 androidx-core = "1.19.1"
 androidx-drawerlayout = "1.2.0"
 androidx-preference = "1.2.1"
+androidx-swiperefreshlayout = "1.1.0"
 androidx-viewpager = "1.1.0"
 androidx-window = "1.5.1"
 androidx-test-junit = "1.3.0"
@@ -27,6 +28,7 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
 androidx-drawerlayout = { module = "androidx.drawerlayout:drawerlayout", version.ref = "androidx-drawerlayout" }
 androidx-preference = { module = "androidx.preference:preference", version.ref = "androidx-preference" }
+androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "androidx-swiperefreshlayout" }
 androidx-viewpager = { module = "androidx.viewpager:viewpager", version.ref = "androidx-viewpager" }
 androidx-window = { module = "androidx.window:window", version.ref = "androidx-window" }
 androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-junit" }

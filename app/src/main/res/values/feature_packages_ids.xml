@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="feature_packages_mode_all" type="id" />
+    <item name="feature_packages_mode_installed" type="id" />
+    <item name="feature_packages_mode_updates" type="id" />
+</resources>
