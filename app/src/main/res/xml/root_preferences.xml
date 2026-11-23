@@ -1,60 +1,119 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <Preference
-        app:key="termux"
-        app:title="@string/termux_preferences_title"
-        app:summary="@string/termux_preferences_summary"
-        app:fragment="com.termux.app.fragments.settings.TermuxPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_appearance" app:title="@string/feature_theme_settings_appearance">
+        <Preference
+            app:key="theme_studio"
+            app:title="@string/feature_theme_studio_title"
+            app:icon="@drawable/feature_theme_ic_palette"
+            app:persistent="false"/>
+        <com.termux.app.features.theme.ThemePreviewPreference
+            app:key="theme_preview"
+            app:title="@string/feature_theme_settings_preview_title"
+            app:persistent="false"/>
+    </PreferenceCategory>
 
-    <Preference
-        app:key="termux_api"
-        app:title="@string/termux_api_preferences_title"
-        app:summary="@string/termux_api_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxAPIPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_terminal" app:title="@string/feature_theme_settings_terminal">
+        <Preference
+            app:key="settings_terminal"
+            app:title="@string/feature_theme_settings_terminal"
+            app:summary="@string/feature_theme_settings_terminal_summary"
+            app:icon="@drawable/feature_theme_ic_terminal"
+            app:fragment="com.termux.app.fragments.settings.termux.TerminalViewPreferencesFragment"/>
+        <Preference
+            app:key="settings_keyboard"
+            app:title="@string/feature_theme_settings_keyboard"
+            app:summary="@string/feature_theme_settings_keyboard_summary"
+            app:icon="@drawable/feature_theme_ic_keyboard"
+            app:fragment="com.termux.app.fragments.settings.termux.TerminalIOPreferencesFragment"/>
+    </PreferenceCategory>
 
-    <Preference
-        app:key="termux_float"
-        app:title="@string/termux_float_preferences_title"
-        app:summary="@string/termux_float_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxFloatPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_sessions_packages" app:title="@string/feature_theme_settings_sessions">
+        <Preference
+            app:key="settings_sessions"
+            app:title="@string/feature_theme_settings_sessions"
+            app:summary="@string/feature_theme_settings_sessions_summary"
+            app:icon="@drawable/feature_theme_ic_sessions"
+            app:fragment="com.termux.app.fragments.settings.TermuxPreferencesFragment"/>
+        <Preference
+            app:key="termux"
+            app:title="@string/feature_theme_settings_packages"
+            app:summary="@string/feature_theme_settings_packages_summary"
+            app:icon="@drawable/feature_theme_ic_package"
+            app:fragment="com.termux.app.fragments.settings.TermuxPreferencesFragment"/>
+    </PreferenceCategory>
 
-    <Preference
-        app:key="termux_tasker"
-        app:title="@string/termux_tasker_preferences_title"
-        app:summary="@string/termux_tasker_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxTaskerPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_permissions" app:title="@string/feature_theme_settings_permissions">
+        <Preference
+            app:key="settings_permissions"
+            app:title="@string/feature_theme_settings_permissions"
+            app:summary="@string/feature_theme_settings_permissions_summary"
+            app:icon="@drawable/feature_theme_ic_shield"
+            app:fragment="com.termux.app.fragments.settings.termux.PermissionsPreferencesFragment"/>
+    </PreferenceCategory>
 
-    <Preference
-        app:key="termux_widget"
-        app:title="@string/termux_widget_preferences_title"
-        app:summary="@string/termux_widget_preferences_summary"
-        app:isPreferenceVisible="false"
-        app:fragment="com.termux.app.fragments.settings.TermuxWidgetPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_advanced" app:title="@string/feature_theme_settings_advanced">
+        <Preference
+            app:key="settings_debugging"
+            app:title="@string/feature_theme_settings_advanced"
+            app:summary="@string/feature_theme_settings_advanced_summary"
+            app:icon="@drawable/feature_theme_ic_bug"
+            app:fragment="com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment"/>
+    </PreferenceCategory>
 
-    <SwitchPreferenceCompat
-        app:key="update_check_enabled"
-        app:title="@string/update_check_preference_title"
-        app:summary="@string/update_check_preference_summary"
-        app:persistent="false"/>
+    <PreferenceCategory app:key="cat_plugins" app:title="@string/feature_theme_settings_plugins">
+        <Preference
+            app:key="termux_api"
+            app:title="@string/termux_api_preferences_title"
+            app:summary="@string/termux_api_preferences_summary"
+            app:icon="@drawable/ic_settings"
+            app:isPreferenceVisible="false"
+            app:fragment="com.termux.app.fragments.settings.TermuxAPIPreferencesFragment"/>
+        <Preference
+            app:key="termux_float"
+            app:title="@string/termux_float_preferences_title"
+            app:summary="@string/termux_float_preferences_summary"
+            app:icon="@drawable/ic_settings"
+            app:isPreferenceVisible="false"
+            app:fragment="com.termux.app.fragments.settings.TermuxFloatPreferencesFragment"/>
+        <Preference
+            app:key="termux_tasker"
+            app:title="@string/termux_tasker_preferences_title"
+            app:summary="@string/termux_tasker_preferences_summary"
+            app:icon="@drawable/ic_settings"
+            app:isPreferenceVisible="false"
+            app:fragment="com.termux.app.fragments.settings.TermuxTaskerPreferencesFragment"/>
+        <Preference
+            app:key="termux_widget"
+            app:title="@string/termux_widget_preferences_title"
+            app:summary="@string/termux_widget_preferences_summary"
+            app:icon="@drawable/ic_settings"
+            app:isPreferenceVisible="false"
+            app:fragment="com.termux.app.fragments.settings.TermuxWidgetPreferencesFragment"/>
+    </PreferenceCategory>
 
-    <Preference
-        app:key="update_check_now"
-        app:title="@string/update_check_now_preference_title"
-        app:persistent="false"/>
-
-    <Preference
-        app:key="about"
-        app:title="@string/about_preference_title"
-        app:persistent="false"/>
-    <!-- app:layout="@layout/preference_markdown_text" -->
-
-    <Preference
-        app:key="donate"
-        app:title="@string/donate_preference_title"
-        app:persistent="false"
-        app:isPreferenceVisible="false"/>
+    <PreferenceCategory app:key="cat_about" app:title="@string/feature_theme_settings_about">
+        <SwitchPreferenceCompat
+            app:key="update_check_enabled"
+            app:title="@string/update_check_preference_title"
+            app:summary="@string/update_check_preference_summary"
+            app:icon="@drawable/ic_settings"
+            app:persistent="false"/>
+        <Preference
+            app:key="update_check_now"
+            app:title="@string/update_check_now_preference_title"
+            app:icon="@drawable/ic_settings"
+            app:persistent="false"/>
+        <Preference
+            app:key="about"
+            app:title="@string/about_preference_title"
+            app:icon="@drawable/feature_theme_ic_info"
+            app:persistent="false"/>
+        <Preference
+            app:key="donate"
+            app:title="@string/donate_preference_title"
+            app:icon="@drawable/ic_settings"
+            app:persistent="false"
+            app:isPreferenceVisible="false"/>
+    </PreferenceCategory>
 
 </PreferenceScreen>

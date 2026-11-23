@@ -546,6 +546,12 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
             final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
             mActivity.getTerminalView().setTypeface(newTypeface);
+            // Theme Studio background image (theme area hook in TerminalView).
+            android.util.DisplayMetrics metrics = mActivity.getResources().getDisplayMetrics();
+            android.graphics.Bitmap background = com.termux.app.features.theme.TermuxThemeManager.loadBackgroundBitmap(
+                mActivity, metrics.widthPixels, metrics.heightPixels);
+            int backgroundAlpha = com.termux.app.features.theme.TermuxThemeManager.getBackgroundAlpha(mActivity) * 255 / 100;
+            mActivity.getTerminalView().setTerminalBackgroundImage(background, background != null ? backgroundAlpha : 255);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);
         }

@@ -13,6 +13,8 @@ public final class ThemeFeatures {
 
     /** Add the features of this area to {@code features}, in the order they should be listed. */
     public static void register(@NonNull List<TermuxFeature> features) {
+        features.add(new com.termux.app.features.theme.ThemeStudioFeature());
+        features.add(new com.termux.app.features.theme.ThemeSettingsFeature());
     }
 
 }
