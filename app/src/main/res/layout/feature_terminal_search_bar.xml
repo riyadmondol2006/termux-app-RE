@@ -91,7 +91,11 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:tooltipText="@string/feature_terminal_search_previous"
+            android:padding="8dp"
             app:icon="@drawable/feature_terminal_ic_arrow_up"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="24dp"
             tools:targetApi="o" />
 
         <com.google.android.material.button.MaterialButton
@@ -103,7 +107,11 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:tooltipText="@string/feature_terminal_search_next"
+            android:padding="8dp"
             app:icon="@drawable/feature_terminal_ic_arrow_down"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="24dp"
             tools:targetApi="o" />
 
         <com.google.android.material.button.MaterialButton
@@ -115,7 +123,11 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:tooltipText="@string/feature_terminal_search_close"
+            android:padding="8dp"
             app:icon="@drawable/feature_terminal_ic_close"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="24dp"
             tools:targetApi="o" />
     </LinearLayout>
 

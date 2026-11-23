@@ -78,6 +78,10 @@ final class FloatingTerminalWindow implements FloatingSessionClient.Listener, Fl
     private final TextView mCtrlKey, mAltKey;
 
     @Nullable private TerminalSession mSession;
+
+    /** The background color set on the terminal view, or 0 if not set yet. */
+
+    private int mBackgroundColor;
     private boolean mFocusable;
     private boolean mMinimized;
     private boolean mDestroyed;
@@ -179,7 +183,23 @@ final class FloatingTerminalWindow implements FloatingSessionClient.Listener, Fl
         mTerminalView.attachSession(session);
         updateTitle();
         // The view size is only known after it has been laid out, which sets the emulator size.
-        mTerminalView.post(mTerminalView::updateSize);
+        mTerminalView.post(() -> {
+            mTerminalView.updateSize();
+            updateBackgroundColor();
+        });
+    }
+
+    /**
+     * Use the background color of the session's color scheme, like the terminal activity does for
+     * its window, so the window matches the theme.
+     */
+    private void updateBackgroundColor() {
+        if (mDestroyed || mSession == null || mSession.getEmulator() == null) return;
+        int color = mSession.getEmulator().mColors.mCurrentColors[com.termux.terminal.TextStyle.COLOR_INDEX_BACKGROUND];
+        if (color != mBackgroundColor) {
+            mBackgroundColor = color;
+            mTerminalView.setBackgroundColor(color);
+        }
     }
 
     boolean isMinimized() {
@@ -310,7 +330,11 @@ final class FloatingTerminalWindow implements FloatingSessionClient.Listener, Fl
 
     @Override
     public void onTextChanged() {
-        if (!mDestroyed && !mMinimized) mTerminalView.onScreenUpdated();
+        if (!mDestroyed && !mMinimized) {
+            mTerminalView.onScreenUpdated();
+            // The colors are reset without a callback when the theme is reloaded.
+            updateBackgroundColor();
+        }
     }
 
     @Override
@@ -326,7 +350,10 @@ final class FloatingTerminalWindow implements FloatingSessionClient.Listener, Fl
 
     @Override
     public void onColorsChanged() {
-        if (!mDestroyed) mTerminalView.onScreenUpdated();
+        if (!mDestroyed) {
+            updateBackgroundColor();
+            mTerminalView.onScreenUpdated();
+        }
     }
 
     private void updateTitle() {
