@@ -123,6 +123,11 @@
             android:resizeableActivity="true"
             tools:targetApi="n" />
 
+        <!-- Package manager, repository manager and package compatibility tools. -->
+        <activity android:name=".app.features.packages.PackageManagerActivity" android:exported="false" android:label="@string/feature_packages_manager_title" android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+        <activity android:name=".app.features.packages.RepositoryManagerActivity" android:exported="false" android:label="@string/feature_packages_repositories_title" android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+        <activity android:name=".app.features.packages.CompatibilityToolsActivity" android:exported="false" android:label="@string/feature_packages_compatibility_title" android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+
         <activity
             android:name=".app.activities.SettingsActivity"
             android:exported="true"
