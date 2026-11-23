@@ -28,9 +28,10 @@ public class ThemePreviewPreference extends Preference {
         if (sample == null) return;
         TermuxTheme theme = TermuxThemeManager.getCurrentTheme(getContext());
         TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(getContext(), false);
-        int fontSize = prefs != null ? prefs.getFontSize() : 14;
+        // The preference is in pixels.
+        int fontSize = prefs != null ? prefs.getFontSize() : TermuxAppSharedPreferences.getDefaultFontSizes(getContext())[0];
         sample.setText("user@termux:~$ ls --color\nsrc/  build.sh*  notes.txt");
-        sample.setTextSize(fontSize);
+        sample.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, fontSize);
         sample.setTextColor(theme.foreground);
         sample.setBackgroundColor(theme.background);
     }

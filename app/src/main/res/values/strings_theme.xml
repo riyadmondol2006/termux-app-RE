@@ -11,7 +11,7 @@
     <string name="feature_theme_background_color">Background</string>
     <string name="feature_theme_cursor">Cursor</string>
     <string name="feature_theme_font">Font</string>
-    <string name="feature_theme_font_size">Font size: %1$d sp</string>
+    <string name="feature_theme_font_size">Font size: %1$d</string>
     <string name="feature_theme_import_font">Import font…</string>
     <string name="feature_theme_bundled_font">Use JetBrains Mono</string>
     <string name="feature_theme_font_ready">Font ready — tap Apply to use it</string>
@@ -22,7 +22,7 @@
     <string name="feature_theme_pick_background">Choose image…</string>
     <string name="feature_theme_clear_background">Remove</string>
     <string name="feature_theme_background_cleared">Background cleared</string>
-    <string name="feature_theme_background_set">Background set — reopen the terminal to see it</string>
+    <string name="feature_theme_background_set">Background image set</string>
     <string name="feature_theme_background_dim">Background dim</string>
     <string name="feature_theme_background_dim_hint">Higher dim makes text easier to read over the image.</string>
     <string name="feature_theme_apply">Apply</string>
@@ -39,7 +39,7 @@
     <string name="feature_theme_edit_color">Edit color (hex)</string>
     <string name="feature_theme_bad_hex">Use a hex color like #FFCC66</string>
     <string name="feature_theme_settings_appearance">Appearance</string>
-    <string name="feature_theme_settings_appearance_summary">Theme Studio, colors, fonts — current: %1$s, %2$d sp</string>
+    <string name="feature_theme_settings_appearance_summary">Colors, fonts and cursor. Current theme: %1$s, font size %2$d</string>
     <string name="feature_theme_settings_plugins">Plugins</string>
     <string name="feature_theme_settings_general">General</string>
     <string name="feature_theme_settings_about">About</string>

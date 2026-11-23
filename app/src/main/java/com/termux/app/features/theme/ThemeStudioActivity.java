@@ -65,7 +65,8 @@ public class ThemeStudioActivity extends AppCompatActivity {
     private static final int KIND_ANSI = 3;
 
     private TermuxTheme mEditing;
-    private int mFontSize = 14;
+    /** The terminal font size in pixels, the unit of the font size preference. */
+    private int mFontSizePx;
     @Nullable private File mPendingFont;
     @Nullable private String mPendingFontName;
     /** Set while views are updated from {@link #mEditing}, so their listeners don't change it. */
@@ -154,7 +155,7 @@ public class ThemeStudioActivity extends AppCompatActivity {
 
         mEditing = TermuxThemeManager.getCurrentTheme(this);
         TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(this, false);
-        if (preferences != null) mFontSize = Math.max(8, Math.min(32, preferences.getFontSize()));
+        mFontSizePx = preferences != null ? preferences.getFontSize() : TermuxAppSharedPreferences.getDefaultFontSizes(this)[0];
 
         setupName();
         setupFont();
@@ -193,10 +194,12 @@ public class ThemeStudioActivity extends AppCompatActivity {
     }
 
     private void setupFont() {
+        // The slider is in dp, so sizes mean the same on all screens.
         Slider slider = findViewById(R.id.feature_theme_font_size);
-        slider.setValue(mFontSize);
+        slider.setValue(Math.max(slider.getValueFrom(), Math.min(slider.getValueTo(), Math.round(pxToDp(mFontSizePx)))));
         slider.addOnChangeListener((s, value, fromUser) -> {
-            mFontSize = Math.round(value);
+            if (!fromUser) return;
+            mFontSizePx = Math.round(value * getResources().getDisplayMetrics().density);
             refreshPreview();
         });
         findViewById(R.id.feature_theme_bundled_font).setOnClickListener(v -> {
@@ -420,8 +423,8 @@ public class ThemeStudioActivity extends AppCompatActivity {
                 // Keep the default font in the preview.
             }
         }
-        mPreview.setTheme(mEditing, typeface, mFontSize);
-        mFontSizeLabel.setText(getString(R.string.feature_theme_font_size, mFontSize));
+        mPreview.setTheme(mEditing, typeface, mFontSizePx);
+        mFontSizeLabel.setText(getString(R.string.feature_theme_font_size, Math.round(pxToDp(mFontSizePx))));
         mFontStatus.setText(mPendingFontName != null
             ? getString(R.string.feature_theme_font_pending, mPendingFontName)
             : getString(R.string.feature_theme_font_current));
@@ -522,13 +525,17 @@ public class ThemeStudioActivity extends AppCompatActivity {
 
     private void applyTheme() {
         try {
-            TermuxThemeManager.applyTheme(this, mEditing, mPendingFont, mFontSize, getCursorStyleValue(), mCursorBlink.isChecked());
+            TermuxThemeManager.applyTheme(this, mEditing, mPendingFont, mFontSizePx, getCursorStyleValue(), mCursorBlink.isChecked());
             toast(getString(R.string.feature_theme_applied));
         } catch (Exception e) {
             toast(getString(R.string.feature_theme_apply_failed) + ": " + e.getMessage());
         }
     }
 
+
+    private float pxToDp(int px) {
+        return px / getResources().getDisplayMetrics().density;
+    }
 
     @NonNull
     private static String readText(@NonNull InputStream in, int maxBytes) throws IOException {

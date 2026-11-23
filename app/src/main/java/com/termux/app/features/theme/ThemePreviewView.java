@@ -14,16 +14,17 @@ public class ThemePreviewView extends View {
 
     private TermuxTheme mTheme = BundledThemes.defaultTheme();
     private Typeface mTypeface = Typeface.MONOSPACE;
-    private float mTextSizeSp = 14f;
+    private float mTextSizePx = 14f;
     private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public ThemePreviewView(Context c) { super(c); }
     public ThemePreviewView(Context c, @Nullable AttributeSet a) { super(c, a); }
 
-    public void setTheme(TermuxTheme theme, @Nullable Typeface typeface, float textSizeSp) {
+    /** @param textSizePx The text size in pixels, like the terminal font size preference. */
+    public void setTheme(TermuxTheme theme, @Nullable Typeface typeface, float textSizePx) {
         mTheme = theme;
         if (typeface != null) mTypeface = typeface;
-        mTextSizeSp = textSizeSp;
+        mTextSizePx = textSizePx;
         invalidate();
     }
 
@@ -31,7 +32,7 @@ public class ThemePreviewView extends View {
         super.onDraw(canvas);
         canvas.drawColor(mTheme.background);
         mPaint.setTypeface(mTypeface);
-        mPaint.setTextSize(mTextSizeSp * getResources().getDisplayMetrics().scaledDensity);
+        mPaint.setTextSize(mTextSizePx);
         float x = 16f, y = mPaint.getTextSize() + 12f;
         float lh = mPaint.getTextSize() * 1.5f;
         line(canvas, x, y, new Seg("user@termux", mTheme.ansi[2]), new Seg(":~ $ ", mTheme.foreground), new Seg("ls --color", mTheme.foreground)); y += lh;

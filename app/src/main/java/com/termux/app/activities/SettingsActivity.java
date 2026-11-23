@@ -155,7 +155,9 @@ public class SettingsActivity extends AppCompatActivity {
             Preference themeStudioPreference = findPreference("theme_studio");
             if (themeStudioPreference != null) {
                 TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(context, false);
-                int fontSize = prefs != null ? prefs.getFontSize() : 14;
+                // The preference is in pixels, show it in dp like Theme Studio.
+                int fontSizePx = prefs != null ? prefs.getFontSize() : TermuxAppSharedPreferences.getDefaultFontSizes(context)[0];
+                int fontSize = Math.round(fontSizePx / context.getResources().getDisplayMetrics().density);
                 String themeName = com.termux.app.features.theme.TermuxThemeManager.getCurrentTheme(context).name;
                 themeStudioPreference.setSummary(context.getString(R.string.feature_theme_settings_appearance_summary, themeName, fontSize));
                 themeStudioPreference.setOnPreferenceClickListener(preference -> {

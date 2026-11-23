@@ -137,7 +137,7 @@
                 android:layout_height="wrap_content"
                 android:contentDescription="@string/feature_theme_font"
                 android:stepSize="1"
-                android:valueFrom="8"
+                android:valueFrom="6"
                 android:valueTo="32" />
 
             <TextView

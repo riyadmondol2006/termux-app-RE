@@ -312,6 +312,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             addTermuxActivityRootViewGlobalLayoutListener();
 
         registerTermuxActivityBroadcastReceiver();
+
+        // Reload the styling if it was changed while the activity was stopped.
+        if (sStyleReloadPending) {
+            boolean recreate = sStyleReloadPendingRecreate;
+            sStyleReloadPending = false;
+            sStyleReloadPendingRecreate = false;
+            Logger.logDebug(LOG_TAG, "Reloading styling changed while stopped");
+            reloadActivityStyling(recreate);
+        }
     }
 
     @Override
@@ -985,7 +994,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
+    /**
+     * Set by {@link #updateTermuxActivityStyling(Context, boolean)}, so that the activity reloads
+     * its styling in {@link #onStart()} if it was stopped and missed the broadcast, like when a
+     * theme is applied in Theme Studio.
+     */
+    private static volatile boolean sStyleReloadPending;
+    private static volatile boolean sStyleReloadPendingRecreate;
+
     public static void updateTermuxActivityStyling(Context context, boolean recreateActivity) {
+        if (recreateActivity) sStyleReloadPendingRecreate = true;
+        sStyleReloadPending = true;
         // Make sure that terminal styling is always applied.
         Intent stylingIntent = new Intent(TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
         stylingIntent.putExtra(TERMUX_ACTIVITY.EXTRA_RECREATE_ACTIVITY, recreateActivity);
@@ -1030,6 +1049,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                         return;
                     case TERMUX_ACTIVITY.ACTION_RELOAD_STYLE:
                         Logger.logDebug(LOG_TAG, "Received intent to reload styling");
+                        sStyleReloadPending = false;
+                        sStyleReloadPendingRecreate = false;
                         reloadActivityStyling(intent.getBooleanExtra(TERMUX_ACTIVITY.EXTRA_RECREATE_ACTIVITY, true));
                         return;
                     case TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS:

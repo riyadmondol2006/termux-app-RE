@@ -102,7 +102,7 @@ public final class TermuxThemeManager {
      * font size are written to termux.properties / app preferences by the caller-facing overload in the Studio.
      */
     public static void applyTheme(@NonNull Context context, @NonNull TermuxTheme theme,
-                                  @Nullable File fontTtf, int fontSizeSp,
+                                  @Nullable File fontTtf, int fontSizePx,
                                   @Nullable String cursorStyle, boolean cursorBlink) throws IOException {
         File home = new File(TermuxConstants.TERMUX_DATA_HOME_DIR_PATH);
         if (!home.exists() && !home.mkdirs()) throw new IOException("Cannot create " + home);
@@ -115,10 +115,10 @@ public final class TermuxThemeManager {
             setTermuxProperty("terminal-cursor-style", cursorStyle);
             setTermuxProperty("terminal-cursor-blink-rate", cursorBlink ? "530" : "0");
         }
-        if (fontSizeSp > 0) {
+        if (fontSizePx > 0) {
             com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences prefs =
                 com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences.build(context, false);
-            if (prefs != null) prefs.setFontSize(fontSizeSp);
+            if (prefs != null) prefs.setFontSize(fontSizePx);
         }
         prefs(context).edit().putString(KEY_CURRENT_ID, theme.id).apply();
         TermuxActivity.updateTermuxActivityStyling(context, false);
@@ -152,13 +152,18 @@ public final class TermuxThemeManager {
     public static void setBackground(@NonNull Context context, @Nullable Uri imageUri, int alphaPercent, int blur) throws IOException {
         prefs(context).edit().putInt(KEY_BG_ALPHA, alphaPercent).putInt(KEY_BG_BLUR, blur).apply();
         File target = backgroundFile(context);
-        if (imageUri == null) { target.delete(); return; }
-        try (InputStream in = context.getContentResolver().openInputStream(imageUri);
-             OutputStream out = new FileOutputStream(target)) {
-            if (in == null) throw new IOException("Cannot open image");
-            byte[] buf = new byte[8192]; int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        if (imageUri == null) {
+            target.delete();
+        } else {
+            try (InputStream in = context.getContentResolver().openInputStream(imageUri);
+                 OutputStream out = new FileOutputStream(target)) {
+                if (in == null) throw new IOException("Cannot open image");
+                byte[] buf = new byte[8192]; int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            }
         }
+        // The terminal loads the background image when it reloads its styling.
+        TermuxActivity.updateTermuxActivityStyling(context, false);
     }
 
     @NonNull public static File backgroundFile(@NonNull Context context) {

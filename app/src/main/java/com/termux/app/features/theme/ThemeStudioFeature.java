@@ -10,6 +10,6 @@ public final class ThemeStudioFeature extends TermuxFeature {
     @NonNull @Override public String getId() { return "theme_studio"; }
     @Override public int getTitle() { return R.string.feature_theme_studio_title; }
     @Override public int getSummary() { return R.string.feature_theme_studio_summary; }
-    @Override public int getIcon() { return R.drawable.ic_tools; }
+    @Override public int getIcon() { return R.drawable.feature_theme_ic_palette; }
     @Override public void open(@NonNull TermuxActivity activity) { ThemeStudioActivity.start(activity); }
 }
