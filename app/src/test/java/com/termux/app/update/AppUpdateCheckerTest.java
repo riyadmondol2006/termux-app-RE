@@ -99,4 +99,57 @@ public class AppUpdateCheckerTest {
         Assert.assertNull(AppUpdateChecker.getLatestRelease(new JSONArray("[]"), new String[]{"arm64-v8a"}));
     }
 
+    @Test
+    public void testParseSha256Digest() {
+        String sum = "9feb16208bcbc7457074c9f6ad9678210ff46249324937767948ca63f3ae601b";
+        Assert.assertEquals(sum, AppUpdateChecker.parseSha256Digest("sha256:" + sum));
+        Assert.assertEquals(sum, AppUpdateChecker.parseSha256Digest("sha256:" + sum.toUpperCase()));
+        Assert.assertNull(AppUpdateChecker.parseSha256Digest("sha512:" + sum));
+        Assert.assertNull(AppUpdateChecker.parseSha256Digest("sha256:abc"));
+        Assert.assertNull(AppUpdateChecker.parseSha256Digest(sum));
+        Assert.assertNull(AppUpdateChecker.parseSha256Digest(""));
+        Assert.assertNull(AppUpdateChecker.parseSha256Digest(null));
+    }
+
+    @Test
+    public void testGetReleasesWithAssetDetails() throws Exception {
+        String sum = "9feb16208bcbc7457074c9f6ad9678210ff46249324937767948ca63f3ae601b";
+        JSONArray releases = new JSONArray("[" +
+            "{\"tag_name\": \"v1.0.0\", \"name\": \"First\", \"published_at\": \"2026-01-02T03:04:05Z\", \"html_url\": \"https://example.com/v1.0.0\", \"body\": \"Old\", \"assets\": [" +
+            "  {\"name\": \"termux-re_v1.0.0-release_arm64-v8a.apk\", \"browser_download_url\": \"https://example.com/old.apk\", \"size\": 10}" +
+            "]}," +
+            "{\"tag_name\": \"v1.1.0\", \"name\": \"\", \"html_url\": \"https://example.com/v1.1.0\", \"body\": \"New\", \"assets\": [" +
+            "  {\"name\": \"termux-re_v1.1.0-release_universal.apk\", \"browser_download_url\": \"https://example.com/u.apk\", \"size\": 99}," +
+            "  {\"name\": \"termux-re_v1.1.0-release_arm64-v8a.apk\", \"browser_download_url\": \"https://example.com/new.apk\", \"size\": 35572310, \"digest\": \"sha256:" + sum + "\"}" +
+            "]}," +
+            "{\"tag_name\": \"v1.0.5\", \"html_url\": \"https://example.com/v1.0.5\"}" +
+            "]");
+
+        java.util.List<AppUpdateChecker.Release> list = AppUpdateChecker.getReleases(releases, new String[]{"arm64-v8a"});
+        Assert.assertEquals(3, list.size());
+        // Newest version first, whatever the order of the API.
+        Assert.assertEquals("1.1.0", list.get(0).version);
+        Assert.assertEquals("1.0.5", list.get(1).version);
+        Assert.assertEquals("1.0.0", list.get(2).version);
+
+        AppUpdateChecker.Release newest = list.get(0);
+        Assert.assertEquals("v1.1.0", newest.name); // The tag, if the release has no name.
+        Assert.assertEquals("termux-re_v1.1.0-release_arm64-v8a.apk", newest.apkName);
+        Assert.assertEquals("https://example.com/new.apk", newest.apkUrl);
+        Assert.assertEquals(35572310L, newest.apkSize);
+        Assert.assertEquals(sum, newest.apkSha256);
+
+        AppUpdateChecker.Release oldest = list.get(2);
+        Assert.assertEquals("First", oldest.name);
+        Assert.assertEquals("2026-01-02T03:04:05Z", oldest.publishedAt);
+        Assert.assertEquals(10L, oldest.apkSize);
+        Assert.assertNull(oldest.apkSha256); // GitHub did not publish a digest for it.
+
+        // A release without APKs.
+        AppUpdateChecker.Release noApk = list.get(1);
+        Assert.assertNull(noApk.apkUrl);
+        Assert.assertNull(noApk.apkName);
+        Assert.assertEquals(-1L, noApk.apkSize);
+    }
+
 }
