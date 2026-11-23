@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.graphics.Typeface;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
@@ -172,10 +173,8 @@ public final class ExtraKeysView extends GridLayout {
     protected int mButtonBackgroundColor;
     /** The background color of a special button, like CTRL, while it is active. */
     protected int mButtonToggledBackgroundColor;
-    /** The corner radius of the key caps in pixels. */
-    protected final float mKeyCornerRadius;
-    /** The space around each key cap in pixels. */
-    protected final int mKeyMargin;
+    /** The typeface of the key labels, the terminal font, or {@code null} for the default. */
+    @Nullable protected Typeface mKeyTypeface;
     /** The background color for the extra keys button when its active. Defaults to
      * {@link #DEFAULT_BUTTON_ACTIVE_BACKGROUND_COLOR}. */
     protected int mButtonActiveBackgroundColor;
@@ -222,10 +221,6 @@ public final class ExtraKeysView extends GridLayout {
 
         setRepetitiveKeys(ExtraKeysConstants.PRIMARY_REPETITIVE_KEYS);
         setSpecialButtons(getDefaultSpecialButtons(this));
-
-        float density = context.getResources().getDisplayMetrics().density;
-        mKeyCornerRadius = 8 * density;
-        mKeyMargin = Math.round(2 * density);
 
         setButtonColors(
             ThemeUtils.getSystemAttrColor(context, ATTR_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR),
@@ -490,7 +485,7 @@ public final class ExtraKeysView extends GridLayout {
                 } else {
                     param.height = 0;
                 }
-                param.setMargins(mKeyMargin, mKeyMargin, mKeyMargin, mKeyMargin);
+                param.setMargins(0, 0, 0, 0);
                 param.columnSpec = GridLayout.spec(col, GridLayout.FILL, 1.f);
                 param.rowSpec = GridLayout.spec(row, GridLayout.FILL, 1.f);
                 button.setLayoutParams(param);
@@ -650,8 +645,9 @@ public final class ExtraKeysView extends GridLayout {
 
 
     /**
-     * Style {@code button} as a key cap: a rounded rectangle without insets, so it fills its cell.
-     * Also used for buttons outside this view that should look like the extra keys.
+     * Style {@code button} like the terminal: a flat cell without insets or corners in the
+     * terminal font, so the keys look like part of the terminal. Also used for buttons outside
+     * this view that should look like the extra keys.
      */
     public void styleKey(@NonNull MaterialButton button) {
         button.setPadding(0, 0, 0, 0);
@@ -662,11 +658,22 @@ public final class ExtraKeysView extends GridLayout {
         button.setMinimumWidth(0);
         button.setMinimumHeight(0);
         button.setStrokeWidth(0);
-        button.setCornerRadius(Math.round(mKeyCornerRadius));
+        button.setCornerRadius(0);
         button.setElevation(0);
         button.setStateListAnimator(null);
-        button.setRippleColor(android.content.res.ColorStateList.valueOf((mButtonTextColor & 0x00FFFFFF) | 0x33000000));
+        button.setRippleColor(android.content.res.ColorStateList.valueOf((mButtonTextColor & 0x00FFFFFF) | 0x26000000));
         button.setBackgroundColor(mButtonBackgroundColor);
+        if (mKeyTypeface != null) button.setTypeface(mKeyTypeface);
+    }
+
+    /** Use {@code typeface}, the terminal font, for the key labels. */
+    public void setKeyTypeface(@Nullable Typeface typeface) {
+        mKeyTypeface = typeface;
+        if (typeface == null) return;
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child instanceof MaterialButton) ((MaterialButton) child).setTypeface(typeface);
+        }
     }
 
     /** The background of a key while it is not pressed: active special buttons stand out. */
@@ -684,17 +691,13 @@ public final class ExtraKeysView extends GridLayout {
     }
 
     /**
-     * Use colors that match the terminal: key caps slightly lighter or darker than the terminal
-     * background, labels in the terminal foreground color and an amber accent for active special
-     * buttons, readable on both dark and light color schemes.
+     * Use the colors of the terminal, so the keys look like part of it: the terminal background,
+     * labels in the terminal foreground color, a highlight while a key is pressed, and active
+     * special buttons, like CTRL, in inverse video like the cursor.
      */
     public void setTerminalColors(int background, int foreground) {
-        boolean light = isLightColor(background);
-        int accent = light ? 0xFF8A5100 : 0xFFFFB000;
-        setButtonColors(foreground, accent,
-            blendColors(background, foreground, light ? 0.10f : 0.14f),
-            blendColors(background, foreground, light ? 0.24f : 0.30f));
-        mButtonToggledBackgroundColor = blendColors(background, accent, light ? 0.20f : 0.26f);
+        setButtonColors(foreground, background, background, blendColors(background, foreground, 0.22f));
+        mButtonToggledBackgroundColor = foreground;
         setBackgroundColor(background);
 
         // Update the keys that are shown.

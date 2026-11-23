@@ -353,7 +353,9 @@ public final class SshManagerDialogs {
     }
 
     static Button smallButton(@NonNull TermuxActivity activity, int text, @NonNull View.OnClickListener listener) {
-        Button button = new Button(activity, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        // A Material style needs a MaterialButton: a plain Button can't resolve its attributes and crashes.
+        Button button = new com.google.android.material.button.MaterialButton(activity, null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle);
         button.setText(text);
         button.setOnClickListener(listener);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(

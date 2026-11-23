@@ -315,6 +315,7 @@ public final class InputUi {
         if (a.getExtraKeysView() != null) a.getExtraKeysView().styleKey(button);
         int[] colors = a.getTerminalToolbarColors();
         if (colors != null) button.setTextColor(colors[1]);
+        if (a.getTerminalToolbarTypeface() != null) button.setTypeface(a.getTerminalToolbarTypeface());
         int padding = Math.round(12 * a.getResources().getDisplayMetrics().density);
         button.setPadding(padding, 0, padding, 0);
     }

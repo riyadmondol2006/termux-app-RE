@@ -947,6 +947,23 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mExtraKeysView = extraKeysView;
         if (mTerminalToolbarColors != null)
             extraKeysView.setTerminalColors(mTerminalToolbarColors[0], mTerminalToolbarColors[1]);
+        if (mTerminalToolbarTypeface != null)
+            extraKeysView.setKeyTypeface(mTerminalToolbarTypeface);
+    }
+
+    /** The terminal font, also used by the terminal toolbar, or {@code null} if not loaded yet. */
+    @Nullable private android.graphics.Typeface mTerminalToolbarTypeface;
+
+    /** Get the terminal font used by the terminal toolbar, or {@code null}. */
+    @Nullable
+    public android.graphics.Typeface getTerminalToolbarTypeface() {
+        return mTerminalToolbarTypeface;
+    }
+
+    /** Use the terminal font for the terminal toolbar, so it looks like part of the terminal. */
+    public void setTerminalToolbarTypeface(@Nullable android.graphics.Typeface typeface) {
+        mTerminalToolbarTypeface = typeface;
+        if (mExtraKeysView != null) mExtraKeysView.setKeyTypeface(typeface);
     }
 
     /** The terminal background and foreground colors used by the terminal toolbar, or {@code null}. */

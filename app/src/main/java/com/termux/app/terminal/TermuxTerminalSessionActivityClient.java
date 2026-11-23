@@ -669,6 +669,8 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
             final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
             mActivity.getTerminalView().setTypeface(newTypeface);
+            // The terminal toolbar uses the terminal font too.
+            mActivity.setTerminalToolbarTypeface(newTypeface);
             // Theme Studio background image (theme area hook in TerminalView).
             android.util.DisplayMetrics metrics = mActivity.getResources().getDisplayMetrics();
             android.graphics.Bitmap background = com.termux.app.features.theme.TermuxThemeManager.loadBackgroundBitmap(
