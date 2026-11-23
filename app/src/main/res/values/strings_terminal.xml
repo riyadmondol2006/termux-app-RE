@@ -22,4 +22,25 @@
     <string name="feature_terminal_search_invalid_regex_message">Invalid regular expression: %1$s</string>
     <string name="feature_terminal_search_count_description">Match %1$d of %2$d</string>
 
+    <!-- Copy and paste -->
+    <string name="feature_terminal_clipboard_title">Clipboard history</string>
+    <string name="feature_terminal_clipboard_summary">Paste text you copied or pasted earlier</string>
+    <string name="feature_terminal_clipboard_paste_action">Paste from history…</string>
+    <string name="feature_terminal_clipboard_search_action">Search</string>
+    <string name="feature_terminal_clipboard_empty">Text you copy in this app, or paste into it, appears here.</string>
+    <string name="feature_terminal_clipboard_disabled">The clipboard history is off.</string>
+    <string name="feature_terminal_clipboard_enabled">Keep clipboard history</string>
+    <string name="feature_terminal_clipboard_enabled_summary">Kept on this device only. Android does not let apps see text copied in other apps until you paste it here.</string>
+    <string name="feature_terminal_clipboard_clear">Clear all</string>
+    <string name="feature_terminal_clipboard_clear_confirm">Clear the clipboard history?</string>
+    <string name="feature_terminal_clipboard_item_paste">Paste</string>
+    <string name="feature_terminal_clipboard_item_copy">Copy to clipboard</string>
+    <string name="feature_terminal_clipboard_item_delete">Delete</string>
+    <string name="feature_terminal_clipboard_copied">Copied to clipboard</string>
+    <string name="feature_terminal_clipboard_no_session">No running session to paste into</string>
+    <plurals name="feature_terminal_clipboard_item_lines">
+        <item quantity="one">%1$d line</item>
+        <item quantity="other">%1$d lines</item>
+    </plurals>
+
 </resources>
