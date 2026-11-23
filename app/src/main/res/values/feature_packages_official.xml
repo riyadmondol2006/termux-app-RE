@@ -1,0 +1,4 @@
+<resources>
+    <string name="feature_packages_official_compat_title">Official Termux packages (compatibility layer)</string>
+    <string name="feature_packages_official_compat_description">Packages are rewritten for Termux RE. Most work; some can break. App-specific packages always come from Termux RE. Disabling stops new official installs and keeps installed packages working. Newer official dependencies may need explicit version selection.</string>
+</resources>

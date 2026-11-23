@@ -40,6 +40,8 @@ public final class RepositoryManagerActivity extends PackageBaseActivity {
     private LinearLayout keysContainer;
     private TextView mirrorStatus;
     private TextView status;
+    private MaterialSwitch officialSwitch;
+    private boolean updatingOfficialSwitch;
     private List<MirrorOption> mirrorOptions = new ArrayList<>();
     private String currentMirror;
 
@@ -75,6 +77,34 @@ public final class RepositoryManagerActivity extends PackageBaseActivity {
         warningContent.addView(PackageUi.text(this, R.string.feature_packages_repo_warning, 15));
         content.addView(warning);
 
+        MaterialCardView official = PackageUi.card(this);
+        LinearLayout officialContent = PackageUi.cardContent(official);
+        officialSwitch = new MaterialSwitch(this);
+        officialSwitch.setText(R.string.feature_packages_official_compat_title);
+        officialContent.addView(officialSwitch);
+        officialContent.addView(PackageUi.text(this, R.string.feature_packages_official_compat_description, 14));
+        officialSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (updatingOfficialSwitch) return;
+            officialSwitch.setEnabled(false);
+            executor.execute(() -> {
+                try {
+                    OfficialPackages.stage(this);
+                    TermuxCommandRunner.Result result = TermuxCommandRunner.runBlocking(this,
+                        new String[]{"bash", TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/termux-re-official",
+                            checked ? "on" : "off"}, null, null, 30000);
+                    if (!result.isSuccessful()) throw new java.io.IOException(result.stderr + " " + result.error);
+                    handler.post(() -> {
+                        if (isDestroyed()) return;
+                        reload();
+                        PackageTerminalLauncher.run(this, "Update package lists", "apt update");
+                    });
+                } catch (Exception e) {
+                    showEditError(e);
+                }
+            });
+        });
+        content.addView(official);
+
         content.addView(PackageUi.heading(this, R.string.feature_packages_sources));
         LinearLayout actions = PackageUi.vertical(this);
         MaterialButton add = PackageUi.button(this, R.string.feature_packages_add_repository);
@@ -109,6 +139,10 @@ public final class RepositoryManagerActivity extends PackageBaseActivity {
     }
 
     private void reload() {
+        updatingOfficialSwitch = true;
+        officialSwitch.setChecked(OfficialPackages.enabled(new File(TermuxConstants.TERMUX_PREFIX_DIR_PATH)));
+        officialSwitch.setEnabled(TermuxCommandRunner.isBootstrapInstalled());
+        updatingOfficialSwitch = false;
         status.setText(R.string.feature_packages_loading);
         executor.execute(() -> {
             try {
@@ -148,10 +182,13 @@ public final class RepositoryManagerActivity extends PackageBaseActivity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             MaterialSwitch enabled = new MaterialSwitch(this);
             enabled.setText(R.string.feature_packages_source_enabled);
+            boolean managed = source.file.getName().equals("termux-re-official.list");
+            enabled.setEnabled(!managed);
             enabled.setChecked(source.enabled);
             row.addView(enabled, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
             MaterialButton remove = PackageUi.button(this, R.string.feature_packages_remove);
             row.addView(remove);
+            remove.setEnabled(!managed);
             content.addView(row);
             enabled.setOnCheckedChangeListener((button, checked) -> {
                 if (checked == source.enabled) return;
@@ -302,8 +339,9 @@ public final class RepositoryManagerActivity extends PackageBaseActivity {
     private void showEditError(@NonNull Exception error) {
         handler.post(() -> {
             if (isDestroyed()) return;
-            status.setText(getString(R.string.feature_packages_error, message(error)));
             reload();
+            status.setText(getString(R.string.feature_packages_error, message(error)));
+            Toast.makeText(this, message(error), Toast.LENGTH_LONG).show();
         });
     }
 
