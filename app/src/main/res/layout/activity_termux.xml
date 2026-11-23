@@ -64,6 +64,17 @@
                         android:textColor="?attr/colorOnSurfaceVariant" />
 
                     <ImageButton
+                        android:id="@+id/tools_button"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_tools"
+                        android:background="?attr/actionBarItemBackground"
+                        android:contentDescription="@string/action_open_tools"
+                        android:tooltipText="@string/action_open_tools"
+                        app:tint="?attr/termuxActivityDrawerImageTint"
+                        tools:targetApi="o" />
+
+                    <ImageButton
                         android:id="@+id/settings_button"
                         android:layout_width="48dp"
                         android:layout_height="48dp"
