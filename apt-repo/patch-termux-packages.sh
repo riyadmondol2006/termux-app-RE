@@ -11,15 +11,18 @@
 # - apt: sources.list points at the Termux RE repository.
 # - termux-keyring: also installs the Termux RE repository signing key.
 # - command-not-found: suggests the packages of the Termux RE repository (with
-#   fix-termux-packages.sh).
+#   fix-termux-packages.sh). Its version gets the build date, so every build of it is a new
+#   version that `pkg upgrade` installs, with the packages added since.
 # - termux-tools: the welcome message doesn't suggest the root-repo and x11-repo packages, and
 #   its Docs, Donate, Community and issue links point at the app repository instead of
 #   termux.dev (DONATE_URL can be set to a donation page). Its revision is raised so it replaces
-#   termux-tools packages without these changes. And
-#   every mirror file that `pkg` and `termux-change-repo` choose from points at
-#   the Termux RE repository, and `pkg` uses the default one, so mirror selection can't switch
-#   back to the official repositories. Mirror files of other repositories left over from an
-#   earlier termux-tools version are deleted when it is upgraded.
+#   termux-tools packages without these changes. Every mirror file that `pkg` and
+#   `termux-change-repo` choose from points at the Termux RE repository, and `pkg` uses the
+#   default one, so mirror selection can't switch back to the official repositories. Mirror
+#   files of other repositories left over from an earlier termux-tools version are deleted when
+#   it is upgraded. And when `pkg install` fails, files/package-not-found explains for every
+#   package that the repository doesn't have why official Termux packages can't be used, and
+#   links to the package request form of the app repository.
 #
 # - Packages are compressed with xz's strongest preset, -9e, so more of them fit in the 1 GB of
 #   GitHub Pages.
@@ -44,6 +47,7 @@ DOCS_URL="$APP_REPO_URL#readme"
 DONATE_URL="${DONATE_URL:-$APP_REPO_URL}"
 COMMUNITY_URL="$APP_REPO_URL/issues"
 ISSUES_URL="$APP_REPO_URL/issues"
+REQUEST_URL="$APP_REPO_URL/issues/new?template=03-package-request.yml"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fail() { echo "patch-termux-packages.sh: $*" >&2; exit 1; }
@@ -56,7 +60,8 @@ done
 
 # Writes template $1 from files/ to $2 with the placeholders replaced.
 render() {
-	sed -e "s|@REPO_URL@|$REPO_URL|g" -e "s|@PACKAGE_NAME@|$PACKAGE_NAME|g" "$SCRIPT_DIR/files/$1" > "$2"
+	sed -e "s|@REPO_URL@|$REPO_URL|g" -e "s|@PACKAGE_NAME@|$PACKAGE_NAME|g" -e "s|@REQUEST_URL@|$REQUEST_URL|g" \
+		"$SCRIPT_DIR/files/$1" > "$2"
 }
 
 # Appends a wrapper for build step function $2 to build.sh $1: the step as defined so far runs
@@ -117,6 +122,7 @@ EOF
 
 ### termux-tools
 render mirror packages/termux-tools/termux-re-mirror
+render package-not-found packages/termux-tools/termux-re-package-not-found
 grep -q 'TERMUX_PKG_CONFFILES="$(cat "$TERMUX_PKG_BUILDDIR/conffiles")"' packages/termux-tools/build.sh || \
 	fail "termux-tools no longer reads its conffiles from \$TERMUX_PKG_BUILDDIR/conffiles"
 wrap_step packages/termux-tools/build.sh termux_step_post_make_install <<'EOF'
@@ -146,6 +152,18 @@ wrap_step packages/termux-tools/build.sh termux_step_post_make_install <<'EOF'
 		termux_error_exit "The welcome message still links to termux.dev"
 	fi
 
+	# When `pkg install` fails, package-not-found explains the packages that this repository
+	# doesn't have.
+	local handler="$TERMUX_PREFIX/libexec/termux-re/package-not-found" pkg_script="$TERMUX_PREFIX/bin/pkg" content
+	sed "s|@TERMUX_PREFIX@|$TERMUX_PREFIX|g" "$TERMUX_PKG_BUILDER_DIR/termux-re-package-not-found" > "$TERMUX_PKG_TMPDIR/package-not-found"
+	install -Dm755 "$TERMUX_PKG_TMPDIR/package-not-found" "$handler"
+	local install_line='add|i*) select_mirror; update_apt_cache; apt install "$@";;'
+	local new_line='add|i*) select_mirror; update_apt_cache; apt install "$@" || { termux_re_status=$?; '"$handler"' "$@"; exit $termux_re_status; };;'
+	grep -qF "$install_line" "$pkg_script" || termux_error_exit "pkg no longer has the line '$install_line'"
+	content="$(cat "$pkg_script")"
+	printf '%s\n' "${content/"$install_line"/"$new_line"}" > "$pkg_script"
+	grep -qF "$new_line" "$pkg_script" || termux_error_exit "Failed to add package-not-found to pkg"
+
 	sed -i '\|^etc/termux/mirrors/|d' "$TERMUX_PKG_BUILDDIR/conffiles"
 	(cd "$TERMUX_PREFIX" && find etc/termux/mirrors -type f | LC_ALL=C sort) >> "$TERMUX_PKG_BUILDDIR/conffiles"
 	TERMUX_PKG_CONFFILES="$(cat "$TERMUX_PKG_BUILDDIR/conffiles")"
@@ -161,7 +179,7 @@ EOF
 
 # Raise the revision by one more whenever the changes above change, so a termux-tools package
 # with them replaces one without them, in the repository and on devices.
-TOOLS_REVISION_INCREASE=2
+TOOLS_REVISION_INCREASE=3
 TOOLS_BUILD=packages/termux-tools/build.sh
 revision="$(sed -n -E 's/^TERMUX_PKG_REVISION="?([0-9]+)"?( #.*)?$/\1/p' "$TOOLS_BUILD")"
 [ -n "$revision" ] || fail "No TERMUX_PKG_REVISION in $TOOLS_BUILD"
@@ -177,6 +195,16 @@ sed -i -E "s/^TERMUX_PKG_REVISION=.*/TERMUX_PKG_REVISION=$((revision + TOOLS_REV
 
 ### command-not-found
 # Suggest the packages of the Termux RE repository, see fix-termux-packages.sh.
-printf '\n# Termux RE: added by apt-repo/patch-termux-packages.sh.\nTERMUX_RE_COMMAND_NOT_FOUND_REPO="%s"\n' "$REPO_URL" >> packages/command-not-found/build.sh
+CNF_BUILD=packages/command-not-found/build.sh
+printf '\n# Termux RE: added by apt-repo/patch-termux-packages.sh.\nTERMUX_RE_COMMAND_NOT_FOUND_REPO="%s"\n' "$REPO_URL" >> "$CNF_BUILD"
+# Its database lists the packages of the repository, which change while its version stays the
+# same, so the version gets the build date (3.5.0 becomes 3.5.0+re20261124) and every build of
+# it reaches devices with `pkg upgrade`.
+version="$(sed -n -E 's/^TERMUX_PKG_VERSION="?([^"]*)"?$/\1/p' "$CNF_BUILD")"
+[[ "$version" =~ ^[0-9][0-9a-z.]*$ ]] || fail "Unexpected TERMUX_PKG_VERSION '$version' in $CNF_BUILD"
+sed -i -E -e "/^TERMUX_PKG_SRCURL=/s/\\$\\{?TERMUX_PKG_VERSION\\}?/$version/g" \
+	-e "s/^TERMUX_PKG_VERSION=.*/TERMUX_PKG_VERSION=$version+re$(date -u +%Y%m%d) # Termux RE: build date, see apt-repo\/patch-termux-packages.sh/" "$CNF_BUILD"
+grep -q '^TERMUX_PKG_SRCURL=.*TERMUX_PKG_VERSION' "$CNF_BUILD" && fail "TERMUX_PKG_SRCURL of $CNF_BUILD still uses TERMUX_PKG_VERSION"
+grep -qE "^TERMUX_PKG_VERSION=$version\+re[0-9]{8} " "$CNF_BUILD" || fail "Failed to set the version of command-not-found"
 
 echo "Configured $(pwd) for package name '$PACKAGE_NAME' and repository '$REPO_URL'"

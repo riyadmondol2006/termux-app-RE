@@ -1,0 +1,50 @@
+#!@TERMUX_PREFIX@/bin/bash
+# Termux RE: run by `pkg install` with its arguments when apt failed. For the packages that the
+# Termux RE package repository doesn't have, it explains why official Termux packages can't be
+# used instead and links to the package request form. Installed by termux-tools, see
+# apt-repo/patch-termux-packages.sh of https://github.com/riyadmondol2006/termux-app-RE.
+
+repo_url="@REPO_URL@"
+request_url="@REQUEST_URL@"
+arch="$(dpkg --print-architecture 2>/dev/null)"
+
+missing=()
+for arg in "$@"; do
+	case "$arg" in
+		-*|*/*|*.deb) continue ;;
+	esac
+	name="${arg%%[=:]*}"
+	[[ "$name" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || continue
+	candidate="$(apt-cache policy "$name" 2>/dev/null | sed -n 's/^ *Candidate: //p')"
+	if [ -z "$candidate" ] || [ "$candidate" = "(none)" ]; then
+		missing+=("$name")
+	fi
+done
+[ ${#missing[@]} -gt 0 ] || exit 0
+
+# The architectures that the repository has each package for, as "<package> <arch>..." lines.
+available="$(curl -fsSL --max-time 8 "$repo_url/available.txt" 2>/dev/null || true)"
+
+urlencode() {
+	local s="$1"
+	s="${s//%/%25}" s="${s//+/%2B}" s="${s// /%20}" s="${s//:/%3A}"
+	printf '%s' "$s"
+}
+
+{
+	echo
+	if [ ${#missing[@]} -eq 1 ]; then
+		echo "Termux RE: this package is not in the Termux RE package repository${arch:+ for $arch} yet:"
+	else
+		echo "Termux RE: these packages are not in the Termux RE package repository${arch:+ for $arch} yet:"
+	fi
+	for name in "${missing[@]}"; do
+		others="$(awk -v name="$name" '$1 == name { $1 = ""; print }' <<< "$available" | xargs)"
+		echo "  $name${others:+ (only built for $others so far)}, request it at"
+		echo "    $request_url&title=$(urlencode "Package request: $name")&packages=$(urlencode "$name")&architecture=$(urlencode "$arch")"
+	done
+	echo "Packages from the official Termux repositories can't be used instead: they are built for the"
+	echo "/data/data/com.termux folder of the Termux app, and Termux RE (com.termux.re) keeps its files in"
+	echo "/data/data/com.termux.re, so its packages are built separately."
+} >&2
+exit 0
