@@ -272,7 +272,9 @@ public final class TerminalSession extends TerminalOutput {
 
     /** Finish this terminal session by sending SIGKILL to the shell. */
     public void finishIfRunning() {
-        if (isRunning()) {
+        // The shell is only started once the session is shown, and until then its pid is 0. Sending
+        // a signal to pid 0 would send it to the process group of the app and kill the app itself.
+        if (isRunning() && mShellPid > 0) {
             try {
                 Os.kill(mShellPid, OsConstants.SIGKILL);
             } catch (ErrnoException e) {
@@ -326,6 +328,11 @@ public final class TerminalSession extends TerminalOutput {
     @Override
     public void onColorsChanged() {
         mClient.onColorsChanged(this);
+    }
+
+    @Override
+    public void onTerminalNotification(String title, String body) {
+        mClient.onTerminalNotification(this, title, body);
     }
 
     public int getPid() {

@@ -87,6 +87,12 @@ final class FloatingSessionClient implements TermuxService.SessionClientWrapper,
     }
 
     @Override
+    public void onTerminalNotification(@NonNull TerminalSession session, @Nullable String title, @NonNull String body) {
+        // The activity and service clients show it as a terminal notification.
+        if (mDelegate != null) mDelegate.onTerminalNotification(session, title, body);
+    }
+
+    @Override
     public void onTerminalCursorStateChange(boolean state) {
         if (mDelegate != null) mDelegate.onTerminalCursorStateChange(state);
     }

@@ -28,6 +28,17 @@ public interface TerminalSessionClient {
 
     void setTerminalShellPid(@NonNull TerminalSession session, int pid);
 
+    /**
+     * Called when a program in the session asked to show a notification with an `OSC 9` or
+     * `OSC 777;notify` escape sequence, like when a long running command finishes. The text is
+     * passed as received and must be sanitized before it is shown.
+     *
+     * @param title The title, or {@code null} if only a body was sent.
+     * @param body The body, which may be empty.
+     */
+    default void onTerminalNotification(@NonNull TerminalSession session, @Nullable String title, @NonNull String body) {
+    }
+
 
 
     Integer getTerminalCursorStyle();

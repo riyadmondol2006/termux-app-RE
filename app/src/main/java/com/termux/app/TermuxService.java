@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
 
 import androidx.annotation.NonNull;
@@ -22,6 +23,9 @@ import androidx.annotation.Nullable;
 
 import com.termux.R;
 import com.termux.app.event.SystemEventReceiver;
+import com.termux.app.features.sessions.SessionNotifications;
+import com.termux.app.features.sessions.SessionPersistence;
+import com.termux.app.features.sessions.SessionWorkspaces;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
 import com.termux.shared.termux.plugins.TermuxPluginUtils;
@@ -109,6 +113,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** If the user has executed the {@link TERMUX_SERVICE#ACTION_STOP_SERVICE} intent. */
     boolean mWantsToStop = false;
 
+    /** The time sessions were last saved in {@link #onTrimMemory(int)}. */
+    private long mLastTrimMemorySaveTime;
+
     private static final String LOG_TAG = "TermuxService";
 
     @Override
@@ -122,6 +129,13 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         mShellManager = TermuxShellManager.getShellManager();
 
         runStartForeground();
+
+        // Restore the sessions saved when the app was last running.
+        try {
+            SessionPersistence.restoreSessions(this);
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to restore sessions", e);
+        }
 
         SystemEventReceiver.registerPackageUpdateEvents(this);
     }
@@ -176,14 +190,29 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         TermuxShellUtils.clearTermuxTMPDIR(true);
 
         actionReleaseWakeLock(false);
-        if (!mWantsToStop)
+        if (!mWantsToStop) {
+            SessionPersistence.saveAndFreeze(this);
             killAllTermuxExecutionCommands();
+        }
 
         TermuxShellManager.onAppExit(this);
 
         SystemEventReceiver.unregisterPackageUpdateEvents(this);
 
         runStopForeground();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        // The process may be killed soon, so save the sessions with their transcripts.
+        if (level == TRIM_MEMORY_RUNNING_CRITICAL || level >= TRIM_MEMORY_BACKGROUND) {
+            long now = SystemClock.elapsedRealtime();
+            if (now - mLastTrimMemorySaveTime > 60_000) {
+                mLastTrimMemorySaveTime = now;
+                SessionPersistence.saveNow(this, false);
+            }
+        }
     }
 
     @Override
@@ -231,6 +260,8 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** Process action to stop service. */
     private void actionStopService() {
         mWantsToStop = true;
+        // Save the sessions before they are killed, so they are restored when the app is started again.
+        SessionPersistence.saveAndFreeze(this);
         killAllTermuxExecutionCommands();
         requestStopService();
     }
@@ -587,7 +618,19 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     /** Create a {@link TermuxSession}. */
     @Nullable
-    public synchronized TermuxSession createTermuxSession(ExecutionCommand executionCommand) {
+    public TermuxSession createTermuxSession(ExecutionCommand executionCommand) {
+        return createTermuxSession(executionCommand, null);
+    }
+
+    /**
+     * Create a {@link TermuxSession}.
+     *
+     * @param additionalEnvironment Environment variables to add to the session environment, like
+     *                              for startup automation, or {@code null}.
+     */
+    @Nullable
+    public synchronized TermuxSession createTermuxSession(ExecutionCommand executionCommand,
+                                                         @Nullable HashMap<String, String> additionalEnvironment) {
         if (executionCommand == null) return null;
 
         Logger.logDebug(LOG_TAG, "Creating \"" + executionCommand.getCommandIdAndLabelLogString() + "\" TermuxSession");
@@ -607,7 +650,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         // Otherwise if command was manually started by the user like by adding a new terminal session,
         // then no need to set stdout
         TermuxSession newTermuxSession = TermuxSession.execute(this, executionCommand, getTermuxTerminalSessionClient(),
-            this, new TermuxShellEnvironment(), null, executionCommand.isPluginExecutionCommand);
+            this, new TermuxShellEnvironment(), additionalEnvironment, executionCommand.isPluginExecutionCommand);
         if (newTermuxSession == null) {
             Logger.logError(LOG_TAG, "Failed to execute new TermuxSession command for:\n" + executionCommand.getCommandIdAndLabelLogString());
             // If the execution command was started for a plugin, then process the error
@@ -621,6 +664,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         }
 
         mShellManager.mTermuxSessions.add(newTermuxSession);
+
+        // Add the session to the workspace shown in the drawer.
+        SessionWorkspaces.addToSelectedWorkspace(this, newTermuxSession.getTerminalSession());
 
         // Remove the execution command from the pending plugin execution commands list since it has
         // now been processed
@@ -636,6 +682,8 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
         // No need to recreate the activity since it likely just started and theme should already have applied
         TermuxActivity.updateTermuxActivityStyling(this, false);
+
+        SessionPersistence.scheduleSave(this);
 
         return newTermuxSession;
     }
@@ -668,6 +716,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             // activity in is foreground
             if (mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.termuxSessionListNotifyUpdated();
+
+            SessionPersistence.scheduleSave(this);
+            SessionNotifications.cancel(this, termuxSession.getTerminalSession().mHandle);
         }
 
         updateNotification();

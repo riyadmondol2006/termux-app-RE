@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of the session features in com.termux.app.features.sessions. -->
+<resources>
+
+    <!-- Common -->
+    <string name="feature_sessions_action_create">Create</string>
+    <string name="feature_sessions_action_rename">Rename</string>
+    <string name="feature_sessions_action_delete">Delete</string>
+    <string name="feature_sessions_action_close">Close</string>
+
+    <!-- Workspaces -->
+    <string name="feature_sessions_workspaces_title">Session workspaces</string>
+    <string name="feature_sessions_workspaces_summary">Group sessions into workspaces and switch between them</string>
+    <string name="feature_sessions_workspace_default">Default</string>
+    <string name="feature_sessions_workspace_all">All</string>
+    <plurals name="feature_sessions_workspace_item">
+        <item quantity="one">%1$s (%2$d session)</item>
+        <item quantity="other">%1$s (%2$d sessions)</item>
+    </plurals>
+    <string name="feature_sessions_workspace_item_selected">%1$s · shown</string>
+    <string name="feature_sessions_title_workspaces">Workspaces</string>
+    <string name="feature_sessions_title_new_workspace">New workspace</string>
+    <string name="feature_sessions_title_rename_workspace">Rename workspace</string>
+    <string name="feature_sessions_title_delete_workspace">Delete workspace \"%1$s\"?</string>
+    <string name="feature_sessions_msg_delete_workspace">Its sessions are moved to the Default workspace.</string>
+    <string name="feature_sessions_action_new_workspace">New workspace</string>
+    <string name="feature_sessions_action_switch_to_workspace">Show in drawer</string>
+    <string name="feature_sessions_action_new_session_in_workspace">New session here</string>
+    <string name="feature_sessions_action_rename_workspace">Rename</string>
+    <string name="feature_sessions_action_delete_workspace">Delete</string>
+    <string name="feature_sessions_action_show_all">Show all</string>
+    <string name="feature_sessions_msg_workspace_empty">No sessions in this workspace. Tap New session, or long press a session in All and move it here.</string>
+    <string name="feature_sessions_msg_no_workspaces">No workspaces yet. Create one with New workspace in the drawer.</string>
+
+    <!-- Session menu -->
+    <string name="feature_sessions_title_session">Session</string>
+    <string name="feature_sessions_action_rename_session">Rename</string>
+    <string name="feature_sessions_action_pin_session">Pin to top</string>
+    <string name="feature_sessions_action_unpin_session">Unpin</string>
+    <string name="feature_sessions_action_move_session">Move to workspace…</string>
+    <string name="feature_sessions_action_close_session">Close session</string>
+    <string name="feature_sessions_title_move_session">Move to workspace</string>
+    <string name="feature_sessions_title_close_session">Close session?</string>
+    <string name="feature_sessions_msg_close_session">The programs running in the session are stopped.</string>
+    <string name="feature_sessions_pinned">Pinned</string>
+
+    <!-- Profiles -->
+    <string name="feature_sessions_profiles_title">Terminal profiles</string>
+    <string name="feature_sessions_profiles_summary">Shell, working directory, startup commands and font size for new sessions</string>
+    <string name="feature_sessions_title_new_profile">New profile</string>
+    <string name="feature_sessions_title_edit_profile">Edit profile</string>
+    <string name="feature_sessions_action_new_profile">New profile</string>
+    <string name="feature_sessions_action_save">Save</string>
+    <string name="feature_sessions_msg_no_profiles">No profiles yet. A profile starts sessions with a shell, working directory, startup commands and font size. Start sessions from a profile by long pressing New session in the drawer.</string>
+    <string name="feature_sessions_profile_name">Name</string>
+    <string name="feature_sessions_profile_unnamed">Unnamed profile</string>
+    <string name="feature_sessions_profile_shell">Shell</string>
+    <string name="feature_sessions_profile_shell_default">Default (login shell)</string>
+    <string name="feature_sessions_profile_shell_not_installed">%1$s (not installed)</string>
+    <string name="feature_sessions_profile_working_directory">Working directory</string>
+    <string name="feature_sessions_profile_working_directory_help">Like ~/projects. Empty for the directory of the current session.</string>
+    <string name="feature_sessions_profile_startup_commands">Startup commands</string>
+    <string name="feature_sessions_profile_startup_commands_help">Run by the shell when the session starts, after the global startup commands</string>
+    <string name="feature_sessions_profile_font_size">Font size (dp)</string>
+    <string name="feature_sessions_profile_font_size_help">Empty for the terminal font size</string>
+    <string name="feature_sessions_profile_color_scheme">Color scheme</string>
+    <string name="feature_sessions_profile_color_scheme_help">Color scheme id for themes</string>
+    <string name="feature_sessions_profile_use_for_new_sessions">Use for New session</string>
+    <string name="feature_sessions_profile_default">Used for New session</string>
+    <plurals name="feature_sessions_profile_startup_command_count">
+        <item quantity="one">%d startup command</item>
+        <item quantity="other">%d startup commands</item>
+    </plurals>
+    <string name="feature_sessions_profile_font_size_value">%d dp font</string>
+    <string name="feature_sessions_action_start_session">Start session</string>
+    <string name="feature_sessions_action_edit">Edit</string>
+    <string name="feature_sessions_action_duplicate">Duplicate</string>
+    <string name="feature_sessions_profile_copy_name">%1$s (copy)</string>
+    <string name="feature_sessions_title_delete_profile">Delete profile \"%1$s\"?</string>
+
+    <!-- New session dialog -->
+    <string name="feature_sessions_title_new_session">New session</string>
+    <string name="feature_sessions_new_session_plain">Without profile</string>
+    <string name="feature_sessions_new_session_plain_summary">The login shell in the current directory</string>
+    <string name="feature_sessions_new_session_named">Named session…</string>
+    <string name="feature_sessions_new_session_named_summary">Without profile, with a name</string>
+    <string name="feature_sessions_new_session_failsafe">Failsafe session</string>
+    <string name="feature_sessions_new_session_failsafe_summary">Android\'s /system/bin/sh without startup commands, to fix a broken setup</string>
+    <string name="feature_sessions_new_session_manage_profiles">Manage profiles…</string>
+    <string name="feature_sessions_new_session_manage_profiles_summary">Create and edit terminal profiles</string>
+
+    <!-- Startup automation -->
+    <string name="feature_sessions_title_settings">Sessions</string>
+    <string name="feature_sessions_startup_title">Startup automation</string>
+    <string name="feature_sessions_startup_summary">Commands that run when terminal sessions start</string>
+    <string name="feature_sessions_startup_commands_title">Startup commands</string>
+    <string name="feature_sessions_startup_commands_none">None</string>
+    <string name="feature_sessions_startup_commands_dialog_message">Run by the shell of every new session, before the startup commands of its profile. Use commands that work in your shell, like cd ~/projects or . ~/script.sh.</string>
+    <string name="feature_sessions_startup_info">Startup commands are run by bash, zsh, fish and sh after their own startup files, like ~/.bashrc, which are not changed. They are saved in ~/.termux/re/. Failsafe sessions and sessions started by plugins don\'t run them.</string>
+    <string name="feature_sessions_startup_global_source">the global startup commands</string>
+
+    <!-- Session persistence -->
+    <string name="feature_sessions_persistence_title">Session persistence</string>
+    <string name="feature_sessions_persistence_summary">Restore sessions and their history after the app restarts</string>
+    <string name="feature_sessions_restore_sessions_title">Restore sessions</string>
+    <string name="feature_sessions_restore_sessions_summary">When the app starts again after Android stopped it, after Exit or a reboot, recreate the sessions with their names, workspaces, profiles and working directories. Programs that were running are not restored.</string>
+    <string name="feature_sessions_save_transcripts_title">Save terminal history</string>
+    <string name="feature_sessions_save_transcripts_summary">Also save the last lines of each session and show them above the first prompt of the restored session. The history may contain passwords or other secrets shown in the terminal. It is stored in the app\'s private storage.</string>
+    <string name="feature_sessions_transcript_lines_title">Lines of history to save</string>
+    <string name="feature_sessions_clear_saved_history_title">Delete saved history</string>
+    <string name="feature_sessions_clear_saved_history_summary">Delete the saved terminal history of all sessions</string>
+    <string name="feature_sessions_msg_saved_history_cleared">Saved history deleted</string>
+    <string-array name="feature_sessions_transcript_lines" translatable="false">
+        <item>200</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>2000</item>
+        <item>5000</item>
+    </string-array>
+    <string name="feature_sessions_restored_history_header">── History of the session saved %1$s ──</string>
+    <string name="feature_sessions_restored_history_footer">── Restored session, the history above is read-only ──</string>
+    <string name="feature_sessions_action_view_restored_history">View restored history</string>
+    <string name="feature_sessions_title_restored_history">History of %1$s</string>
+    <string name="feature_sessions_action_copy">Copy</string>
+    <string name="feature_sessions_action_share">Share</string>
+
+    <!-- Terminal notifications -->
+    <string name="feature_sessions_notifications_title">Terminal notifications</string>
+    <string name="feature_sessions_notifications_summary">Notifications from programs and when long commands finish</string>
+    <string name="feature_sessions_terminal_notifications_title">Notifications from programs</string>
+    <string name="feature_sessions_terminal_notifications_summary">Programs can show a notification with the OSC 9 and OSC 777 escape sequences, like printf \'\\e]777;notify;Title;Body\\a\'. It is shown when the session is not in view.</string>
+    <string name="feature_sessions_notify_long_commands_title">Notify when long commands finish</string>
+    <string name="feature_sessions_notify_long_commands_summary">For bash, zsh and fish in new sessions: show a notification when a command that ran for at least the minimum duration finishes while its session is not in view. Your dotfiles are not changed.</string>
+    <string name="feature_sessions_notify_long_commands_seconds_title">Minimum duration</string>
+    <plurals name="feature_sessions_notify_long_commands_seconds_summary">
+        <item quantity="one">%d second</item>
+        <item quantity="other">%d seconds</item>
+    </plurals>
+    <string name="feature_sessions_notification_settings_title">Notification settings</string>
+    <string name="feature_sessions_notification_settings_allowed">Allowed. Tap to change the sound or importance.</string>
+    <string name="feature_sessions_notification_settings_blocked">Notifications are blocked, so none are shown. Tap to allow them.</string>
+    <string name="feature_sessions_msg_open_settings_failed">Failed to open the notification settings</string>
+    <string name="feature_sessions_notification_channel_name">Terminal notifications</string>
+    <string name="feature_sessions_notification_channel_description">Notifications from programs in terminal sessions, like when a long command finishes</string>
+    <string name="feature_sessions_notification_default_title">Terminal session</string>
+
+</resources>

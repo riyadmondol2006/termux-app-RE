@@ -2,6 +2,8 @@ package com.termux.terminal;
 
 import android.util.Base64;
 
+import androidx.annotation.NonNull;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Locale;
@@ -2755,6 +2757,24 @@ public final class TerminalEmulator {
     }
 
     /**
+     * Check if the text of an `OSC 9` command is a ConEmu command, like `4;1;50` to set the progress,
+     * instead of the body of a notification. ConEmu commands start with a number from 1 to 12 that
+     * is followed by a `;` or is the whole text.
+     * - https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
+     */
+    static boolean isConEmuOsc9Command(@NonNull String textParameter) {
+        int length = textParameter.length();
+        int i = 0;
+        int number = 0;
+        while (i < length && i < 3 && textParameter.charAt(i) >= '0' && textParameter.charAt(i) <= '9') {
+            number = number * 10 + (textParameter.charAt(i) - '0');
+            i++;
+        }
+        if (i == 0 || i > 2) return false;
+        return (i == length || textParameter.charAt(i) == ';') && number >= 1 && number <= 12;
+    }
+
+    /**
      * Do {@link #ESC_OSC}. Check its docs for more info.
      *
      * This handles Set Text Parameters commands.
@@ -2859,6 +2879,10 @@ public final class TerminalEmulator {
                     }
                 }
                 break;
+            case 9: // Post a notification (iTerm2): "9;$body". ConEmu uses "9;$number;..." for other commands, like progress.
+                if (!isConEmuOsc9Command(textParameter))
+                    mSession.onTerminalNotification(null, textParameter);
+                break;
             case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
                 int startIndex = textParameter.indexOf(";") + 1;
                 try {
@@ -2893,6 +2917,16 @@ public final class TerminalEmulator {
                             }
                         }
                     }
+                }
+                break;
+            case 777: // Post a notification (rxvt-unicode): "777;notify;$title;$body". Other "777;" commands are ignored.
+                if (textParameter.startsWith("notify;")) {
+                    String notification = textParameter.substring("notify;".length());
+                    int separatorIndex = notification.indexOf(';');
+                    if (separatorIndex < 0)
+                        mSession.onTerminalNotification(notification, "");
+                    else
+                        mSession.onTerminalNotification(notification.substring(0, separatorIndex), notification.substring(separatorIndex + 1));
                 }
                 break;
             case 110: // Reset foreground color.

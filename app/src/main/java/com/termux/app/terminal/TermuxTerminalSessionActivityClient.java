@@ -11,6 +11,7 @@ import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.os.SystemClock;
 import android.text.TextUtils;
+import android.util.TypedValue;
 import android.widget.ListView;
 
 import androidx.annotation.NonNull;
@@ -19,6 +20,16 @@ import androidx.annotation.Nullable;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.termux.R;
+import com.termux.app.features.sessions.ProfileStore;
+import com.termux.app.features.sessions.ProfilesActivity;
+import com.termux.app.features.sessions.SessionInfo;
+import com.termux.app.features.sessions.SessionListModel;
+import com.termux.app.features.sessions.SessionNotifications;
+import com.termux.app.features.sessions.SessionPersistence;
+import com.termux.app.features.sessions.SessionRegistry;
+import com.termux.app.features.sessions.SessionStartup;
+import com.termux.app.features.sessions.TerminalProfile;
+import com.termux.app.features.sessions.SessionWorkspaces;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
@@ -37,6 +48,7 @@ import com.termux.terminal.TextStyle;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.WeakHashMap;
@@ -61,6 +73,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     /** The time a toast was last shown for a title change of a session. */
     private final Map<TerminalSession, Long> mTitleChangeToastTimes = new WeakHashMap<>();
 
+    /** The font size of the profile of the current session, or 0 if the font size of the terminal is used. */
+    private int mProfileFontSize;
+
     private static final String LOG_TAG = "TermuxTerminalSessionActivityClient";
 
     public TermuxTerminalSessionActivityClient(TermuxActivity activity) {
@@ -79,12 +94,18 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
      * Should be called when mActivity.onStart() is called
      */
     public void onStart() {
+        SessionNotifications.setVisibleActivity(mActivity);
+
         // The service has connected, but data may have changed since we were last in the foreground.
         // Get the session stored in shared preferences stored by {@link #onStop} if its valid,
         // otherwise get the last session currently running.
         if (mActivity.getTermuxService() != null) {
             setCurrentSession(getCurrentStoredSessionOrLast());
             termuxSessionListNotifyUpdated();
+
+            // The user asked to start a session from the profiles manager.
+            TerminalProfile pendingProfile = ProfileStore.getProfile(mActivity, ProfilesActivity.takePendingSessionProfileId());
+            if (pendingProfile != null) addNewSession(false, null, pendingProfile);
         }
 
         // The current terminal session may have changed while being away, force
@@ -106,9 +127,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
      * Should be called when mActivity.onStop() is called
      */
     public void onStop() {
+        SessionNotifications.setVisibleActivity(null);
+
         // Store current session in shared preferences so that it can be restored later in
         // {@link #onStart} if needed.
         setCurrentStoredSession();
+
+        // Save the sessions with their transcripts, since the app may be killed while in background.
+        SessionPersistence.saveNow(mActivity.getTermuxService(), false);
 
         // Release mBellSoundPool resources, specially to prevent exceptions like the following to be thrown
         // java.util.concurrent.TimeoutException: android.media.SoundPool.finalize() timed out after 10 seconds
@@ -176,6 +202,13 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
         int index = service.getIndexOfSession(finishedSession);
 
+        // The user closed the session from the drawer.
+        SessionInfo sessionInfo = SessionRegistry.peek(finishedSession.mHandle);
+        if (index >= 0 && sessionInfo != null && sessionInfo.closeRequested) {
+            removeFinishedSession(finishedSession);
+            return;
+        }
+
         // For plugin commands that expect the result back, we should immediately close the session
         // and send the result back instead of waiting fo the user to press enter.
         // The plugin can handle/show errors itself.
@@ -207,6 +240,13 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                 removeFinishedSession(finishedSession);
             }
         }
+    }
+
+    @Override
+    public void onTerminalNotification(@NonNull TerminalSession session, @Nullable String title, @NonNull String body) {
+        // Programs asked for a notification with OSC 9 or OSC 777, only shown if the session is not in view.
+        SessionNotifications.onTerminalNotification(mActivity, session, title, body,
+            mActivity.isVisible() && mActivity.getCurrentSession() == session);
     }
 
     @Override
@@ -271,6 +311,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TermuxSession termuxSession = service.getTermuxSessionForTerminalSession(terminalSession);
         if (termuxSession != null)
             termuxSession.getExecutionCommand().mPid = pid;
+
+        // Show the saved transcript of a restored session above the output of its new shell.
+        SessionPersistence.onSessionStarted(mActivity, terminalSession);
     }
 
 
@@ -327,10 +370,33 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             notifyOfSessionChange();
         }
 
+        SessionRegistry.setLastActiveSession(SessionWorkspaces.getWorkspaceId(mActivity, session), session.mHandle);
+        SessionRegistry.setCurrentSession(session.mHandle);
+        SessionNotifications.cancel(mActivity, session.mHandle);
+        updateFontSizeForSession(session);
+
         // We call the following even when the session is already being displayed since config may
         // be stale, like current session not selected or scrolled to.
         checkAndScrollToSession(session);
         updateBackgroundColor();
+    }
+
+    /**
+     * Use the font size of the profile of {@code session} if it has one, or the font size of the
+     * terminal if the font size of a profile is used.
+     */
+    private void updateFontSizeForSession(@NonNull TerminalSession session) {
+        TerminalProfile profile = ProfileStore.getProfile(mActivity, SessionRegistry.get(session).profileId);
+        if (profile != null && profile.fontSize > 0) {
+            int fontSize = Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, profile.fontSize,
+                mActivity.getResources().getDisplayMetrics()));
+            // Always set, since the terminal font size may have been set after it was set last.
+            mProfileFontSize = fontSize;
+            mActivity.getTerminalView().setTextSize(fontSize);
+        } else if (mProfileFontSize > 0) {
+            mProfileFontSize = 0;
+            mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
+        }
     }
 
     void notifyOfSessionChange() {
@@ -342,31 +408,50 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
     }
 
+    /** Switch to the next or previous session listed in the drawer for the selected workspace. */
     public void switchToSession(boolean forward) {
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
-        TerminalSession currentTerminalSession = mActivity.getCurrentSession();
-        int index = service.getIndexOfSession(currentTerminalSession);
-        int size = service.getTermuxSessionsSize();
-        if (forward) {
-            if (++index >= size) index = 0;
-        } else {
-            if (--index < 0) index = size - 1;
-        }
-
-        TermuxSession termuxSession = service.getTermuxSession(index);
-        if (termuxSession != null)
-            setCurrentSession(termuxSession.getTerminalSession());
+        List<TermuxSession> listedSessions = SessionWorkspaces.getListedSessions(mActivity, service.getTermuxSessions());
+        int position = SessionWorkspaces.indexOf(listedSessions, mActivity.getCurrentSession());
+        int next = SessionListModel.getNextPosition(position, listedSessions.size(), forward);
+        if (next >= 0)
+            setCurrentSession(listedSessions.get(next).getTerminalSession());
     }
 
+    /** Switch to the session with the number {@code index + 1} in the drawer. */
     public void switchToSession(int index) {
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
-        TermuxSession termuxSession = service.getTermuxSession(index);
-        if (termuxSession != null)
-            setCurrentSession(termuxSession.getTerminalSession());
+        List<TermuxSession> listedSessions = SessionWorkspaces.getListedSessions(mActivity, service.getTermuxSessions());
+        if (index >= 0 && index < listedSessions.size())
+            setCurrentSession(listedSessions.get(index).getTerminalSession());
+    }
+
+    /** Select the next workspace in the drawer, like with the Ctrl+Alt+W keyboard shortcut. */
+    public void switchToNextWorkspace() {
+        SessionWorkspaces.selectNextWorkspace(mActivity);
+    }
+
+    /** Close {@code session}: stop its process if it is running and remove it. */
+    public void closeSession(TerminalSession session) {
+        if (session == null) return;
+        if (session.isRunning() && session.getPid() <= 0) {
+            // The shell of the session has not been started yet, like for a restored session that
+            // has not been shown, so remove it right away.
+            TermuxService service = mActivity.getTermuxService();
+            TermuxSession termuxSession = service != null ? service.getTermuxSessionForTerminalSession(session) : null;
+            if (termuxSession != null) termuxSession.killIfExecuting(mActivity, true);
+            termuxSessionListNotifyUpdated();
+        } else if (session.isRunning()) {
+            // Removed in onSessionFinished() once the process has exited.
+            SessionRegistry.get(session).closeRequested = true;
+            session.finishIfRunning();
+        } else {
+            removeFinishedSession(session);
+        }
     }
 
     @SuppressLint("InflateParams")
@@ -376,6 +461,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TextInputDialogUtils.textInput(mActivity, R.string.title_rename_session, sessionToRename.mSessionName, R.string.action_rename_session_confirm, text -> {
             renameSession(sessionToRename, text);
             termuxSessionListNotifyUpdated();
+            SessionPersistence.scheduleSave(mActivity.getTermuxService());
         }, -1, null, -1, null, null);
     }
 
@@ -390,7 +476,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
     }
 
+    /** Add a new session. Non failsafe sessions use the profile set for new sessions, if any. */
     public void addNewSession(boolean isFailSafe, String sessionName) {
+        addNewSession(isFailSafe, sessionName, isFailSafe ? null :
+            ProfileStore.getProfile(mActivity, ProfileStore.getDefaultProfileId(mActivity)));
+    }
+
+    /** Add a new session, started with {@code profile} if it is not {@code null}. */
+    public void addNewSession(boolean isFailSafe, String sessionName, @Nullable TerminalProfile profile) {
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
@@ -407,7 +500,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                 workingDirectory = currentSession.getCwd();
             }
 
-            TermuxSession newTermuxSession = service.createTermuxSession(null, null, null, workingDirectory, isFailSafe, sessionName);
+            // Failsafe sessions don't use profiles or startup automation, so they can fix them if needed.
+            TermuxSession newTermuxSession = isFailSafe ?
+                service.createTermuxSession(null, null, null, workingDirectory, true, sessionName) :
+                SessionStartup.createSession(mActivity, service, profile, sessionName, workingDirectory);
             if (newTermuxSession == null) return;
 
             // The service only notifies the sessions list if this client is already set as its
@@ -468,6 +564,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
+        // Switch to the session listed after it in the drawer, or before it if it was the last one.
+        int listedPosition = SessionWorkspaces.indexOf(SessionWorkspaces.getListedSessions(mActivity, service.getTermuxSessions()), finishedSession);
+
         int index = service.removeTermuxSession(finishedSession);
         termuxSessionListNotifyUpdated();
 
@@ -476,6 +575,12 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             // There are no sessions to show, so finish the activity.
             mActivity.finishActivityIfNotFinishing();
         } else {
+            List<TermuxSession> listedSessions = SessionWorkspaces.getListedSessions(mActivity, service.getTermuxSessions());
+            if (listedPosition >= 0 && !listedSessions.isEmpty()) {
+                setCurrentSession(listedSessions.get(Math.min(listedPosition, listedSessions.size() - 1)).getTerminalSession());
+                return;
+            }
+
             if (index >= size) {
                 index = size - 1;
             }
@@ -492,12 +597,19 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void checkAndScrollToSession(TerminalSession session) {
         if (!mActivity.isVisible()) return;
         TermuxService service = mActivity.getTermuxService();
-        if (service == null) return;
+        if (service == null || session == null) return;
 
-        final int indexOfSession = service.getIndexOfSession(session);
-        if (indexOfSession < 0) return;
+        if (service.getIndexOfSession(session) < 0) return;
         final ListView termuxSessionsListView = mActivity.findViewById(R.id.terminal_sessions_list);
         if (termuxSessionsListView == null) return;
+
+        // Show the workspace of the session in the drawer if another workspace is shown.
+        if (SessionWorkspaces.revealSession(mActivity, session))
+            termuxSessionListNotifyUpdated();
+
+        if (!(termuxSessionsListView.getAdapter() instanceof TermuxSessionsListViewController)) return;
+        final int indexOfSession = ((TermuxSessionsListViewController) termuxSessionsListView.getAdapter()).getRowPosition(session);
+        if (indexOfSession < 0) return;
 
         termuxSessionsListView.setItemChecked(indexOfSession, true);
         // Delay is necessary otherwise sometimes scroll to newly added session does not happen
@@ -511,7 +623,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
         final int indexOfSession = service.getIndexOfSession(session);
         if (indexOfSession < 0) return null;
-        StringBuilder toastTitle = new StringBuilder("[" + (indexOfSession + 1) + "]");
+        // The number shown in the drawer, which is used by the Ctrl+Alt+<number> keyboard shortcuts.
+        int number = SessionWorkspaces.indexOf(SessionWorkspaces.getListedSessions(mActivity, service.getTermuxSessions()), session) + 1;
+        StringBuilder toastTitle = new StringBuilder("[" + (number > 0 ? number : indexOfSession + 1) + "]");
         if (!TextUtils.isEmpty(session.mSessionName)) {
             toastTitle.append(" ").append(session.mSessionName);
         }

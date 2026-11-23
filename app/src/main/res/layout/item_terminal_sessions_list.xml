@@ -4,6 +4,7 @@
     android:layout_height="wrap_content"
     android:minHeight="56dp"
     android:background="@drawable/session_background_selected"
+    android:drawablePadding="12dp"
     android:ellipsize="marquee"
     android:gravity="start|center_vertical"
     android:paddingHorizontal="16dp"

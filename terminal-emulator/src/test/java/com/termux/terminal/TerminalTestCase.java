@@ -60,6 +60,14 @@ public abstract class TerminalTestCase extends TestCase {
 		public void onColorsChanged() {
 			colorsChanged++;
 		}
+
+		/** The notifications received, as "title|body", with "null" for a missing title. */
+		public final List<String> notifications = new ArrayList<>();
+
+		@Override
+		public void onTerminalNotification(String title, String body) {
+			notifications.add(title + "|" + body);
+		}
 	}
 
 	public TerminalEmulator mTerminal;

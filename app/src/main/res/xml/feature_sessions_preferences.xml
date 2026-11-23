@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The session settings, stored in the "termux_re_sessions" preferences, see SessionsPreferences. -->
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:key="category_startup"
+        app:title="@string/feature_sessions_startup_title">
+
+        <EditTextPreference
+            app:key="startup_commands"
+            app:dialogMessage="@string/feature_sessions_startup_commands_dialog_message"
+            app:title="@string/feature_sessions_startup_commands_title" />
+
+        <Preference
+            app:key="manage_profiles"
+            app:summary="@string/feature_sessions_profiles_summary"
+            app:title="@string/feature_sessions_profiles_title" />
+
+        <Preference
+            app:key="startup_info"
+            app:selectable="false"
+            app:summary="@string/feature_sessions_startup_info" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="category_persistence"
+        app:title="@string/feature_sessions_persistence_title">
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="restore_sessions"
+            app:summary="@string/feature_sessions_restore_sessions_summary"
+            app:title="@string/feature_sessions_restore_sessions_title" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:dependency="restore_sessions"
+            app:key="save_transcripts"
+            app:summary="@string/feature_sessions_save_transcripts_summary"
+            app:title="@string/feature_sessions_save_transcripts_title" />
+
+        <ListPreference
+            app:defaultValue="1000"
+            app:dependency="save_transcripts"
+            app:entries="@array/feature_sessions_transcript_lines"
+            app:entryValues="@array/feature_sessions_transcript_lines"
+            app:key="transcript_lines"
+            app:title="@string/feature_sessions_transcript_lines_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            app:key="clear_saved_sessions"
+            app:summary="@string/feature_sessions_clear_saved_history_summary"
+            app:title="@string/feature_sessions_clear_saved_history_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="category_notifications"
+        app:title="@string/feature_sessions_notifications_title">
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="terminal_notifications"
+            app:summary="@string/feature_sessions_terminal_notifications_summary"
+            app:title="@string/feature_sessions_terminal_notifications_title" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:dependency="terminal_notifications"
+            app:key="notify_long_commands"
+            app:summary="@string/feature_sessions_notify_long_commands_summary"
+            app:title="@string/feature_sessions_notify_long_commands_title" />
+
+        <EditTextPreference
+            app:defaultValue="10"
+            app:dependency="notify_long_commands"
+            app:key="notify_long_commands_seconds"
+            app:title="@string/feature_sessions_notify_long_commands_seconds_title" />
+
+        <Preference
+            app:key="notification_settings"
+            app:title="@string/feature_sessions_notification_settings_title" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

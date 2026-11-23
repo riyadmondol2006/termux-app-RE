@@ -3,8 +3,11 @@ package com.termux.app.terminal;
 import android.app.Service;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.termux.app.TermuxService;
+import com.termux.app.features.sessions.SessionNotifications;
+import com.termux.app.features.sessions.SessionPersistence;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.terminal.TermuxTerminalSessionClientBase;
 import com.termux.terminal.TerminalSession;
@@ -26,6 +29,14 @@ public class TermuxTerminalSessionServiceClient extends TermuxTerminalSessionCli
         TermuxSession termuxSession = mService.getTermuxSessionForTerminalSession(terminalSession);
         if (termuxSession != null)
             termuxSession.getExecutionCommand().mPid = pid;
+
+        SessionPersistence.onSessionStarted(mService, terminalSession);
+    }
+
+    @Override
+    public void onTerminalNotification(@NonNull TerminalSession session, @Nullable String title, @NonNull String body) {
+        // The activity is not bound, so the session is not in view.
+        SessionNotifications.onTerminalNotification(mService, session, title, body, false);
     }
 
 }

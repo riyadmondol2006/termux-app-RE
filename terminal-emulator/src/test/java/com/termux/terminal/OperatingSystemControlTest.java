@@ -204,4 +204,45 @@ public class OperatingSystemControlTest extends TerminalTestCase {
 		assertEnteringStringGivesResponse("\033]10;?\033\\", "\033]10;rgb:abab/cdcd/0000\033\\");
 	}
 
+
+	public void testNotificationOsc777() {
+		withTerminalSized(10, 10);
+		enterString("\033]777;notify;Build;Finished in 3s\007");
+		enterString("\033]777;notify;Title only\033\\");
+		enterString("\033]777;notify;Semi;colons;in body\007");
+		// Other 777 commands are ignored.
+		enterString("\033]777;preexec\007");
+		assertEquals(List.of("Build|Finished in 3s", "Title only|", "Semi|colons;in body"), mOutput.notifications);
+		// The sequences do not print anything.
+		assertLineIs(0, "          ");
+	}
+
+	public void testNotificationOsc9() {
+		withTerminalSized(10, 10);
+		enterString("\033]9;Done\007");
+		enterString("\033]9;10 files copied\033\\");
+		enterString("\033]9;\007");
+		assertEquals(List.of("null|Done", "null|10 files copied", "null|"), mOutput.notifications);
+		assertLineIs(0, "          ");
+	}
+
+	public void testOsc9ConEmuCommandsAreNotNotifications() {
+		withTerminalSized(10, 10);
+		// Progress, sleep and other ConEmu commands.
+		enterString("\033]9;4;1;50\007");
+		enterString("\033]9;4;0\007");
+		enterString("\033]9;1;100\007");
+		enterString("\033]9;12\007");
+		assertEquals(0, mOutput.notifications.size());
+
+		assertTrue(TerminalEmulator.isConEmuOsc9Command("4;1;50"));
+		assertTrue(TerminalEmulator.isConEmuOsc9Command("12"));
+		assertFalse(TerminalEmulator.isConEmuOsc9Command(""));
+		assertFalse(TerminalEmulator.isConEmuOsc9Command("13;x"));
+		assertFalse(TerminalEmulator.isConEmuOsc9Command("0;x"));
+		assertFalse(TerminalEmulator.isConEmuOsc9Command("100;x"));
+		assertFalse(TerminalEmulator.isConEmuOsc9Command("4 files"));
+		assertFalse(TerminalEmulator.isConEmuOsc9Command("Done"));
+	}
+
 }
