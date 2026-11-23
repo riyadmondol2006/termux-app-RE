@@ -60,6 +60,16 @@ public final class TerminalView extends View {
 
     private TextSelectionCursorController mTextSelectionCursorController;
 
+    /** The highlights drawn over the text, like search matches, or {@code null}. */
+    @Nullable
+    private TerminalHighlighter mHighlighter;
+
+    /**
+     * Whether to keep the scroll position when new output arrives while scrolled up, instead of
+     * scrolling to the bottom. See {@link #setKeepScrollPositionOnOutput(boolean)}.
+     */
+    private boolean mKeepScrollPositionOnOutput;
+
     private Handler mTerminalCursorBlinkerHandler;
     private TerminalCursorBlinkerRunnable mTerminalCursorBlinkerRunnable;
     private int mTerminalCursorBlinkerRate;
@@ -481,7 +491,8 @@ public final class TerminalView extends View {
         int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
         if (mTopRow < -rowsInHistory) setTopRow(-rowsInHistory);
 
-        if (isSelectingText() || mEmulator.isAutoScrollDisabled()) {
+        final boolean keepScrollPosition = mKeepScrollPositionOnOutput && mTopRow < 0;
+        if (isSelectingText() || mEmulator.isAutoScrollDisabled() || keepScrollPosition) {
             // Do not scroll when selecting text.
             int rowShift = mEmulator.getScrollCounter();
             if (-mTopRow + rowShift > rowsInHistory) {
@@ -490,7 +501,7 @@ public final class TerminalView extends View {
                 if (isSelectingText())
                     stopTextSelectionMode();
 
-                if (mEmulator.isAutoScrollDisabled()) {
+                if (mEmulator.isAutoScrollDisabled() || keepScrollPosition) {
                     setTopRow(-rowsInHistory);
                     skipScrolling = true;
                 }
@@ -1122,7 +1133,7 @@ public final class TerminalView extends View {
                 mTextSelectionCursorController.getSelectors(sel);
             }
 
-            mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
+            mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3], mHighlighter);
 
             // render the text selection handles
             renderTextSelection();
@@ -1169,6 +1180,41 @@ public final class TerminalView extends View {
         if (updateEmulator && mEmulator != null) {
             mEmulator.setTopRow(mTopRow);
         }
+    }
+
+    /**
+     * Scroll so that the external row {@code row} of the current screen is visible. If it is not
+     * visible already, it is shown in the middle of the view if possible.
+     */
+    public void scrollRowIntoView(int row) {
+        if (mEmulator == null) return;
+        if (row >= mTopRow && row < mTopRow + mEmulator.mRows) return;
+
+        int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
+        setTopRow(Math.max(-rowsInHistory, Math.min(0, row - mEmulator.mRows / 2)));
+        awakenScrollBars();
+        invalidate();
+    }
+
+    /**
+     * Set whether to keep the scroll position when new output arrives while the view is scrolled up,
+     * instead of scrolling to the bottom, like while the user looks at search matches. When at the
+     * bottom, the view still follows new output.
+     */
+    public void setKeepScrollPositionOnOutput(boolean keepScrollPosition) {
+        mKeepScrollPositionOnOutput = keepScrollPosition;
+    }
+
+    /** Set the highlights drawn over the text, like search matches, or {@code null} for none. */
+    public void setHighlighter(@Nullable TerminalHighlighter highlighter) {
+        if (mHighlighter == highlighter) return;
+        mHighlighter = highlighter;
+        invalidate();
+    }
+
+    @Nullable
+    public TerminalHighlighter getHighlighter() {
+        return mHighlighter;
     }
 
 
