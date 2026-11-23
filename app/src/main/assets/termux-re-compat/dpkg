@@ -50,7 +50,9 @@ for arg in "$@"; do
             if [[ -f "$dir/DEBIAN/md5sums" ]]; then
                 (cd "$dir"; find data -type f -exec md5sum {} +) > "$dir/DEBIAN/md5sums"
             fi
-            "$P/bin/dpkg-deb" -b -Znone "$dir" "$dir.deb" >&2
+            # --nocheck: rebuilding must not be stricter than installing the original archive, which
+            # dpkg accepts even when, for example, a listed conffile is missing from it.
+            "$P/bin/dpkg-deb" --nocheck -b -Znone "$dir" "$dir.deb" >&2
             args+=("$dir.deb")
             continue
         fi
