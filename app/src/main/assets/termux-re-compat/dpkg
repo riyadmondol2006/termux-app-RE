@@ -1,0 +1,61 @@
+#!/data/data/com.termux.re/files/usr/bin/bash
+# apt's verified downloads remain untouched. Only private, extracted copies change.
+set -euo pipefail
+export LC_ALL=C
+P=/data/data/com.termux.re/files/usr
+export PATH="$P/bin"
+old=/data/data/com.termux/files
+alias=/data/data/com.termux.re//f
+real=/data/data/com.termux.re/files
+work=
+trap '[[ -z "$work" ]] || rm -rf -- "$work"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+unpack=false
+for arg in "$@"; do
+    case "$arg" in --unpack|--install|-i) unpack=true;; esac
+done
+args=()
+for arg in "$@"; do
+    if $unpack && [[ "$arg" == *.deb && -f "$arg" ]]; then
+        # Inspect archive member paths, not documentation strings in our packages.
+        listing=$("$P/bin/dpkg-deb" --fsys-tarfile "$arg" | tar -tf -)
+        if grep -q '^\(\./\)\?data/data/com\.termux/files\(/\|$\)' <<< "$listing"; then
+            name=$("$P/bin/dpkg-deb" -f "$arg" Package)
+            case "$name" in termux-*|apt|dpkg|command-not-found)
+                echo "Official compatibility: refusing app-specific package $name" >&2; exit 1;;
+            esac
+            [[ -n "$work" ]] || work=$(mktemp -d "$P/tmp/termux-re-compat.XXXXXXXX")
+            dir="$work/${#args[@]}"
+            "$P/bin/dpkg-deb" -R "$arg" "$dir"
+            mkdir -p "$dir/data/data/com.termux.re"
+            mv "$dir/data/data/com.termux/files" "$dir/data/data/com.termux.re/files"
+            rmdir "$dir/data/data/com.termux"
+            while IFS= read -r -d '' file; do
+                # GNU sed, C locale: fixed byte widths preserve ELF offsets and NULs.
+                if grep -aFq "$old" "$file"; then
+                    sed -i "s|/data/data/com\\.termux/files|$alias|g" "$file"
+                fi
+            done < <(find "$dir" -type f -print0)
+            while IFS= read -r -d '' file; do
+                target=$(readlink "$file")
+                if [[ "$target" == *"$old"* ]]; then
+                    ln -sfn -- "${target//"$old"/"$alias"}" "$file"
+                fi
+            done < <(find "$dir" -type l -print0)
+            # dpkg metadata must name actual archive members, not the runtime alias.
+            if [[ -f "$dir/DEBIAN/conffiles" ]]; then
+                sed -i "s|/data/data/com\\.termux\\.re//f|$real|g" "$dir/DEBIAN/conffiles"
+            fi
+            if [[ -f "$dir/DEBIAN/md5sums" ]]; then
+                (cd "$dir"; find data -type f -exec md5sum {} +) > "$dir/DEBIAN/md5sums"
+            fi
+            "$P/bin/dpkg-deb" -b -Znone "$dir" "$dir.deb" >&2
+            args+=("$dir.deb")
+            continue
+        fi
+    fi
+    args+=("$arg")
+done
+# Do not exec: the EXIT trap owns the temporary archives until dpkg finishes.
+"$P/bin/dpkg" "${args[@]}"

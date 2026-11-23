@@ -1,0 +1,55 @@
+#!/data/data/com.termux.re/files/usr/bin/bash
+set -euo pipefail
+P=/data/data/com.termux.re/files/usr
+export PATH="$P/bin"
+D="$P/libexec/termux-re-compat"
+A="$P/etc/apt"
+conf="$A/apt.conf.d/90termux-re-compat"
+source="$A/sources.list.d/termux-re-official.list"
+pins="$A/preferences.d/termux-re-official"
+key="$P/share/keyrings/termux-re-official.gpg"
+case "${1:-status}" in
+on)
+    [[ -x "$D/dpkg" && -s "$D/official.gpg" ]] || { echo 'Compatibility assets missing; enable from Package repositories first.' >&2; exit 1; }
+    # Refuse a conflicting alias; never replace owner data.
+    if [[ -L /data/data/com.termux.re/f ]]; then
+        [[ $(readlink /data/data/com.termux.re/f) == files ]] || { echo 'Conflicting f symlink' >&2; exit 1; }
+    elif [[ -e /data/data/com.termux.re/f ]]; then
+        echo 'Conflicting f path' >&2; exit 1
+    else
+        ln -s files /data/data/com.termux.re/f
+    fi
+    mkdir -p "$A/apt.conf.d" "$A/sources.list.d" "$A/preferences.d" "$P/share/keyrings"
+    install -m 600 "$D/official.gpg" "$key"
+    cat > "$pins.tmp" <<'PINS'
+Package: termux-* apt dpkg command-not-found
+Pin: origin packages.termux.dev
+Pin-Priority: -1
+
+Package: *
+Pin: origin riyadmondol2006.github.io
+Pin-Priority: 700
+
+Package: *
+Pin: origin packages.termux.dev
+Pin-Priority: 500
+PINS
+    mv "$pins.tmp" "$pins"
+    printf 'Dir::Bin::dpkg "%s/libexec/termux-re-compat/dpkg";\n' "$P" > "$conf.tmp"
+    mv "$conf.tmp" "$conf"
+    printf 'deb [signed-by=%s] https://packages.termux.dev/apt/termux-main stable main\n' "$key" > "$source.tmp"
+    mv "$source.tmp" "$source"
+    echo 'Official compatibility enabled. Run apt update.'
+    ;;
+off)
+    # Installed binaries still need the alias. Keep it and the inert command/assets.
+    rm -f "$source" "$conf" "$pins" "$key"
+    # Remove stale lists so apt cannot install official packages after disabling.
+    find "$P/var/lib/apt/lists" -maxdepth 1 -type f -name 'packages.termux.dev_apt_termux-main_*' -delete
+    echo 'Official compatibility disabled. Installed packages and their path alias are retained. Run apt update.'
+    ;;
+status)
+    if [[ -f "$source" && -f "$conf" && -f "$pins" && -s "$key" ]]; then echo on; else echo off; fi
+    ;;
+*) echo 'Usage: termux-re-official on|off|status' >&2; exit 2;;
+esac
