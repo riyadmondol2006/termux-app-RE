@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.termux.app.features.system.floating.FloatingRootLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/feature_system_floating_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/feature_system_floating_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- The title bar moves the window. -->
+        <LinearLayout
+            android:id="@+id/feature_system_floating_title_bar"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:background="?attr/colorSurfaceContainerHigh"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp">
+
+            <TextView
+                android:id="@+id/feature_system_floating_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="?attr/textAppearanceLabelLarge"
+                android:textColor="?attr/colorOnSurface" />
+
+            <ImageButton
+                android:id="@+id/feature_system_floating_keyboard"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/feature_system_floating_keyboard"
+                android:src="@drawable/feature_system_ic_keyboard"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/feature_system_floating_minimize"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/feature_system_floating_minimize"
+                android:src="@drawable/feature_system_ic_minimize"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/feature_system_floating_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/feature_system_floating_close"
+                android:src="@drawable/feature_system_ic_close"
+                app:tint="?attr/colorOnSurfaceVariant" />
+        </LinearLayout>
+
+        <com.termux.view.TerminalView
+            android:id="@+id/feature_system_floating_terminal"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:defaultFocusHighlightEnabled="false"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            tools:ignore="UnusedAttribute"
+            xmlns:tools="http://schemas.android.com/tools" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:background="@color/black"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/feature_system_floating_keys"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/feature_system_floating_resize"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="bottom|end"
+        android:contentDescription="@string/feature_system_floating_resize"
+        android:padding="6dp"
+        android:src="@drawable/feature_system_ic_resize"
+        app:tint="#99FFFFFF" />
+</com.termux.app.features.system.floating.FloatingRootLayout>

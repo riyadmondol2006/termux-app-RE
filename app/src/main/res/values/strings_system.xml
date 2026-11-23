@@ -57,4 +57,25 @@
     <string name="feature_system_monitor_signal_sent">Signal sent to %1$s (%2$d)</string>
     <string name="feature_system_monitor_signal_failed">Could not stop %1$s: %2$s</string>
 
+    <!-- Floating terminal -->
+    <string name="feature_system_floating_title">Floating terminal</string>
+    <string name="feature_system_floating_summary">A movable, resizable terminal window over other apps</string>
+    <string name="feature_system_floating_permission_title">Display over other apps</string>
+    <string name="feature_system_floating_permission_message">The floating terminal is a window drawn over other apps, which needs the \"Display over other apps\" permission. You can also change it in Settings → Termux → Permissions.</string>
+    <string name="feature_system_floating_permission_grant">Grant permission</string>
+    <string name="feature_system_floating_permission_missing">The \"Display over other apps\" permission is not granted.</string>
+    <string name="feature_system_floating_new_session">Open a new session</string>
+    <string name="feature_system_floating_current_session">Show the current session</string>
+    <string name="feature_system_floating_close">Close</string>
+    <string name="feature_system_floating_minimize">Minimize to a bubble</string>
+    <string name="feature_system_floating_restore">Show the floating terminal</string>
+    <string name="feature_system_floating_keyboard">Show or hide the keyboard</string>
+    <string name="feature_system_floating_resize">Resize</string>
+    <string name="feature_system_floating_exited">(exited, press Enter)</string>
+    <string name="feature_system_floating_session_name">Floating</string>
+    <string name="feature_system_floating_channel">Floating terminal</string>
+    <string name="feature_system_floating_notification_title">Floating terminal</string>
+    <string name="feature_system_floating_notification_text">Tap to show the window. Closing it keeps its session running.</string>
+    <string name="feature_system_floating_failed">Could not open the floating terminal: %1$s</string>
+
 </resources>
