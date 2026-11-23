@@ -52,7 +52,9 @@ import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A service holding a list of {@link TermuxSession} in {@link TermuxShellManager#mTermuxSessions} and background {@link AppShell}
@@ -70,7 +72,7 @@ import java.util.List;
 public final class TermuxService extends Service implements AppShell.AppShellClient, TermuxSession.TermuxSessionClient {
 
     /** This service is only bound from inside the same process and never uses IPC. */
-    class LocalBinder extends Binder {
+    public class LocalBinder extends Binder {
         public final TermuxService service = TermuxService.this;
     }
 
@@ -773,8 +775,10 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     public synchronized void setTermuxTerminalSessionClient(TermuxTerminalSessionActivityClient termuxTerminalSessionActivityClient) {
         mTermuxTerminalSessionActivityClient = termuxTerminalSessionActivityClient;
 
-        for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++)
-            mShellManager.mTermuxSessions.get(i).getTerminalSession().updateTerminalSessionClient(mTermuxTerminalSessionActivityClient);
+        for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++) {
+            TerminalSession session = mShellManager.mTermuxSessions.get(i).getTerminalSession();
+            session.updateTerminalSessionClient(wrapSessionClient(session, mTermuxTerminalSessionActivityClient));
+        }
     }
 
     /** This should be called when {@link TermuxActivity} has been destroyed and in {@link #onUnbind(Intent)}
@@ -794,10 +798,41 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             return;
         }
 
-        for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++)
-            mShellManager.mTermuxSessions.get(i).getTerminalSession().updateTerminalSessionClient(mTermuxTerminalSessionServiceClient);
+        for (int i = 0; i < mShellManager.mTermuxSessions.size(); i++) {
+            TerminalSession session = mShellManager.mTermuxSessions.get(i).getTerminalSession();
+            session.updateTerminalSessionClient(wrapSessionClient(session, mTermuxTerminalSessionServiceClient));
+        }
 
         mTermuxTerminalSessionActivityClient = null;
+    }
+
+    /**
+     * Wraps the client of a session, so that a session can also be shown by a view outside of
+     * {@link TermuxActivity}, like the floating terminal, which then gets the callbacks of the
+     * session as well as the activity or service client does.
+     */
+    public interface SessionClientWrapper {
+        /** Returns the client to use for the session, which must forward its calls to {@code base}. */
+        @NonNull
+        TerminalSessionClient wrap(@NonNull TermuxTerminalSessionClientBase base);
+    }
+
+    private final Map<TerminalSession, SessionClientWrapper> mSessionClientWrappers = new HashMap<>();
+
+    /**
+     * Set or, with {@code null}, remove a {@link SessionClientWrapper} for a session. It is applied
+     * now and whenever {@link #setTermuxTerminalSessionClient} or {@link #unsetTermuxTerminalSessionClient}
+     * change the client of the session.
+     */
+    public synchronized void setSessionClientWrapper(@NonNull TerminalSession session, @Nullable SessionClientWrapper wrapper) {
+        if (wrapper != null) mSessionClientWrappers.put(session, wrapper);
+        else mSessionClientWrappers.remove(session);
+        session.updateTerminalSessionClient(wrapSessionClient(session, getTermuxTerminalSessionClient()));
+    }
+
+    private TerminalSessionClient wrapSessionClient(@NonNull TerminalSession session, @NonNull TermuxTerminalSessionClientBase base) {
+        SessionClientWrapper wrapper = mSessionClientWrappers.get(session);
+        return wrapper != null ? wrapper.wrap(base) : base;
     }
 
 
