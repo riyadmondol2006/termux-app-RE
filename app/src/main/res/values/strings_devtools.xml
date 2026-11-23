@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="feature_devtools_ssh_title">SSH connections</string>
+    <string name="feature_devtools_ssh_summary">Saved hosts, keys and ssh-copy-id setup</string>
+    <string name="feature_devtools_git_title">Git integration</string>
+    <string name="feature_devtools_git_summary">Status, branches, log and common actions</string>
+
+    <string name="feature_devtools_ssh_activity_title">SSH connections</string>
+    <string name="feature_devtools_ssh_no_connections">No saved connections yet.</string>
+    <string name="feature_devtools_ssh_add">Add connection</string>
+    <string name="feature_devtools_ssh_edit">Edit connection</string>
+    <string name="feature_devtools_ssh_delete">Delete</string>
+    <string name="feature_devtools_ssh_delete_confirm">Delete connection \"%1$s\"?</string>
+    <string name="feature_devtools_ssh_label">Label</string>
+    <string name="feature_devtools_ssh_user">User (optional)</string>
+    <string name="feature_devtools_ssh_host">Host</string>
+    <string name="feature_devtools_ssh_port">Port (empty for 22)</string>
+    <string name="feature_devtools_ssh_identity">Identity file (optional)</string>
+    <string name="feature_devtools_ssh_jump">Jump host (optional)</string>
+    <string name="feature_devtools_ssh_extra">Extra options, one per line (optional)</string>
+    <string name="feature_devtools_ssh_sync">Sync as Host block in ~/.ssh/config</string>
+    <string name="feature_devtools_ssh_label_required">Label and host are required.</string>
+    <string name="feature_devtools_ssh_invalid_destination">User and host can\'t contain spaces or start with "-".</string>
+    <string name="feature_devtools_ssh_connect">Connect</string>
+    <string name="feature_devtools_ssh_copy_setup">Copy key to server</string>
+    <string name="feature_devtools_ssh_import_config">Import ~/.ssh/config</string>
+    <string name="feature_devtools_ssh_imported">Imported %1$d connection(s) from ~/.ssh/config.</string>
+    <string name="feature_devtools_ssh_no_config">No ~/.ssh/config found.</string>
+    <string name="feature_devtools_ssh_keys_title">Keys in ~/.ssh</string>
+    <string name="feature_devtools_ssh_no_keys">No keys in ~/.ssh yet.</string>
+    <string name="feature_devtools_ssh_generate_key">Generate ed25519 key</string>
+    <string name="feature_devtools_ssh_key_name">Key file name</string>
+    <string name="feature_devtools_ssh_passphrase">Passphrase (optional)</string>
+    <string name="feature_devtools_ssh_key_generated">Key generated.</string>
+    <string name="feature_devtools_ssh_key_failed">Key generation failed: %1$s</string>
+    <string name="feature_devtools_ssh_copy_public">Copy public key</string>
+    <string name="feature_devtools_ssh_copied">Public key copied to clipboard.</string>
+    <string name="feature_devtools_ssh_install_title">OpenSSH is not installed</string>
+    <string name="feature_devtools_ssh_install_message">The ssh command needs the openssh package. Install it now?</string>
+    <string name="feature_devtools_ssh_install">Install openssh</string>
+
+    <string name="feature_devtools_git_activity_title">Git</string>
+    <string name="feature_devtools_git_repo">Repository</string>
+    <string name="feature_devtools_git_use_current">Use current session directory</string>
+    <string name="feature_devtools_git_browse">Browse…</string>
+    <string name="feature_devtools_git_clone">Clone…</string>
+    <string name="feature_devtools_git_clone_url">Repository URL</string>
+    <string name="feature_devtools_git_clone_dir">Target directory</string>
+    <string name="feature_devtools_git_not_a_repo">Not a git repository: %1$s</string>
+    <string name="feature_devtools_git_status">Status</string>
+    <string name="feature_devtools_git_branches">Branches</string>
+    <string name="feature_devtools_git_log">Log</string>
+    <string name="feature_devtools_git_stash">Stash</string>
+    <string name="feature_devtools_git_commit">Commit…</string>
+    <string name="feature_devtools_git_commit_message">Commit message</string>
+    <string name="feature_devtools_git_pull">Pull</string>
+    <string name="feature_devtools_git_push">Push</string>
+    <string name="feature_devtools_git_fetch">Fetch</string>
+    <string name="feature_devtools_git_refresh">Refresh</string>
+    <string name="feature_devtools_git_stage">Stage</string>
+    <string name="feature_devtools_git_unstage">Unstage</string>
+    <string name="feature_devtools_git_diff">Diff</string>
+    <string name="feature_devtools_git_diff_staged">Staged diff</string>
+    <string name="feature_devtools_git_switch">Switch to…</string>
+    <string name="feature_devtools_git_create_branch">New branch…</string>
+    <string name="feature_devtools_git_branch_name">Branch name</string>
+    <string name="feature_devtools_git_include_untracked">Include untracked files</string>
+    <string name="feature_devtools_git_running">Running…</string>
+    <string name="feature_devtools_git_no_changes">Working tree clean.</string>
+    <string name="feature_devtools_git_empty">Nothing to show yet. Tap Refresh.</string>
+    <string name="feature_devtools_git_needs_message">Enter a commit message.</string>
+    <string name="feature_devtools_git_done">Done.</string>
+    <string name="feature_devtools_git_failed">Failed: %1$s</string>
+    <string name="feature_devtools_git_install_title">Git is not installed</string>
+    <string name="feature_devtools_git_install_message">Git commands need the git package. Install it now?</string>
+    <string name="feature_devtools_git_install">Install git</string>
+
+    <string name="feature_devtools_cancel">Cancel</string>
+    <string name="feature_devtools_save">Save</string>
+    <string name="feature_devtools_ok">OK</string>
+
+</resources>
