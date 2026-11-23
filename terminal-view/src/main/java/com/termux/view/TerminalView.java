@@ -542,6 +542,18 @@ public final class TerminalView extends View {
         invalidate();
     }
 
+    // Theme Studio background-image hook (theme area): when set, onDraw paints this bitmap
+    // (dimmed by a translucent background-color overlay) instead of an opaque background.
+    private android.graphics.Bitmap mTerminalBackgroundImage;
+    private int mTerminalBackgroundAlpha = 255;
+
+    /** Set a background image behind terminal text; alpha 0-255 controls the background-color overlay opacity. */
+    public void setTerminalBackgroundImage(@androidx.annotation.Nullable android.graphics.Bitmap bitmap, int backgroundAlpha) {
+        mTerminalBackgroundImage = bitmap;
+        mTerminalBackgroundAlpha = Math.max(0, Math.min(255, backgroundAlpha));
+        invalidate();
+    }
+
     @Override
     public boolean onCheckIsTextEditor() {
         return true;
@@ -1116,6 +1128,12 @@ public final class TerminalView extends View {
         if (mEmulator == null) {
             canvas.drawColor(0XFF000000);
         } else {
+            if (mTerminalBackgroundImage != null) {
+                canvas.drawBitmap(mTerminalBackgroundImage, null,
+                    new android.graphics.Rect(0, 0, getWidth(), getHeight()), null);
+                int bg = mEmulator.mColors.mCurrentColors[com.termux.terminal.TextStyle.COLOR_INDEX_BACKGROUND];
+                canvas.drawARGB(mTerminalBackgroundAlpha, (bg >> 16) & 0xFF, (bg >> 8) & 0xFF, bg & 0xFF);
+            }
             // render the terminal view and highlight any selected text
             int[] sel = mDefaultSelectors;
             if (mTextSelectionCursorController != null) {

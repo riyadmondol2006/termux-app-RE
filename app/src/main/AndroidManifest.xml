@@ -123,6 +123,13 @@
             android:label="@string/title_activity_termux_settings"
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
 
+        <!-- Theme area: Theme Studio -->
+        <activity
+            android:name=".app.features.theme.ThemeStudioActivity"
+            android:exported="false"
+            android:label="@string/feature_theme_studio_title"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+
         <activity
             android:name=".shared.activities.ReportActivity"
             android:theme="@style/Theme.MarkdownViewActivity.DayNight"
