@@ -11,6 +11,7 @@ import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.os.SystemClock;
 import android.text.TextUtils;
+import android.util.TypedValue;
 import android.widget.ListView;
 
 import androidx.annotation.NonNull;
@@ -19,9 +20,13 @@ import androidx.annotation.Nullable;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.termux.R;
+import com.termux.app.features.sessions.ProfileStore;
+import com.termux.app.features.sessions.ProfilesActivity;
 import com.termux.app.features.sessions.SessionInfo;
 import com.termux.app.features.sessions.SessionListModel;
 import com.termux.app.features.sessions.SessionRegistry;
+import com.termux.app.features.sessions.SessionStartup;
+import com.termux.app.features.sessions.TerminalProfile;
 import com.termux.app.features.sessions.SessionWorkspaces;
 import com.termux.app.features.sessions.WorkspaceStore;
 import com.termux.shared.interact.ShareUtils;
@@ -67,6 +72,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     /** The time a toast was last shown for a title change of a session. */
     private final Map<TerminalSession, Long> mTitleChangeToastTimes = new WeakHashMap<>();
 
+    /** The font size of the profile of the current session, or 0 if the font size of the terminal is used. */
+    private int mProfileFontSize;
+
     private static final String LOG_TAG = "TermuxTerminalSessionActivityClient";
 
     public TermuxTerminalSessionActivityClient(TermuxActivity activity) {
@@ -91,6 +99,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (mActivity.getTermuxService() != null) {
             setCurrentSession(getCurrentStoredSessionOrLast());
             termuxSessionListNotifyUpdated();
+
+            // The user asked to start a session from the profiles manager.
+            TerminalProfile pendingProfile = ProfileStore.getProfile(mActivity, ProfilesActivity.takePendingSessionProfileId());
+            if (pendingProfile != null) addNewSession(false, null, pendingProfile);
         }
 
         // The current terminal session may have changed while being away, force
@@ -341,11 +353,30 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
 
         SessionRegistry.setLastActiveSession(SessionWorkspaces.getWorkspaceId(mActivity, session), session.mHandle);
+        updateFontSizeForSession(session);
 
         // We call the following even when the session is already being displayed since config may
         // be stale, like current session not selected or scrolled to.
         checkAndScrollToSession(session);
         updateBackgroundColor();
+    }
+
+    /**
+     * Use the font size of the profile of {@code session} if it has one, or the font size of the
+     * terminal if the font size of a profile is used.
+     */
+    private void updateFontSizeForSession(@NonNull TerminalSession session) {
+        TerminalProfile profile = ProfileStore.getProfile(mActivity, SessionRegistry.get(session).profileId);
+        if (profile != null && profile.fontSize > 0) {
+            int fontSize = Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, profile.fontSize,
+                mActivity.getResources().getDisplayMetrics()));
+            // Always set, since the terminal font size may have been set after it was set last.
+            mProfileFontSize = fontSize;
+            mActivity.getTerminalView().setTextSize(fontSize);
+        } else if (mProfileFontSize > 0) {
+            mProfileFontSize = 0;
+            mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
+        }
     }
 
     void notifyOfSessionChange() {
@@ -424,7 +455,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
     }
 
+    /** Add a new session. Non failsafe sessions use the profile set for new sessions, if any. */
     public void addNewSession(boolean isFailSafe, String sessionName) {
+        addNewSession(isFailSafe, sessionName, isFailSafe ? null :
+            ProfileStore.getProfile(mActivity, ProfileStore.getDefaultProfileId(mActivity)));
+    }
+
+    /** Add a new session, started with {@code profile} if it is not {@code null}. */
+    public void addNewSession(boolean isFailSafe, String sessionName, @Nullable TerminalProfile profile) {
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
@@ -441,7 +479,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                 workingDirectory = currentSession.getCwd();
             }
 
-            TermuxSession newTermuxSession = service.createTermuxSession(null, null, null, workingDirectory, isFailSafe, sessionName);
+            // Failsafe sessions don't use profiles or startup automation, so they can fix them if needed.
+            TermuxSession newTermuxSession = isFailSafe ?
+                service.createTermuxSession(null, null, null, workingDirectory, true, sessionName) :
+                SessionStartup.createSession(mActivity, service, profile, sessionName, workingDirectory);
             if (newTermuxSession == null) return;
 
             // Add the session to the workspace shown in the drawer.

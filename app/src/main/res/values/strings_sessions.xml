@@ -44,4 +44,59 @@
     <string name="feature_sessions_msg_close_session">The programs running in the session are stopped.</string>
     <string name="feature_sessions_pinned">Pinned</string>
 
+    <!-- Profiles -->
+    <string name="feature_sessions_profiles_title">Terminal profiles</string>
+    <string name="feature_sessions_profiles_summary">Shell, working directory, startup commands and font size for new sessions</string>
+    <string name="feature_sessions_title_new_profile">New profile</string>
+    <string name="feature_sessions_title_edit_profile">Edit profile</string>
+    <string name="feature_sessions_action_new_profile">New profile</string>
+    <string name="feature_sessions_action_save">Save</string>
+    <string name="feature_sessions_msg_no_profiles">No profiles yet. A profile starts sessions with a shell, working directory, startup commands and font size. Start sessions from a profile by long pressing New session in the drawer.</string>
+    <string name="feature_sessions_profile_name">Name</string>
+    <string name="feature_sessions_profile_unnamed">Unnamed profile</string>
+    <string name="feature_sessions_profile_shell">Shell</string>
+    <string name="feature_sessions_profile_shell_default">Default (login shell)</string>
+    <string name="feature_sessions_profile_shell_not_installed">%1$s (not installed)</string>
+    <string name="feature_sessions_profile_working_directory">Working directory</string>
+    <string name="feature_sessions_profile_working_directory_help">Like ~/projects. Empty for the directory of the current session.</string>
+    <string name="feature_sessions_profile_startup_commands">Startup commands</string>
+    <string name="feature_sessions_profile_startup_commands_help">Run by the shell when the session starts, after the global startup commands</string>
+    <string name="feature_sessions_profile_font_size">Font size (dp)</string>
+    <string name="feature_sessions_profile_font_size_help">Empty for the terminal font size</string>
+    <string name="feature_sessions_profile_color_scheme">Color scheme</string>
+    <string name="feature_sessions_profile_color_scheme_help">Color scheme id for themes</string>
+    <string name="feature_sessions_profile_use_for_new_sessions">Use for New session</string>
+    <string name="feature_sessions_profile_default">Used for New session</string>
+    <plurals name="feature_sessions_profile_startup_command_count">
+        <item quantity="one">%d startup command</item>
+        <item quantity="other">%d startup commands</item>
+    </plurals>
+    <string name="feature_sessions_profile_font_size_value">%d dp font</string>
+    <string name="feature_sessions_action_start_session">Start session</string>
+    <string name="feature_sessions_action_edit">Edit</string>
+    <string name="feature_sessions_action_duplicate">Duplicate</string>
+    <string name="feature_sessions_profile_copy_name">%1$s (copy)</string>
+    <string name="feature_sessions_title_delete_profile">Delete profile \"%1$s\"?</string>
+
+    <!-- New session dialog -->
+    <string name="feature_sessions_title_new_session">New session</string>
+    <string name="feature_sessions_new_session_plain">Without profile</string>
+    <string name="feature_sessions_new_session_plain_summary">The login shell in the current directory</string>
+    <string name="feature_sessions_new_session_named">Named session…</string>
+    <string name="feature_sessions_new_session_named_summary">Without profile, with a name</string>
+    <string name="feature_sessions_new_session_failsafe">Failsafe session</string>
+    <string name="feature_sessions_new_session_failsafe_summary">Android\'s /system/bin/sh without startup commands, to fix a broken setup</string>
+    <string name="feature_sessions_new_session_manage_profiles">Manage profiles…</string>
+    <string name="feature_sessions_new_session_manage_profiles_summary">Create and edit terminal profiles</string>
+
+    <!-- Startup automation -->
+    <string name="feature_sessions_title_settings">Sessions</string>
+    <string name="feature_sessions_startup_title">Startup automation</string>
+    <string name="feature_sessions_startup_summary">Commands that run when terminal sessions start</string>
+    <string name="feature_sessions_startup_commands_title">Startup commands</string>
+    <string name="feature_sessions_startup_commands_none">None</string>
+    <string name="feature_sessions_startup_commands_dialog_message">Run by the shell of every new session, before the startup commands of its profile. Use commands that work in your shell, like cd ~/projects or . ~/script.sh.</string>
+    <string name="feature_sessions_startup_info">Startup commands are run by bash, zsh, fish and sh after their own startup files, like ~/.bashrc, which are not changed. They are saved in ~/.termux/re/. Failsafe sessions and sessions started by plugins don\'t run them.</string>
+    <string name="feature_sessions_startup_global_source">the global startup commands</string>
+
 </resources>

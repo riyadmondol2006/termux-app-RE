@@ -26,7 +26,6 @@ public final class SessionsPreferences {
     public static final String KEY_CLEAR_SAVED_SESSIONS = "clear_saved_sessions";
 
     public static final String KEY_STARTUP_COMMANDS = "startup_commands";
-    public static final String KEY_STARTUP_FILES = "startup_files";
 
     public static final String KEY_NOTIFICATIONS = "terminal_notifications";
     public static final String KEY_NOTIFY_COMMANDS = "notify_long_commands";

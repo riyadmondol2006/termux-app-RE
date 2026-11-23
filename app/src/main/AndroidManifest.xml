@@ -123,6 +123,18 @@
             android:label="@string/title_activity_termux_settings"
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
 
+        <!-- Session features: terminal profiles and session settings. -->
+        <activity
+            android:name=".app.features.sessions.ProfilesActivity"
+            android:exported="false"
+            android:label="@string/feature_sessions_profiles_title"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+        <activity
+            android:name=".app.features.sessions.SessionSettingsActivity"
+            android:exported="false"
+            android:label="@string/feature_sessions_title_settings"
+            android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+
         <activity
             android:name=".shared.activities.ReportActivity"
             android:theme="@style/Theme.MarkdownViewActivity.DayNight"

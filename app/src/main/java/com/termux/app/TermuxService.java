@@ -52,6 +52,7 @@ import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -585,7 +586,19 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
     /** Create a {@link TermuxSession}. */
     @Nullable
-    public synchronized TermuxSession createTermuxSession(ExecutionCommand executionCommand) {
+    public TermuxSession createTermuxSession(ExecutionCommand executionCommand) {
+        return createTermuxSession(executionCommand, null);
+    }
+
+    /**
+     * Create a {@link TermuxSession}.
+     *
+     * @param additionalEnvironment Environment variables to add to the session environment, like
+     *                              for startup automation, or {@code null}.
+     */
+    @Nullable
+    public synchronized TermuxSession createTermuxSession(ExecutionCommand executionCommand,
+                                                         @Nullable HashMap<String, String> additionalEnvironment) {
         if (executionCommand == null) return null;
 
         Logger.logDebug(LOG_TAG, "Creating \"" + executionCommand.getCommandIdAndLabelLogString() + "\" TermuxSession");
@@ -605,7 +618,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         // Otherwise if command was manually started by the user like by adding a new terminal session,
         // then no need to set stdout
         TermuxSession newTermuxSession = TermuxSession.execute(this, executionCommand, getTermuxTerminalSessionClient(),
-            this, new TermuxShellEnvironment(), null, executionCommand.isPluginExecutionCommand);
+            this, new TermuxShellEnvironment(), additionalEnvironment, executionCommand.isPluginExecutionCommand);
         if (newTermuxSession == null) {
             Logger.logError(LOG_TAG, "Failed to execute new TermuxSession command for:\n" + executionCommand.getCommandIdAndLabelLogString());
             // If the execution command was started for a plugin, then process the error

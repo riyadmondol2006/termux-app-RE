@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The session settings, stored in the "termux_re_sessions" preferences, see SessionsPreferences. -->
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:key="category_startup"
+        app:title="@string/feature_sessions_startup_title">
+
+        <EditTextPreference
+            app:key="startup_commands"
+            app:dialogMessage="@string/feature_sessions_startup_commands_dialog_message"
+            app:title="@string/feature_sessions_startup_commands_title" />
+
+        <Preference
+            app:key="manage_profiles"
+            app:summary="@string/feature_sessions_profiles_summary"
+            app:title="@string/feature_sessions_profiles_title" />
+
+        <Preference
+            app:key="startup_info"
+            app:selectable="false"
+            app:summary="@string/feature_sessions_startup_info" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>
