@@ -23,15 +23,31 @@
             android:layout_above="@+id/terminal_toolbar_view_pager"
             android:layout_height="match_parent">
 
-            <com.termux.view.TerminalView
-                android:id="@+id/terminal_view"
+            <!-- The terminal area. Terminal view features, like the search bar, are added over the terminal. -->
+            <FrameLayout
+                android:id="@+id/feature_terminal_container"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:defaultFocusHighlightEnabled="false"
-                android:focusableInTouchMode="true"
-                android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
-                android:scrollbars="vertical"
-                tools:ignore="UnusedAttribute" />
+                android:layout_height="match_parent">
+
+                <!-- Lays out the terminal view over its whole size, or in one of two panes when split. -->
+                <com.termux.app.features.terminal.split.SplitTerminalLayout
+                    android:id="@+id/feature_terminal_split_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <com.termux.view.TerminalView
+                        android:id="@+id/terminal_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:defaultFocusHighlightEnabled="false"
+                        android:focusableInTouchMode="true"
+                        android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
+                        android:scrollbars="vertical"
+                        tools:ignore="UnusedAttribute" />
+
+                </com.termux.app.features.terminal.split.SplitTerminalLayout>
+
+            </FrameLayout>
 
             <!-- Material 3 modal navigation drawer. -->
             <LinearLayout

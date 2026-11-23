@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of the terminal view features: search, split screen, copy and paste. -->
+<resources>
+
+    <!-- Terminal search -->
+    <string name="feature_terminal_search_title">Search terminal</string>
+    <string name="feature_terminal_search_summary">Find text in the output and scrollback of the session</string>
+    <string name="feature_terminal_search_action">Search…</string>
+    <string name="feature_terminal_search_hint">Search</string>
+    <string name="feature_terminal_search_case_sensitive">Match case</string>
+    <string name="feature_terminal_search_case_sensitive_label" translatable="false">Aa</string>
+    <string name="feature_terminal_search_regex">Regular expression</string>
+    <string name="feature_terminal_search_regex_label" translatable="false">.*</string>
+    <string name="feature_terminal_search_previous">Previous match</string>
+    <string name="feature_terminal_search_next">Next match</string>
+    <string name="feature_terminal_search_close">Close search</string>
+    <string name="feature_terminal_search_count">%1$d/%2$d</string>
+    <string name="feature_terminal_search_count_truncated">%1$d/%2$d+</string>
+    <string name="feature_terminal_search_no_matches">No results</string>
+    <string name="feature_terminal_search_searching" translatable="false">…</string>
+    <string name="feature_terminal_search_invalid_regex">Invalid</string>
+    <string name="feature_terminal_search_invalid_regex_message">Invalid regular expression: %1$s</string>
+    <string name="feature_terminal_search_count_description">Match %1$d of %2$d</string>
+
+    <!-- Copy and paste -->
+    <string name="feature_terminal_clipboard_title">Clipboard history</string>
+    <string name="feature_terminal_clipboard_summary">Paste text you copied or pasted earlier</string>
+    <string name="feature_terminal_clipboard_paste_action">Paste from history…</string>
+    <string name="feature_terminal_clipboard_search_action">Search</string>
+    <string name="feature_terminal_clipboard_empty">Text you copy in this app, or paste into it, appears here.</string>
+    <string name="feature_terminal_clipboard_disabled">The clipboard history is off.</string>
+    <string name="feature_terminal_clipboard_enabled">Keep clipboard history</string>
+    <string name="feature_terminal_clipboard_enabled_summary">Kept on this device only. Android does not let apps see text copied in other apps until you paste it here.</string>
+    <string name="feature_terminal_clipboard_clear">Clear all</string>
+    <string name="feature_terminal_clipboard_clear_confirm">Clear the clipboard history?</string>
+    <string name="feature_terminal_clipboard_item_paste">Paste</string>
+    <string name="feature_terminal_clipboard_item_copy">Copy to clipboard</string>
+    <string name="feature_terminal_clipboard_item_delete">Delete</string>
+    <string name="feature_terminal_clipboard_copied">Copied to clipboard</string>
+    <string name="feature_terminal_clipboard_no_session">No running session to paste into</string>
+    <plurals name="feature_terminal_clipboard_item_lines">
+        <item quantity="one">%1$d line</item>
+        <item quantity="other">%1$d lines</item>
+    </plurals>
+
+    <!-- Split screen -->
+    <string name="feature_terminal_split_title">Split screen</string>
+    <string name="feature_terminal_split_summary">Show two sessions side by side or one above the other</string>
+    <string name="feature_terminal_split_choose_session">Session in other pane…</string>
+    <string name="feature_terminal_split_focus_other">Type in other pane</string>
+    <string name="feature_terminal_split_swap">Swap panes</string>
+    <string name="feature_terminal_split_close">Close split screen</string>
+    <string name="feature_terminal_split_new_session">New session</string>
+    <string name="feature_terminal_split_divider">Split screen divider. Drag to resize the panes, tap for options.</string>
+
+</resources>

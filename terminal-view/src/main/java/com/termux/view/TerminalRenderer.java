@@ -9,6 +9,8 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Build;
 
+import androidx.annotation.Nullable;
+
 import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalRow;
@@ -37,6 +39,9 @@ public final class TerminalRenderer {
 
     private final float[] asciiMeasures = new float[127];
 
+    /** The highlights of the row being drawn, see {@link TerminalHighlighter#getHighlights}. */
+    private final int[] mRowHighlights = new int[TerminalHighlighter.MAX_HIGHLIGHTS_PER_ROW * TerminalHighlighter.VALUES_PER_HIGHLIGHT];
+
     public TerminalRenderer(int textSize, Typeface typeface) {
         mTextSize = textSize;
         mTypeface = typeface;
@@ -60,6 +65,16 @@ public final class TerminalRenderer {
     /** Render the terminal to a canvas with at a specified row scroll, and an optional rectangular selection. */
     public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow,
                              int selectionY1, int selectionY2, int selectionX1, int selectionX2) {
+        render(mEmulator, canvas, topRow, selectionY1, selectionY2, selectionX1, selectionX2, null);
+    }
+
+    /**
+     * Render the terminal to a canvas with at a specified row scroll, an optional rectangular
+     * selection and optional highlights, like search matches.
+     */
+    public final void render(TerminalEmulator mEmulator, Canvas canvas, int topRow,
+                             int selectionY1, int selectionY2, int selectionX1, int selectionX2,
+                             @Nullable TerminalHighlighter highlighter) {
         final boolean reverseVideo = mEmulator.isReverseVideo();
         final int endRow = topRow + mEmulator.mRows;
         final int columns = mEmulator.mColumns;
@@ -69,6 +84,8 @@ public final class TerminalRenderer {
         final TerminalBuffer screen = mEmulator.getScreen();
         final int[] palette = mEmulator.mColors.mCurrentColors;
         final int cursorShape = mEmulator.getCursorStyle();
+        final boolean hasHighlights = highlighter != null && highlighter.onPrepareRender(mEmulator);
+        final int[] rowHighlights = mRowHighlights;
 
         if (reverseVideo)
             canvas.drawColor(palette[TextStyle.COLOR_INDEX_FOREGROUND], PorterDuff.Mode.SRC);
@@ -87,6 +104,11 @@ public final class TerminalRenderer {
             TerminalRow lineObject = screen.allocateFullLineIfNecessary(screen.externalToInternalRow(row));
             final char[] line = lineObject.mText;
             final int charsUsedInLine = lineObject.getSpaceUsed();
+
+            final int highlightCount = hasHighlights ? Math.min(highlighter.getHighlights(mEmulator, row, rowHighlights),
+                TerminalHighlighter.MAX_HIGHLIGHTS_PER_ROW) : 0;
+            int nextHighlight = 0;
+            int lastRunHighlight = -1;
 
             long lastRunStyle = 0;
             boolean lastRunInsideCursor = false;
@@ -125,6 +147,14 @@ public final class TerminalRenderer {
                 final int codePointWcWidth = WcWidth.width(codePoint);
                 final boolean insideCursor = (cursorX == column || (codePointWcWidth == 2 && cursorX == column + 1));
                 final boolean insideSelection = column >= selx1 && column <= selx2;
+                int highlight = -1;
+                if (highlightCount > 0) {
+                    // Highlights are sorted, so skip the ones ending before this column.
+                    while (nextHighlight < highlightCount && rowHighlights[nextHighlight * TerminalHighlighter.VALUES_PER_HIGHLIGHT + 1] <= column)
+                        nextHighlight++;
+                    if (nextHighlight < highlightCount && rowHighlights[nextHighlight * TerminalHighlighter.VALUES_PER_HIGHLIGHT] <= column)
+                        highlight = nextHighlight;
+                }
 
                 // Check if the measured text width for this code point is not the same as that expected by wcwidth().
                 // This could happen for some fonts which are not truly monospace, or for more exotic characters such as
@@ -134,7 +164,7 @@ public final class TerminalRenderer {
                     currentCharIndex, charsForCodePoint);
                 final boolean fontWidthMismatch = Math.abs(measuredCodePointWidth / mFontWidth - codePointWcWidth) > 0.01;
 
-                if (style != lastRunStyle || insideCursor != lastRunInsideCursor || insideSelection != lastRunInsideSelection || fontWidthMismatch || lastRunFontWidthMismatch) {
+                if (style != lastRunStyle || insideCursor != lastRunInsideCursor || insideSelection != lastRunInsideSelection || highlight != lastRunHighlight || fontWidthMismatch || lastRunFontWidthMismatch) {
                     if (column == 0 || column == lastRunStartColumn) {
                         // Skip first column as there is nothing to draw, just record the current style.
                     } else {
@@ -147,12 +177,14 @@ public final class TerminalRenderer {
                         }
                         drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun,
                             lastRunStartIndex, charsSinceLastRun, measuredWidthForRun,
-                            cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection);
+                            cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
+                            lastRunInsideSelection ? -1 : lastRunHighlight);
                     }
                     measuredWidthForRun = 0.f;
                     lastRunStyle = style;
                     lastRunInsideCursor = insideCursor;
                     lastRunInsideSelection = insideSelection;
+                    lastRunHighlight = highlight;
                     lastRunStartColumn = column;
                     lastRunStartIndex = currentCharIndex;
                     lastRunFontWidthMismatch = fontWidthMismatch;
@@ -175,13 +207,17 @@ public final class TerminalRenderer {
                 invertCursorTextColor = true;
             }
             drawTextRun(canvas, line, palette, heightOffset, lastRunStartColumn, columnWidthSinceLastRun, lastRunStartIndex, charsSinceLastRun,
-                measuredWidthForRun, cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection);
+                measuredWidthForRun, cursorColor, cursorShape, lastRunStyle, reverseVideo || invertCursorTextColor || lastRunInsideSelection,
+                lastRunInsideSelection ? -1 : lastRunHighlight);
         }
     }
 
+    /**
+     * @param highlight The index in {@link #mRowHighlights} of the highlight of the run, or -1.
+     */
     private void drawTextRun(Canvas canvas, char[] text, int[] palette, float y, int startColumn, int runWidthColumns,
                              int startCharIndex, int runWidthChars, float mes, int cursor, int cursorStyle,
-                             long textStyle, boolean reverseVideo) {
+                             long textStyle, boolean reverseVideo, int highlight) {
         int foreColor = TextStyle.decodeForeColor(textStyle);
         final int effect = TextStyle.decodeEffect(textStyle);
         int backColor = TextStyle.decodeBackColor(textStyle);
@@ -207,6 +243,11 @@ public final class TerminalRenderer {
             int tmp = foreColor;
             foreColor = backColor;
             backColor = tmp;
+        }
+
+        if (highlight >= 0) {
+            backColor = mRowHighlights[highlight * TerminalHighlighter.VALUES_PER_HIGHLIGHT + 2];
+            foreColor = mRowHighlights[highlight * TerminalHighlighter.VALUES_PER_HIGHLIGHT + 3];
         }
 
         float left = startColumn * mFontWidth;

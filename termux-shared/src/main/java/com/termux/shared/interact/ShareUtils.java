@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -27,6 +28,32 @@ import java.nio.charset.Charset;
 public class ShareUtils {
 
     private static final String LOG_TAG = "ShareUtils";
+
+    /** Notified of text copied to or read from the clipboard by the app, see {@link #setClipboardTextListener}. */
+    public interface ClipboardTextListener {
+        /**
+         * Called on the calling thread when text is copied with {@link #copyTextToClipboard} or read
+         * with {@link #getTextStringFromClipboardIfSet}, like to keep a clipboard history.
+         */
+        void onClipboardText(@NonNull Context context, @NonNull String text);
+    }
+
+    @Nullable private static volatile ClipboardTextListener sClipboardTextListener;
+
+    /** Set the listener notified of text copied to or read from the clipboard by the app, or {@code null}. */
+    public static void setClipboardTextListener(@Nullable ClipboardTextListener listener) {
+        sClipboardTextListener = listener;
+    }
+
+    private static void notifyClipboardTextListener(@NonNull Context context, @Nullable String text) {
+        ClipboardTextListener listener = sClipboardTextListener;
+        if (listener == null || text == null || text.isEmpty()) return;
+        try {
+            listener.onClipboardText(context, text);
+        } catch (Exception e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "The clipboard text listener failed", e);
+        }
+    }
 
     /**
      * Open the system app chooser that allows the user to select which app to send the intent.
@@ -107,9 +134,10 @@ public class ShareUtils {
         ClipboardManager clipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
         if (clipboardManager == null) return;
 
-        clipboardManager.setPrimaryClip(ClipData.newPlainText(clipDataLabel,
-            DataUtils.getTruncatedCommandOutput(text, DataUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES,
-                true, false, false)));
+        String clipText = DataUtils.getTruncatedCommandOutput(text, DataUtils.TRANSACTION_SIZE_LIMIT_IN_BYTES,
+            true, false, false);
+        clipboardManager.setPrimaryClip(ClipData.newPlainText(clipDataLabel, clipText));
+        notifyClipboardTextListener(context, clipText);
 
         if (toastString != null && !toastString.isEmpty())
             Logger.showToast(context, toastString, true);
@@ -126,7 +154,9 @@ public class ShareUtils {
         CharSequence textCharSequence = getTextFromClipboard(context, coerceToText);
         if (textCharSequence == null) return null;
         String textString = textCharSequence.toString();
-        return !textString.isEmpty() ? textString : null;
+        if (textString.isEmpty()) return null;
+        notifyClipboardTextListener(context, textString);
+        return textString;
     }
 
     /**

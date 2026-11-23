@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The terminal view of the other pane of the split screen, see SplitScreenController. It does not
+     take the input focus, which stays on the terminal view of the activity. -->
+<com.termux.view.TerminalView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/feature_terminal_split_secondary_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:defaultFocusHighlightEnabled="false"
+    android:focusable="false"
+    android:focusableInTouchMode="false"
+    android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
+    android:scrollbars="vertical"
+    tools:ignore="UnusedAttribute" />

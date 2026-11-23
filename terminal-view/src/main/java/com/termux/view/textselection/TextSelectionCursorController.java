@@ -33,6 +33,7 @@ public class TextSelectionCursorController implements CursorController {
     public final int ACTION_COPY = 1;
     public final int ACTION_PASTE = 2;
     public final int ACTION_MORE = 3;
+    public final int ACTION_SELECT_ALL = 4;
 
     public TextSelectionCursorController(TerminalView terminalView) {
         this.terminalView = terminalView;
@@ -90,6 +91,73 @@ public class TextSelectionCursorController implements CursorController {
         }
     }
 
+    /** Select the word at the position of {@code event}, while selecting text. */
+    public void selectWord(MotionEvent event) {
+        setInitialTextSelectionPosition(event);
+        onSelectionChanged();
+    }
+
+    /**
+     * Select the line at the external row {@code row}, including the rows it is wrapped over, while
+     * selecting text.
+     */
+    public void selectLine(int row) {
+        TerminalBuffer screen = terminalView.mEmulator.getScreen();
+        int firstRow = -screen.getActiveTranscriptRows();
+        int lastRow = terminalView.mEmulator.mRows - 1;
+        row = Math.max(firstRow, Math.min(lastRow, row));
+
+        int y1 = row, y2 = row;
+        while (y1 > firstRow && screen.getLineWrap(y1 - 1)) y1--;
+        while (y2 < lastRow && screen.getLineWrap(y2)) y2++;
+
+        mSelX1 = 0;
+        mSelY1 = y1;
+        mSelY2 = y2;
+        mSelX2 = screen.getLineWrap(y2) ? terminalView.mEmulator.mColumns - 1 :
+            Math.max(0, getDisplayWidth(screen.getSelectedText(0, y2, terminalView.mEmulator.mColumns - 1, y2)) - 1);
+        onSelectionChanged();
+    }
+
+    /** Select all text of the transcript and the screen, while selecting text. */
+    public void selectAll() {
+        TerminalBuffer screen = terminalView.mEmulator.getScreen();
+        int columns = terminalView.mEmulator.mColumns;
+
+        // Leave out the blank rows below the cursor.
+        int lastRow = terminalView.mEmulator.mRows - 1;
+        int cursorRow = Math.max(0, terminalView.mEmulator.getCursorRow());
+        while (lastRow > cursorRow && screen.getSelectedText(0, lastRow, columns - 1, lastRow).trim().isEmpty())
+            lastRow--;
+
+        mSelX1 = 0;
+        mSelY1 = -screen.getActiveTranscriptRows();
+        mSelX2 = columns - 1;
+        mSelY2 = lastRow;
+        onSelectionChanged();
+    }
+
+    /** Get the number of columns {@code text} takes. */
+    private static int getDisplayWidth(String text) {
+        int width = 0;
+        for (int i = 0; i < text.length(); ) {
+            int codePoint = text.codePointAt(i);
+            width += Math.max(0, WcWidth.width(codePoint));
+            i += Character.charCount(codePoint);
+        }
+        return width;
+    }
+
+    private void onSelectionChanged() {
+        mStartHandle.positionAtCursor(mSelX1, mSelY1, true);
+        mEndHandle.positionAtCursor(mSelX2 + 1, mSelY2, true);
+        if (mActionMode != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) mActionMode.invalidateContentRect();
+            mActionMode.invalidate();
+        }
+        terminalView.invalidate();
+    }
+
     public void setInitialTextSelectionPosition(MotionEvent event) {
         int[] columnAndRow = terminalView.getColumnAndRow(event, true);
         mSelX1 = mSelX2 = columnAndRow[0];
@@ -114,9 +182,12 @@ public class TextSelectionCursorController implements CursorController {
                 int show = MenuItem.SHOW_AS_ACTION_IF_ROOM | MenuItem.SHOW_AS_ACTION_WITH_TEXT;
 
                 ClipboardManager clipboard = (ClipboardManager) terminalView.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                menu.add(Menu.NONE, ACTION_COPY, Menu.NONE, R.string.copy_text).setShowAsAction(show);
-                menu.add(Menu.NONE, ACTION_PASTE, Menu.NONE, R.string.paste_text).setEnabled(clipboard != null && clipboard.hasPrimaryClip()).setShowAsAction(show);
-                menu.add(Menu.NONE, ACTION_MORE, Menu.NONE, R.string.text_selection_more);
+                menu.add(Menu.NONE, ACTION_COPY, 1, R.string.copy_text).setShowAsAction(show);
+                menu.add(Menu.NONE, ACTION_PASTE, 2, R.string.paste_text).setEnabled(clipboard != null && clipboard.hasPrimaryClip()).setShowAsAction(show);
+                menu.add(Menu.NONE, ACTION_SELECT_ALL, 3, R.string.text_selection_select_all).setShowAsAction(show);
+                TextSelectionActionProvider actionProvider = terminalView.getTextSelectionActionProvider();
+                if (actionProvider != null) actionProvider.onCreateTextSelectionActions(terminalView, menu);
+                menu.add(Menu.NONE, ACTION_MORE, Integer.MAX_VALUE, R.string.text_selection_more);
                 return true;
             }
 
@@ -151,6 +222,18 @@ public class TextSelectionCursorController implements CursorController {
                         // otherwise handles will show above popup
                         terminalView.stopTextSelectionMode();
                         terminalView.showContextMenu();
+                        break;
+                    case ACTION_SELECT_ALL:
+                        selectAll();
+                        break;
+                    default:
+                        TextSelectionActionProvider actionProvider = terminalView.getTextSelectionActionProvider();
+                        if (actionProvider != null) {
+                            String text = getSelectedText();
+                            // Stop the selection first, like for MORE, since the action may show a dialog.
+                            terminalView.stopTextSelectionMode();
+                            actionProvider.onTextSelectionActionClicked(terminalView, item, text);
+                        }
                         break;
                 }
 

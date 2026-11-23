@@ -10,6 +10,8 @@ import android.graphics.Rect;
 
 import android.os.SystemClock;
 
+import androidx.annotation.Nullable;
+
 /**
  * A circular buffer of {@link TerminalRow}:s which keeps notes about what is visible on a logical screen and the scroll
  * history.
@@ -33,6 +35,8 @@ public final class TerminalBuffer {
     private int mActiveTranscriptRows = 0;
     /** The index in the circular buffer where the visible screen starts. */
     private int mScreenFirstRow = 0;
+    /** The number of rows the content has been shifted up, see {@link #getScrolledRowsCount()}. */
+    private long mScrolledRowsCount = 0;
 
 
     /**
@@ -218,6 +222,26 @@ public final class TerminalBuffer {
         return mActiveTranscriptRows;
     }
 
+    /**
+     * Get the number of rows the content of the buffer has been shifted up since it was created, by
+     * scrolling or by shrinking the screen. Adding it to an external row gives a row number that does
+     * not change when more output scrolls the content up, which can be used to keep track of a row,
+     * like a search match, while the row is in the buffer and the number of columns does not change.
+     */
+    public long getScrolledRowsCount() {
+        return mScrolledRowsCount;
+    }
+
+    /**
+     * Get the row at the external row {@code externalRow} without allocating it.
+     *
+     * @return The row, or {@code null} if it is not allocated yet, in which case it is blank.
+     */
+    @Nullable
+    public TerminalRow getRowIfAllocated(int externalRow) {
+        return mLines[externalToInternalRow(externalRow)];
+    }
+
     public int getActiveRows() {
         return mActiveTranscriptRows + mScreenRows;
     }
@@ -298,6 +322,7 @@ public final class TerminalBuffer {
             }
             mScreenFirstRow += shiftDownOfTopRow;
             mScreenFirstRow = (mScreenFirstRow < 0) ? (mScreenFirstRow + mTotalRows) : (mScreenFirstRow % mTotalRows);
+            mScrolledRowsCount += shiftDownOfTopRow;
             mTotalRows = newTotalRows;
             mActiveTranscriptRows = altScreen ? 0 : Math.max(0, mActiveTranscriptRows + shiftDownOfTopRow);
             cursor[1] -= shiftDownOfTopRow;
@@ -469,6 +494,7 @@ public final class TerminalBuffer {
 
         // Update the screen location in the ring buffer:
         mScreenFirstRow = (mScreenFirstRow + 1) % mTotalRows;
+        mScrolledRowsCount++;
         // Note that the history has grown if not already full:
         if (mActiveTranscriptRows < mTotalRows - mScreenRows) mActiveTranscriptRows++;
 

@@ -41,6 +41,7 @@ import androidx.annotation.RequiresApi;
 import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
+import com.termux.view.textselection.TextSelectionActionProvider;
 import com.termux.view.textselection.TextSelectionCursorController;
 
 /** View displaying and interacting with a {@link TerminalSession}. */
@@ -59,6 +60,26 @@ public final class TerminalView extends View {
     public TerminalViewClient mClient;
 
     private TextSelectionCursorController mTextSelectionCursorController;
+
+    /** The highlights drawn over the text, like search matches, or {@code null}. */
+    @Nullable
+    private TerminalHighlighter mHighlighter;
+
+    /**
+     * Whether to keep the scroll position when new output arrives while scrolled up, instead of
+     * scrolling to the bottom. See {@link #setKeepScrollPositionOnOutput(boolean)}.
+     */
+    private boolean mKeepScrollPositionOnOutput;
+
+    /** Adds actions to the text selection toolbar, or {@code null}. */
+    @Nullable
+    private TextSelectionActionProvider mTextSelectionActionProvider;
+
+    /** The time and position of the last double tap that selected a word, to detect a triple tap. */
+    private long mWordSelectionTapTime = -1;
+    private float mWordSelectionTapX, mWordSelectionTapY;
+    /** The down time of the triple tap that selected a line, so its single tap is ignored. */
+    private long mLineSelectionTapDownTime = -1;
 
     private Handler mTerminalCursorBlinkerHandler;
     private TerminalCursorBlinkerRunnable mTerminalCursorBlinkerRunnable;
@@ -174,7 +195,8 @@ public final class TerminalView extends View {
                 if (mEmulator == null) return true;
 
                 if (isSelectingText()) {
-                    stopTextSelectionMode();
+                    // The tap that selected a line keeps the selection.
+                    if (event.getDownTime() != mLineSelectionTapDownTime) stopTextSelectionMode();
                     return true;
                 }
                 requestFocus();
@@ -258,8 +280,11 @@ public final class TerminalView extends View {
 
             @Override
             public boolean onDoubleTap(MotionEvent event) {
-                // Do not treat is as a single confirmed tap - it may be followed by zoom.
-                return false;
+                // A double tap is not treated as a single confirmed tap. It selects the word at the
+                // tap, unless the terminal wants mouse events, and a third tap selects the line.
+                if (mEmulator == null || mEmulator.isMouseTrackingActive() || mGestureRecognizer.isInProgress()) return false;
+                selectWordAt(event);
+                return true;
             }
 
             @Override
@@ -316,7 +341,7 @@ public final class TerminalView extends View {
         // The emulator of the new session will only be set below if the view has a size, but it may
         // already exist if the session was shown before.
         TerminalEmulator newEmulator = session != null ? session.getEmulator() : null;
-        if (newEmulator != null) newEmulator.onFocusChanged(hasWindowFocus());
+        if (newEmulator != null) newEmulator.onFocusChanged(hasInputFocusForTerminal(hasWindowFocus()));
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -481,7 +506,8 @@ public final class TerminalView extends View {
         int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
         if (mTopRow < -rowsInHistory) setTopRow(-rowsInHistory);
 
-        if (isSelectingText() || mEmulator.isAutoScrollDisabled()) {
+        final boolean keepScrollPosition = mKeepScrollPositionOnOutput && mTopRow < 0;
+        if (isSelectingText() || mEmulator.isAutoScrollDisabled() || keepScrollPosition) {
             // Do not scroll when selecting text.
             int rowShift = mEmulator.getScrollCounter();
             if (-mTopRow + rowShift > rowsInHistory) {
@@ -490,7 +516,7 @@ public final class TerminalView extends View {
                 if (isSelectingText())
                     stopTextSelectionMode();
 
-                if (mEmulator.isAutoScrollDisabled()) {
+                if (mEmulator.isAutoScrollDisabled() || keepScrollPosition) {
                     setTopRow(-rowsInHistory);
                     skipScrolling = true;
                 }
@@ -555,6 +581,28 @@ public final class TerminalView extends View {
         invalidate();
     }
 
+    /** The background image set with {@link #setTerminalBackgroundImage}, or {@code null}. */
+    @androidx.annotation.Nullable
+    public android.graphics.Bitmap getTerminalBackgroundImage() {
+        return mTerminalBackgroundImage;
+    }
+
+    /** The background-color overlay opacity set with {@link #setTerminalBackgroundImage}. */
+    public int getTerminalBackgroundAlpha() {
+        return mTerminalBackgroundAlpha;
+    }
+
+    /**
+     * Use the renderer of another view, so that this view shows text with the same size and
+     * typeface, like the views of the panes of a split screen.
+     */
+    public void setRenderer(TerminalRenderer renderer) {
+        if (renderer == null || renderer == mRenderer) return;
+        mRenderer = renderer;
+        updateSize();
+        invalidate();
+    }
+
     @Override
     public boolean onCheckIsTextEditor() {
         return true;
@@ -564,7 +612,15 @@ public final class TerminalView extends View {
     public void onWindowFocusChanged(boolean hasWindowFocus) {
         super.onWindowFocusChanged(hasWindowFocus);
         // Report focus in and out events to the terminal if requested with DECSET 1004.
-        if (mEmulator != null) mEmulator.onFocusChanged(hasWindowFocus);
+        if (mEmulator != null) mEmulator.onFocusChanged(hasInputFocusForTerminal(hasWindowFocus));
+    }
+
+    /**
+     * Get whether the terminal has the focus, for focus reporting. A view that can't take the focus,
+     * like one that only shows a session next to another view, never has it.
+     */
+    private boolean hasInputFocusForTerminal(boolean hasWindowFocus) {
+        return hasWindowFocus && isFocusable();
     }
 
     @Override
@@ -648,6 +704,12 @@ public final class TerminalView extends View {
         final int action = event.getAction();
 
         if (isSelectingText()) {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN && isTripleTap(event)) {
+                // Select the whole line at the third tap after a double tap that selected a word.
+                mWordSelectionTapTime = -1;
+                mLineSelectionTapDownTime = event.getDownTime();
+                getTextSelectionCursorController().selectLine(getColumnAndRow(event, true)[1]);
+            }
             updateFloatingToolbarVisibility(event);
             mGestureRecognizer.onTouchEvent(event);
             return true;
@@ -1141,7 +1203,7 @@ public final class TerminalView extends View {
                 mTextSelectionCursorController.getSelectors(sel);
             }
 
-            mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3]);
+            mRenderer.render(mEmulator, canvas, mTopRow, sel[0], sel[1], sel[2], sel[3], mHighlighter);
 
             // render the text selection handles
             renderTextSelection();
@@ -1188,6 +1250,41 @@ public final class TerminalView extends View {
         if (updateEmulator && mEmulator != null) {
             mEmulator.setTopRow(mTopRow);
         }
+    }
+
+    /**
+     * Scroll so that the external row {@code row} of the current screen is visible. If it is not
+     * visible already, it is shown in the middle of the view if possible.
+     */
+    public void scrollRowIntoView(int row) {
+        if (mEmulator == null) return;
+        if (row >= mTopRow && row < mTopRow + mEmulator.mRows) return;
+
+        int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
+        setTopRow(Math.max(-rowsInHistory, Math.min(0, row - mEmulator.mRows / 2)));
+        awakenScrollBars();
+        invalidate();
+    }
+
+    /**
+     * Set whether to keep the scroll position when new output arrives while the view is scrolled up,
+     * instead of scrolling to the bottom, like while the user looks at search matches. When at the
+     * bottom, the view still follows new output.
+     */
+    public void setKeepScrollPositionOnOutput(boolean keepScrollPosition) {
+        mKeepScrollPositionOnOutput = keepScrollPosition;
+    }
+
+    /** Set the highlights drawn over the text, like search matches, or {@code null} for none. */
+    public void setHighlighter(@Nullable TerminalHighlighter highlighter) {
+        if (mHighlighter == highlighter) return;
+        mHighlighter = highlighter;
+        invalidate();
+    }
+
+    @Nullable
+    public TerminalHighlighter getHighlighter() {
+        return mHighlighter;
     }
 
 
@@ -1537,6 +1634,44 @@ public final class TerminalView extends View {
         } else {
             return null;
         }
+    }
+
+    /** Start text selection with the word at {@code event} selected, or select it if already selecting. */
+    private void selectWordAt(MotionEvent event) {
+        if (isSelectingText()) {
+            getTextSelectionCursorController().selectWord(event);
+        } else {
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            startTextSelectionMode(event);
+        }
+        if (isSelectingText()) {
+            mWordSelectionTapTime = event.getEventTime();
+            mWordSelectionTapX = event.getX();
+            mWordSelectionTapY = event.getY();
+        }
+    }
+
+    /** Whether the down {@code event} is a third tap close to a double tap that selected a word. */
+    private boolean isTripleTap(MotionEvent event) {
+        if (mWordSelectionTapTime < 0) return false;
+        // The double tap event is the down event of its first tap.
+        if (event.getEventTime() - mWordSelectionTapTime > 3L * ViewConfiguration.getDoubleTapTimeout()) return false;
+        float slop = ViewConfiguration.get(getContext()).getScaledDoubleTapSlop();
+        float dx = event.getX() - mWordSelectionTapX, dy = event.getY() - mWordSelectionTapY;
+        return dx * dx + dy * dy <= slop * slop;
+    }
+
+    /**
+     * Set the provider of the actions added to the text selection toolbar, or {@code null}.
+     * Must be set before text selection starts to be used for it.
+     */
+    public void setTextSelectionActionProvider(@Nullable TextSelectionActionProvider provider) {
+        mTextSelectionActionProvider = provider;
+    }
+
+    @Nullable
+    public TextSelectionActionProvider getTextSelectionActionProvider() {
+        return mTextSelectionActionProvider;
     }
 
     public void startTextSelectionMode(MotionEvent event) {

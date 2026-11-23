@@ -15,6 +15,7 @@ import android.os.IBinder;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -43,6 +44,7 @@ import com.termux.app.activities.HelpActivity;
 import com.termux.app.activities.SettingsActivity;
 import com.termux.app.features.FeaturesDialog;
 import com.termux.app.features.sessions.NewSessionDialog;
+import com.termux.app.features.terminal.TerminalFeaturesController;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.app.terminal.TermuxSessionsListViewController;
@@ -105,6 +107,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      *  {@link TerminalSession} and {@link TermuxActivity}.
      */
     TermuxTerminalSessionActivityClient mTermuxTerminalSessionActivityClient;
+
+    /**
+     * The terminal view features, like terminal search.
+     */
+    TerminalFeaturesController mTerminalFeaturesController;
 
     /**
      * Termux app shared preferences manager.
@@ -463,6 +470,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
 
+        // Restore terminal view features that need sessions, like the split screen.
+        if (mTerminalFeaturesController != null) mTerminalFeaturesController.onServiceConnected();
+
         requestNotificationsPermissionIfNeeded();
     }
 
@@ -532,6 +542,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onCreate();
+
+        mTerminalFeaturesController = new TerminalFeaturesController(this);
     }
 
     private void setTermuxSessionsListView() {
@@ -645,9 +657,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void onBackPressed() {
         if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
             getDrawer().closeDrawers();
+        } else if (mTerminalFeaturesController != null && mTerminalFeaturesController.onBackPressed()) {
+            // Handled by a terminal view feature, like closing the search bar.
         } else {
             finishActivityIfNotFinishing();
         }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // Keyboard shortcuts of the terminal view features, like Ctrl+Shift+F for search.
+        if (mTerminalFeaturesController != null && mTerminalFeaturesController.onDispatchKeyEvent(event))
+            return true;
+        return super.dispatchKeyEvent(event);
     }
 
     public void finishActivityIfNotFinishing() {
@@ -687,6 +709,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         menu.add(Menu.NONE, CONTEXT_MENU_KILL_PROCESS_ID, Menu.NONE, getResources().getString(R.string.action_kill_process, getCurrentSession().getPid())).setEnabled(currentSession.isRunning());
         menu.add(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
         menu.add(Menu.NONE, CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on).setCheckable(true).setChecked(mPreferences.shouldKeepScreenOn());
+        if (mTerminalFeaturesController != null) mTerminalFeaturesController.onCreateContextMenu(menu);
         menu.add(Menu.NONE, CONTEXT_MENU_TOOLS_ID, Menu.NONE, R.string.action_open_tools);
         menu.add(Menu.NONE, CONTEXT_MENU_HELP_ID, Menu.NONE, R.string.action_open_help);
         menu.add(Menu.NONE, CONTEXT_MENU_SETTINGS_ID, Menu.NONE, R.string.action_open_settings);
@@ -703,6 +726,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         TerminalSession session = getCurrentSession();
+
+        if (mTerminalFeaturesController != null && mTerminalFeaturesController.onContextItemSelected(item))
+            return true;
 
         switch (item.getItemId()) {
             case CONTEXT_MENU_TOOLS_ID:
@@ -943,6 +969,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public void termuxSessionListNotifyUpdated() {
         mTermuxSessionListViewController.notifyDataSetChanged();
+        if (mTerminalFeaturesController != null) mTerminalFeaturesController.onSessionsChanged();
     }
 
     public boolean isVisible() {
@@ -973,6 +1000,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public TermuxTerminalSessionActivityClient getTermuxTerminalSessionClient() {
         return mTermuxTerminalSessionActivityClient;
+    }
+
+    /** Get the terminal view features, or {@code null} if the activity is in an invalid state. */
+    @Nullable
+    public TerminalFeaturesController getTerminalFeaturesController() {
+        return mTerminalFeaturesController;
     }
 
     @Nullable
