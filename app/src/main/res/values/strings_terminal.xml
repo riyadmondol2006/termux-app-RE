@@ -43,4 +43,14 @@
         <item quantity="other">%1$d lines</item>
     </plurals>
 
+    <!-- Split screen -->
+    <string name="feature_terminal_split_title">Split screen</string>
+    <string name="feature_terminal_split_summary">Show two sessions side by side or one above the other</string>
+    <string name="feature_terminal_split_choose_session">Session in other pane…</string>
+    <string name="feature_terminal_split_focus_other">Type in other pane</string>
+    <string name="feature_terminal_split_swap">Swap panes</string>
+    <string name="feature_terminal_split_close">Close split screen</string>
+    <string name="feature_terminal_split_new_session">New session</string>
+    <string name="feature_terminal_split_divider">Split screen divider. Drag to resize the panes, tap for options.</string>
+
 </resources>

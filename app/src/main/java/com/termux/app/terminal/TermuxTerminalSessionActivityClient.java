@@ -326,6 +326,11 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void setCurrentSession(TerminalSession session) {
         if (session == null) return;
 
+        // If the session is shown in the other pane of the split screen, the focus moves to that pane.
+        if (mActivity.getTerminalFeaturesController() != null &&
+            mActivity.getTerminalFeaturesController().onSetCurrentSession(session))
+            return;
+
         if (mActivity.getTerminalView().attachSession(session)) {
             // notify about switched session if not already displaying the session
             notifyOfSessionChange();

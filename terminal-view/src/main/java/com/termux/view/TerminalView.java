@@ -341,7 +341,7 @@ public final class TerminalView extends View {
         // The emulator of the new session will only be set below if the view has a size, but it may
         // already exist if the session was shown before.
         TerminalEmulator newEmulator = session != null ? session.getEmulator() : null;
-        if (newEmulator != null) newEmulator.onFocusChanged(hasWindowFocus());
+        if (newEmulator != null) newEmulator.onFocusChanged(hasInputFocusForTerminal(hasWindowFocus()));
 
         // The emulator's cached value will be read in `updateSize()` when emulator is set.
         setTopRow(0, false);
@@ -568,6 +568,17 @@ public final class TerminalView extends View {
         invalidate();
     }
 
+    /**
+     * Use the renderer of another view, so that this view shows text with the same size and
+     * typeface, like the views of the panes of a split screen.
+     */
+    public void setRenderer(TerminalRenderer renderer) {
+        if (renderer == null || renderer == mRenderer) return;
+        mRenderer = renderer;
+        updateSize();
+        invalidate();
+    }
+
     @Override
     public boolean onCheckIsTextEditor() {
         return true;
@@ -577,7 +588,15 @@ public final class TerminalView extends View {
     public void onWindowFocusChanged(boolean hasWindowFocus) {
         super.onWindowFocusChanged(hasWindowFocus);
         // Report focus in and out events to the terminal if requested with DECSET 1004.
-        if (mEmulator != null) mEmulator.onFocusChanged(hasWindowFocus);
+        if (mEmulator != null) mEmulator.onFocusChanged(hasInputFocusForTerminal(hasWindowFocus));
+    }
+
+    /**
+     * Get whether the terminal has the focus, for focus reporting. A view that can't take the focus,
+     * like one that only shows a session next to another view, never has it.
+     */
+    private boolean hasInputFocusForTerminal(boolean hasWindowFocus) {
+        return hasWindowFocus && isFocusable();
     }
 
     @Override

@@ -13,6 +13,8 @@ import com.termux.app.TermuxActivity;
 import com.termux.app.features.terminal.clipboard.ClipboardHistory;
 import com.termux.app.features.terminal.clipboard.ClipboardHistoryDialog;
 import com.termux.app.features.terminal.search.TerminalSearchController;
+import com.termux.app.features.terminal.split.SplitScreenController;
+import com.termux.app.features.terminal.split.SplitTerminalLayout;
 import com.termux.terminal.TerminalSession;
 import com.termux.view.TerminalView;
 import com.termux.view.textselection.TextSelectionActionProvider;
@@ -36,11 +38,15 @@ public final class TerminalFeaturesController {
 
     private final TermuxActivity mActivity;
     private final TerminalSearchController mSearchController;
+    private final SplitScreenController mSplitScreenController;
 
     public TerminalFeaturesController(@NonNull TermuxActivity activity) {
         mActivity = activity;
         ViewGroup container = activity.findViewById(R.id.feature_terminal_container);
         mSearchController = new TerminalSearchController(activity, container);
+        SplitTerminalLayout splitLayout = activity.findViewById(R.id.feature_terminal_split_layout);
+        // The search follows the focused pane.
+        mSplitScreenController = new SplitScreenController(activity, splitLayout, mSearchController::onTerminalViewChanged);
 
         // Keep a history of the text copied and pasted in the app.
         ClipboardHistory.install(activity);
@@ -53,11 +59,36 @@ public final class TerminalFeaturesController {
         return mSearchController;
     }
 
+    @NonNull
+    public SplitScreenController getSplitScreenController() {
+        return mSplitScreenController;
+    }
+
 
 
     /** Called when the text of {@code session} changed, while the activity is visible. */
     public void onTextChanged(@NonNull TerminalSession session) {
+        mSplitScreenController.onTextChanged(session);
         mSearchController.onTextChanged(session);
+    }
+
+    /**
+     * Called before {@code session} is set as the current session of the terminal view.
+     *
+     * @return Whether it was handled, like by moving the focus to the split screen pane showing it.
+     */
+    public boolean onSetCurrentSession(@Nullable TerminalSession session) {
+        return mSplitScreenController.onSetCurrentSession(session);
+    }
+
+    /** Called when sessions were added, removed or renamed. */
+    public void onSessionsChanged() {
+        mSplitScreenController.onSessionsChanged();
+    }
+
+    /** Called when the activity connected to the service and the current session is set. */
+    public void onServiceConnected() {
+        mSplitScreenController.onServiceConnected();
     }
 
     /**
@@ -74,6 +105,14 @@ public final class TerminalFeaturesController {
         if (event.getKeyCode() == KeyEvent.KEYCODE_F && event.isCtrlPressed() && event.isShiftPressed() && !event.isAltPressed()) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0)
                 mSearchController.toggleOrFocus();
+            return true;
+        }
+
+        // Ctrl+Shift+O: type in the other pane of the split screen.
+        if (event.getKeyCode() == KeyEvent.KEYCODE_O && event.isCtrlPressed() && event.isShiftPressed() && !event.isAltPressed()
+            && mSplitScreenController.isSplit()) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0)
+                mSplitScreenController.focusSecondaryPane(false);
             return true;
         }
         return false;

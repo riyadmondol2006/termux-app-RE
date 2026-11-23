@@ -461,6 +461,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
 
+        // Restore terminal view features that need sessions, like the split screen.
+        if (mTerminalFeaturesController != null) mTerminalFeaturesController.onServiceConnected();
+
         requestNotificationsPermissionIfNeeded();
     }
 
@@ -959,6 +962,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public void termuxSessionListNotifyUpdated() {
         mTermuxSessionListViewController.notifyDataSetChanged();
+        if (mTerminalFeaturesController != null) mTerminalFeaturesController.onSessionsChanged();
     }
 
     public boolean isVisible() {
