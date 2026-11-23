@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.InputType;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -86,6 +87,15 @@ public class SessionSettingsActivity extends AppCompatActivity {
             if (manageProfiles != null) {
                 manageProfiles.setOnPreferenceClickListener(preference -> {
                     ProfilesActivity.start(context);
+                    return true;
+                });
+            }
+
+            Preference clearSavedHistory = findPreference(SessionsPreferences.KEY_CLEAR_SAVED_SESSIONS);
+            if (clearSavedHistory != null) {
+                clearSavedHistory.setOnPreferenceClickListener(preference -> {
+                    SessionPersistence.deleteSavedTranscripts(context, null);
+                    Toast.makeText(context, R.string.feature_sessions_msg_saved_history_cleared, Toast.LENGTH_SHORT).show();
                     return true;
                 });
             }

@@ -29,4 +29,13 @@ public final class SessionFeatureEntries {
         @Override public void open(@NonNull TermuxActivity activity) { SessionSettingsActivity.start(activity, "category_startup"); }
     }
 
+    /** Opens the session persistence settings. */
+    public static final class Persistence extends TermuxFeature {
+        @NonNull @Override public String getId() { return "session_persistence"; }
+        @Override public int getTitle() { return R.string.feature_sessions_persistence_title; }
+        @Override public int getSummary() { return R.string.feature_sessions_persistence_summary; }
+        @Override public int getIcon() { return R.drawable.feature_sessions_ic_history; }
+        @Override public void open(@NonNull TermuxActivity activity) { SessionSettingsActivity.start(activity, "category_persistence"); }
+    }
+
 }

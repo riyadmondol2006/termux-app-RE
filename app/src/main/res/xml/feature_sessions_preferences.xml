@@ -23,4 +23,37 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:key="category_persistence"
+        app:title="@string/feature_sessions_persistence_title">
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="restore_sessions"
+            app:summary="@string/feature_sessions_restore_sessions_summary"
+            app:title="@string/feature_sessions_restore_sessions_title" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:dependency="restore_sessions"
+            app:key="save_transcripts"
+            app:summary="@string/feature_sessions_save_transcripts_summary"
+            app:title="@string/feature_sessions_save_transcripts_title" />
+
+        <ListPreference
+            app:defaultValue="1000"
+            app:dependency="save_transcripts"
+            app:entries="@array/feature_sessions_transcript_lines"
+            app:entryValues="@array/feature_sessions_transcript_lines"
+            app:key="transcript_lines"
+            app:title="@string/feature_sessions_transcript_lines_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            app:key="clear_saved_sessions"
+            app:summary="@string/feature_sessions_clear_saved_history_summary"
+            app:title="@string/feature_sessions_clear_saved_history_title" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

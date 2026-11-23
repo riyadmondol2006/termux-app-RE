@@ -63,8 +63,21 @@ public final class SessionStartup {
     public static TermuxSession createSession(@NonNull Context context, @NonNull TermuxService service,
                                               @Nullable TerminalProfile profile, @Nullable String sessionName,
                                               @Nullable String workingDirectory) {
+        return createSession(context, service, profile, sessionName, workingDirectory, false);
+    }
+
+    /**
+     * Create a session.
+     *
+     * @param keepWorkingDirectory Use {@code workingDirectory} even if the profile has one, like
+     *                             for restored sessions.
+     */
+    @Nullable
+    public static TermuxSession createSession(@NonNull Context context, @NonNull TermuxService service,
+                                              @Nullable TerminalProfile profile, @Nullable String sessionName,
+                                              @Nullable String workingDirectory, boolean keepWorkingDirectory) {
         if (profile != null) {
-            String profileDirectory = resolveWorkingDirectory(profile.workingDirectory);
+            String profileDirectory = keepWorkingDirectory && workingDirectory != null ? null : resolveWorkingDirectory(profile.workingDirectory);
             if (profileDirectory != null) workingDirectory = profileDirectory;
             if (sessionName == null && !profile.name.trim().isEmpty()) sessionName = profile.name.trim();
         }

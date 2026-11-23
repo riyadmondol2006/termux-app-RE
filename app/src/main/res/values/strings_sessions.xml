@@ -99,4 +99,29 @@
     <string name="feature_sessions_startup_info">Startup commands are run by bash, zsh, fish and sh after their own startup files, like ~/.bashrc, which are not changed. They are saved in ~/.termux/re/. Failsafe sessions and sessions started by plugins don\'t run them.</string>
     <string name="feature_sessions_startup_global_source">the global startup commands</string>
 
+    <!-- Session persistence -->
+    <string name="feature_sessions_persistence_title">Session persistence</string>
+    <string name="feature_sessions_persistence_summary">Restore sessions and their history after the app restarts</string>
+    <string name="feature_sessions_restore_sessions_title">Restore sessions</string>
+    <string name="feature_sessions_restore_sessions_summary">When the app starts again after Android stopped it, after Exit or a reboot, recreate the sessions with their names, workspaces, profiles and working directories. Programs that were running are not restored.</string>
+    <string name="feature_sessions_save_transcripts_title">Save terminal history</string>
+    <string name="feature_sessions_save_transcripts_summary">Also save the last lines of each session and show them above the first prompt of the restored session. The history may contain passwords or other secrets shown in the terminal. It is stored in the app\'s private storage.</string>
+    <string name="feature_sessions_transcript_lines_title">Lines of history to save</string>
+    <string name="feature_sessions_clear_saved_history_title">Delete saved history</string>
+    <string name="feature_sessions_clear_saved_history_summary">Delete the saved terminal history of all sessions</string>
+    <string name="feature_sessions_msg_saved_history_cleared">Saved history deleted</string>
+    <string-array name="feature_sessions_transcript_lines" translatable="false">
+        <item>200</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>2000</item>
+        <item>5000</item>
+    </string-array>
+    <string name="feature_sessions_restored_history_header">── History of the session saved %1$s ──</string>
+    <string name="feature_sessions_restored_history_footer">── Restored session, the history above is read-only ──</string>
+    <string name="feature_sessions_action_view_restored_history">View restored history</string>
+    <string name="feature_sessions_title_restored_history">History of %1$s</string>
+    <string name="feature_sessions_action_copy">Copy</string>
+    <string name="feature_sessions_action_share">Share</string>
+
 </resources>

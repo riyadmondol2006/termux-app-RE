@@ -22,6 +22,9 @@ public final class SessionRegistry {
 
     private static long sNextSequence = 1;
 
+    /** The handle of the session shown in the activity. */
+    @Nullable private static String sCurrentSession;
+
     private SessionRegistry() {}
 
     /** Get the info of {@code session}, which is created if it does not exist yet. */
@@ -64,6 +67,16 @@ public final class SessionRegistry {
     @Nullable
     public static synchronized String getLastActiveSession(@NonNull String workspaceId) {
         return sLastActiveSessions.get(workspaceId);
+    }
+
+    /** Set the handle of the session shown in the activity, see {@link SessionPersistence}. */
+    public static synchronized void setCurrentSession(@Nullable String handle) {
+        sCurrentSession = handle;
+    }
+
+    @Nullable
+    public static synchronized String getCurrentSession() {
+        return sCurrentSession != null && sInfos.containsKey(sCurrentSession) ? sCurrentSession : null;
     }
 
 }

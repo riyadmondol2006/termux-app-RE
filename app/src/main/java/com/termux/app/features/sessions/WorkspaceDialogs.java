@@ -47,6 +47,7 @@ public final class WorkspaceDialogs {
             .setPositiveButton(R.string.feature_sessions_action_delete, (dialog, which) -> {
                 WorkspaceStore.deleteWorkspace(activity, workspace.id);
                 activity.termuxSessionListNotifyUpdated();
+                SessionPersistence.scheduleSave(activity.getTermuxService());
                 activity.getTermuxTerminalSessionClient().checkAndScrollToSession(activity.getCurrentSession());
             })
             .setNegativeButton(android.R.string.cancel, null)

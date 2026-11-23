@@ -127,6 +127,7 @@ public final class SessionWorkspaces {
         }
         activity.termuxSessionListNotifyUpdated();
         activity.getTermuxTerminalSessionClient().checkAndScrollToSession(activity.getCurrentSession());
+        SessionPersistence.scheduleSave(activity.getTermuxService());
     }
 
     public static void togglePinned(@NonNull TermuxActivity activity, @NonNull TerminalSession session) {
@@ -134,6 +135,7 @@ public final class SessionWorkspaces {
         info.pinned = !info.pinned;
         activity.termuxSessionListNotifyUpdated();
         activity.getTermuxTerminalSessionClient().checkAndScrollToSession(activity.getCurrentSession());
+        SessionPersistence.scheduleSave(activity.getTermuxService());
     }
 
 }

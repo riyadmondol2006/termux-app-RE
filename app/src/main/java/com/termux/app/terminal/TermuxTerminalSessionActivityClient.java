@@ -24,6 +24,7 @@ import com.termux.app.features.sessions.ProfileStore;
 import com.termux.app.features.sessions.ProfilesActivity;
 import com.termux.app.features.sessions.SessionInfo;
 import com.termux.app.features.sessions.SessionListModel;
+import com.termux.app.features.sessions.SessionPersistence;
 import com.termux.app.features.sessions.SessionRegistry;
 import com.termux.app.features.sessions.SessionStartup;
 import com.termux.app.features.sessions.TerminalProfile;
@@ -127,6 +128,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         // Store current session in shared preferences so that it can be restored later in
         // {@link #onStart} if needed.
         setCurrentStoredSession();
+
+        // Save the sessions with their transcripts, since the app may be killed while in background.
+        SessionPersistence.saveNow(mActivity.getTermuxService(), false);
 
         // Release mBellSoundPool resources, specially to prevent exceptions like the following to be thrown
         // java.util.concurrent.TimeoutException: android.media.SoundPool.finalize() timed out after 10 seconds
@@ -296,6 +300,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TermuxSession termuxSession = service.getTermuxSessionForTerminalSession(terminalSession);
         if (termuxSession != null)
             termuxSession.getExecutionCommand().mPid = pid;
+
+        // Show the saved transcript of a restored session above the output of its new shell.
+        SessionPersistence.onSessionStarted(mActivity, terminalSession);
     }
 
 
@@ -353,6 +360,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
 
         SessionRegistry.setLastActiveSession(SessionWorkspaces.getWorkspaceId(mActivity, session), session.mHandle);
+        SessionRegistry.setCurrentSession(session.mHandle);
         updateFontSizeForSession(session);
 
         // We call the following even when the session is already being displayed since config may
@@ -441,6 +449,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TextInputDialogUtils.textInput(mActivity, R.string.title_rename_session, sessionToRename.mSessionName, R.string.action_rename_session_confirm, text -> {
             renameSession(sessionToRename, text);
             termuxSessionListNotifyUpdated();
+            SessionPersistence.scheduleSave(mActivity.getTermuxService());
         }, -1, null, -1, null, null);
     }
 

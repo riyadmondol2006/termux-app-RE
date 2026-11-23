@@ -18,6 +18,7 @@ public final class SessionFeatures {
         features.add(new WorkspacesFeature());
         features.add(new SessionFeatureEntries.Profiles());
         features.add(new SessionFeatureEntries.StartupAutomation());
+        features.add(new SessionFeatureEntries.Persistence());
     }
 
 }

@@ -31,6 +31,11 @@ public final class SessionMenu {
         items.add(activity.getString(R.string.feature_sessions_action_move_session));
         actions.add(() -> WorkspaceDialogs.showMoveSession(activity, session));
 
+        if (info.restoredTranscript != null) {
+            items.add(activity.getString(R.string.feature_sessions_action_view_restored_history));
+            actions.add(() -> RestoredHistoryDialog.show(activity, session));
+        }
+
         items.add(activity.getString(R.string.feature_sessions_action_close_session));
         actions.add(() -> confirmCloseSession(activity, session));
 
