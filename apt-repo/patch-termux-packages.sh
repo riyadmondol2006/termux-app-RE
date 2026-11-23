@@ -21,6 +21,9 @@
 #   back to the official repositories. Mirror files of other repositories left over from an
 #   earlier termux-tools version are deleted when it is upgraded.
 #
+# - Packages are compressed with xz's strongest preset, -9e, so more of them fit in the 1 GB of
+#   GitHub Pages.
+#
 # The package build steps are wrapped, not replaced, so upstream changes to them still apply.
 #
 # Usage: patch-termux-packages.sh <termux-packages dir> <app package name> <package repository url> <app repository url>
@@ -85,6 +88,12 @@ for var in TERMUX_REPO_APP__DATA_DIR TERMUX_REPO__CORE_DIR TERMUX_REPO__APPS_DIR
 	sed -i -E "s|^$var=\"/data/data/[^/\"]+|$var=\"/data/data/$PACKAGE_NAME|" "$PROPERTIES"
 	grep -qE "^$var=\"/data/data/$PACKAGE_NAME(/[^\"]*)?\"$" "$PROPERTIES" || fail "Failed to set $var in $PROPERTIES"
 done
+
+### Package compression
+CREATE_DEB=scripts/build/termux_step_create_debian_package.sh
+grep -qF 'XZ_OPT="-T$TERMUX_PKG_MAKE_PROCESSES"' "$CREATE_DEB" || fail "$CREATE_DEB no longer sets XZ_OPT"
+sed -i 's/XZ_OPT="-T\$TERMUX_PKG_MAKE_PROCESSES"/XZ_OPT="-T$TERMUX_PKG_MAKE_PROCESSES -9e"/' "$CREATE_DEB"
+grep -qF 'XZ_OPT="-T$TERMUX_PKG_MAKE_PROCESSES -9e"' "$CREATE_DEB" || fail "Failed to set the xz preset in $CREATE_DEB"
 
 ### repo.json
 jq -n --arg url "$REPO_URL" '{
