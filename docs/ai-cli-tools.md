@@ -2,8 +2,9 @@
 
 Tested 2026-11-24 (Asia/Dhaka) on Pixel 6, Android 17, aarch64, debug
 `com.termux.re`. This is Android/Bionic, not GNU/Linux. Its prefix is
-`/data/data/com.termux.re/files/usr`. Never install official Termux `.deb` files
-or point this app at official Termux repositories.
+`/data/data/com.termux.re/files/usr`. Official Termux `.deb` files only work
+through the [official packages compatibility layer](official-packages.md), which
+rewrites them while they are installed. Never install them with `dpkg -i` directly.
 
 ## Status and steps
 
@@ -54,22 +55,25 @@ cross-compiled Android `rg`; this is not a published apt package.
 To remove its install: delete only the above version directory. To remove a
 separate global test install: `npm uninstall -g @anthropic-ai/claude-code`.
 
-### Codex: requires a new native package
+### Codex: install the native package
 
-After **codex and ripgrep have been built, device-tested, and published for RE**:
+The npm package can't work on Android. Install the native `codex` package
+instead. Until it is in the Termux RE repository, turn on the
+[official packages compatibility layer](official-packages.md) (*Tools → Package
+repositories*, or `termux-re-official on`), which installs the official Termux
+build rewritten for Termux RE. Tested on the Pixel 6: `codex-cli 0.171.0` starts.
 
 ```sh
 # Only if you previously installed the broken npm launcher:
 npm uninstall -g @openai/codex
+termux-re-official on   # or the switch in Tools -> Package repositories
+pkg update
 pkg install codex ripgrep
 codex --version
-codex --help
 ```
 
-These are future validation steps, not a successful Codex installation claim.
-Do not use `npm --force`, pretend the platform is Linux, edit ELF headers, or
-use an official Termux binary as the solution. The helper's `codex` action
-requires the Debian package, avoiding accidental use of the npm launcher.
+Do not use `npm --force` or pretend the platform is Linux. The helper's `codex`
+action requires the Debian package, avoiding accidental use of the npm launcher.
 
 ## Reproduction and exact failures
 
