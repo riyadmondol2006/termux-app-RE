@@ -70,6 +70,12 @@
         android:theme="@style/Theme.TermuxApp.DayNight.DarkActionBar"
         tools:targetApi="m">
 
+        <!-- Files area: document picker and foreground archive operations. -->
+        <activity android:name=".app.features.files.BackupActivity" android:exported="false" />
+        <service android:name=".app.features.files.BackupService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User initiated terminal backup and restore" />
+        </service>
+
         <activity
             android:name=".app.TermuxActivity"
             android:exported="true"

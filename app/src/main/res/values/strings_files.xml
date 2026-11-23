@@ -1,0 +1,6 @@
+<resources>
+    <string name="feature_files_manager">File manager</string>
+    <string name="feature_files_manager_summary">Browse, edit and organize terminal files</string>
+    <string name="feature_files_backup">Backup and restore</string>
+    <string name="feature_files_backup_summary">Save and restore home, settings and installed packages</string>
+</resources>
