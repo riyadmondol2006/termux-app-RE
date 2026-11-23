@@ -133,7 +133,16 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           sudo docker image prune --all --force
+          # Some builds, like V8 for codex, need more memory than the runner has: without swap
+          # the runner is killed and the job fails without a log.
+          if sudo fallocate -l 16G /termux-re-swap && sudo chmod 600 /termux-re-swap && \
+              sudo mkswap /termux-re-swap > /dev/null && sudo swapon /termux-re-swap; then
+            echo "Added 16 GB of swap"
+          else
+            echo "::warning::Failed to add swap, builds that need a lot of memory may fail"
+          fi
           df -h /
+          free -h
 
       - name: Clone repository
         uses: actions/checkout@v7
