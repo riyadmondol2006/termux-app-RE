@@ -1,0 +1,35 @@
+name: "Package request"
+description: "Ask for a package that the Termux RE package repository doesn't have yet"
+title: "Package request: "
+labels: ["package request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Termux RE can't install packages from the official Termux repositories: they are built for the `/data/data/com.termux` folder of the Termux app, and Termux RE (`com.termux.re`) keeps its files in `/data/data/com.termux.re`. So its packages are built separately, from the same [termux-packages](https://github.com/termux/termux-packages) sources, and hosted for free on GitHub Pages.
+
+        GitHub Pages allows 1 GB for everything, so the repository can't have every package for every device. Requests are built when there is room, and most packages fit.
+        [See which packages there are](https://riyadmondol2006.github.io/termux-app-RE/).
+  - type: input
+    id: packages
+    attributes:
+      label: Packages
+      description: The names you would use with `pkg install`, separated by spaces. They are the folder names in [termux-packages](https://github.com/termux/termux-packages/tree/master/packages).
+      placeholder: "emacs rust"
+    validations:
+      required: true
+  - type: input
+    id: architecture
+    attributes:
+      label: Device architecture
+      description: What `dpkg --print-architecture` prints in Termux RE. It is aarch64 on nearly all phones.
+      placeholder: "aarch64"
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: What do you need it for?
+      description: Optional. It helps to decide what to add first when space runs out.
+    validations:
+      required: false

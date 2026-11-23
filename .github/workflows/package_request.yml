@@ -1,0 +1,208 @@
+name: Package request
+
+# Builds the packages asked for in an issue (see the Package request issue form) with the Build
+# packages workflow, which publishes them in the Termux RE package repository, and comments the
+# result on the issue. Only people who can push to this repository can start it:
+#
+# - Add the build-package label to the issue: builds the packages of the issue form for the
+#   architecture it names. The label is removed again when the build is done.
+# - Comment "/build" on the issue for the same, or "/build <package>... [--arch <arch>,...]" to
+#   choose the packages and architectures (aarch64, arm, i686, x86_64 or all).
+#
+# Without an architecture, aarch64 is built, which nearly all phones are. The repository keeps
+# the requested packages, with their dependencies, from then on. The Pages site may hold 1 GB,
+# so publishing fails without changing anything if the packages would take it over its budget,
+# see the Publish packages workflow.
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  setup:
+    if: >-
+      !github.event.issue.pull_request && (
+        (github.event_name == 'issues' && github.event.label.name == 'build-package') ||
+        (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/build') &&
+          contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)))
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    outputs:
+      packages: ${{ steps.request.outputs.packages }}
+      architectures: ${{ steps.request.outputs.architectures }}
+    steps:
+      - name: Read request
+        id: request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          SENDER: ${{ github.event.sender.login }}
+          NUMBER: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.issue.body }}
+          COMMENT: ${{ github.event.comment.body }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail -o noglob
+          comment() { gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body "$1" > /dev/null; }
+
+          # Only people who can push to the repository may start builds.
+          PERMISSION="$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$SENDER/permission" --jq .permission)"
+          case "$PERMISSION" in
+            admin|maintain|write) ;;
+            *) echo "::error::$SENDER may not start package builds (permission: $PERMISSION)"; exit 1 ;;
+          esac
+
+          PACKAGES="" ARCHITECTURES=""
+          if [ "$EVENT" = issue_comment ]; then
+            read -r -a WORDS <<< "$(printf '%s\n' "$COMMENT" | head -n 1 | tr -d '\r')"
+            if [ "${WORDS[0]}" != /build ]; then
+              echo "Not a /build command"; exit 0
+            fi
+            for (( i = 1; i < ${#WORDS[@]}; i++ )); do
+              case "${WORDS[i]}" in
+                --arch) i=$(( i + 1 )); ARCHITECTURES="$ARCHITECTURES ${WORDS[i]:-}" ;;
+                --arch=*) ARCHITECTURES="$ARCHITECTURES ${WORDS[i]#--arch=}" ;;
+                *) PACKAGES="$PACKAGES ${WORDS[i]}" ;;
+              esac
+            done
+          fi
+
+          # The answers of the issue form, under "### <label>" headings.
+          form_field() {
+            printf '%s\n' "$BODY" | tr -d '\r' | awk -v heading="### $1" '
+              $0 == heading { found = 1; next }
+              /^### / { found = 0 }
+              found && $0 != "_No response_" { print }'
+          }
+          [ -n "${PACKAGES// /}" ] || PACKAGES="$(form_field Packages)"
+          [ -n "${ARCHITECTURES// /}" ] || ARCHITECTURES="$(form_field "Device architecture")"
+
+          declare -a NAMES=() INVALID=() ARCHS=()
+          for name in ${PACKAGES//,/ }; do
+            name="${name//\`/}"
+            if [[ "$name" =~ ^[a-z0-9][a-z0-9+._-]*$ ]]; then
+              [[ " ${NAMES[*]} " == *" $name "* ]] || NAMES+=("$name")
+            else
+              INVALID+=("$name")
+            fi
+          done
+          for arch in ${ARCHITECTURES//,/ }; do
+            case "${arch,,}" in
+              all) ARCHS=(aarch64 arm i686 x86_64); break ;;
+              aarch64|arm64|arm64-v8a|armv8) arch=aarch64 ;;
+              arm|armv7|armv7l|armv8l|armeabi|armeabi-v7a) arch=arm ;;
+              i686|i386|x86) arch=i686 ;;
+              x86_64|amd64|x64) arch=x86_64 ;;
+              *) INVALID+=("$arch"); continue ;;
+            esac
+            [[ " ${ARCHS[*]} " == *" $arch "* ]] || ARCHS+=("$arch")
+          done
+          [ ${#ARCHS[@]} -gt 0 ] || ARCHS=(aarch64)
+
+          if [ ${#INVALID[@]} -gt 0 ] || [ ${#NAMES[@]} -eq 0 ] || [ ${#NAMES[@]} -gt 20 ]; then
+            MESSAGE="Nothing was built."
+            [ ${#INVALID[@]} -gt 0 ] && MESSAGE="$MESSAGE These are not package names or architectures: \`${INVALID[*]}\`."
+            [ ${#NAMES[@]} -eq 0 ] && MESSAGE="$MESSAGE No packages were named."
+            [ ${#NAMES[@]} -gt 20 ] && MESSAGE="$MESSAGE At most 20 packages can be built at once."
+            comment "$MESSAGE Use \`/build <package>... [--arch aarch64,arm,i686,x86_64]\`."
+            echo "::error::$MESSAGE"; exit 1
+          fi
+
+          ARCH_LIST="$(IFS=,; echo "${ARCHS[*]}")"
+          echo "Packages: ${NAMES[*]}, architectures: $ARCH_LIST"
+          {
+            echo "packages=${NAMES[*]}"
+            echo "architectures=$ARCH_LIST"
+          } >> "$GITHUB_OUTPUT"
+          comment "Building \`${NAMES[*]}\` for ${ARCH_LIST//,/, }: $RUN_URL. The result will be posted here when it is published, which can take a few hours for big packages."
+
+  build:
+    needs: setup
+    if: needs.setup.outputs.packages != ''
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/build_packages.yml
+    with:
+      packages: ${{ needs.setup.outputs.packages }}
+      architectures: ${{ needs.setup.outputs.architectures }}
+    secrets: inherit
+
+  report:
+    needs: [setup, build]
+    if: ${{ !cancelled() && needs.setup.outputs.packages != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Comment result
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          PACKAGES: ${{ needs.setup.outputs.packages }}
+          ARCHITECTURES: ${{ needs.setup.outputs.architectures }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail -o noglob
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          SITE_URL="https://${OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}"
+          # "<package> <arch>..." for every package of the published repository.
+          AVAILABLE="$(curl -fsSL --retry 3 "$SITE_URL/apt/termux-main/available.txt?nocache=$RANDOM$RANDOM")" || AVAILABLE=""
+
+          read -r -a ARCHS <<< "${ARCHITECTURES//,/ }"
+          TABLE="| Package |" SEPARATOR="|---|"
+          for arch in "${ARCHS[@]}"; do
+            TABLE="$TABLE $arch |" SEPARATOR="$SEPARATOR---|"
+          done
+          declare -a ADDED=() MISSING=()
+          ROWS=""
+          for name in $PACKAGES; do
+            have=" $(awk -v name="$name" '$1 == name { $1 = ""; print }' <<< "$AVAILABLE") "
+            row="| \`$name\` |"
+            for arch in "${ARCHS[@]}"; do
+              if [[ "$have" == *" $arch "* ]]; then
+                row="$row available |"
+              else
+                row="$row not added |"
+                [[ " ${MISSING[*]} " == *" $name "* ]] || MISSING+=("$name")
+              fi
+            done
+            [[ " ${MISSING[*]} " == *" $name "* ]] || ADDED+=("$name")
+            ROWS="$ROWS$row"$'\n'
+          done
+
+          {
+            if [ ${#MISSING[@]} -eq 0 ]; then
+              echo "The requested packages are in the Termux RE package repository now. Install them with"
+              echo
+              echo '```'
+              echo "pkg update && pkg install ${ADDED[*]}"
+              echo '```'
+            else
+              echo "Not all of the requested packages could be added."
+            fi
+            echo
+            echo "$TABLE"
+            echo "$SEPARATOR"
+            printf '%s' "$ROWS"
+            echo
+            if [ ${#MISSING[@]} -gt 0 ]; then
+              echo "A package is not added when it fails to build for Termux RE, or when the repository would grow past its size budget: it is hosted for free on GitHub Pages, which allows 1 GB for everything. The build run ($BUILD_RESULT) has the details: $RUN_URL"
+            else
+              echo "Build run: $RUN_URL"
+            fi
+          } > comment.md
+          cat comment.md
+          gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file comment.md > /dev/null
+          # So that adding the label again builds again.
+          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label build-package > /dev/null 2>&1 || true
+          [ ${#MISSING[@]} -eq 0 ]

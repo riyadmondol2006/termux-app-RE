@@ -17,11 +17,12 @@ Layout, the same as the official Termux repositories:
     pool/main/<arch>/<package>_<version>_<arch>.deb
 
 Only the packages that were asked for (the roots) and what they need at runtime (Depends and
-Pre-Depends) are kept: builds from source also produce build-only dependencies and -static
-packages, which would not fit in the 1 GB that GitHub Pages allows. The roots are the packages
-of apt-repo/packages.txt, those given with --root and those of earlier publishes, which are kept
-in roots.txt in the repository. Build-only dependencies that are missing are built again when
-needed.
+Pre-Depends) are kept, per architecture: builds from source also produce build-only dependencies
+and -static packages, which would not fit in the 1 GB that GitHub Pages allows. The roots are
+the packages of apt-repo/packages.txt for each architecture, those of --roots files and those of
+earlier publishes, which are kept in roots.txt in the repository. Build-only dependencies that
+are missing are built again when needed. available.txt lists the architectures of every package,
+for the message of pkg when a package is missing.
 
 Like aptly, which hosts the official repositories, "all" architecture packages are listed in the
 Packages index of every architecture and there is no binary-all index. termux-packages'
@@ -29,8 +30,9 @@ build-package.sh -i/-I expects that.
 
 Usage:
     apt-repo.py --url <published repository url> --keyring <public key> --out <dir>
-                [--new <dir with .deb files>]... [--root <package>]... [--root-file <file>]...
-                [--remove <package>]... [--expect-existing]
+                [--new <dir with .deb files>]... [--package-list <packages.txt>]
+                [--roots <file with "<package> <arch>" lines>]... [--remove <package>]...
+                [--expect-existing] [--size-report <file>]
                 [--index-page <file> --package-name <name> --app-repo-url <url>]
 """
 
@@ -285,9 +287,11 @@ def dependency_names(deb):
 
 
 def runtime_closure(selected, roots):
-    """Returns the keys of the selected packages that the roots need at runtime, on any architecture."""
-    keep = set()
+    """Returns, for every architecture, the keys of the selected packages that its roots need at
+    runtime."""
+    keep = {}
     for arch in ARCHITECTURES:
+        keep[arch] = set()
         index = {key[0]: key for key, deb in selected.items() if deb.architecture in (arch, "all")}
         provides = {}
         for name, key in index.items():
@@ -296,19 +300,52 @@ def runtime_closure(selected, roots):
                 if provided:
                     provides.setdefault(provided, name)
         resolve = lambda name: name if name in index else provides.get(name)
-        todo = [r for r in (resolve(root) for root in roots) if r]
+        todo = [r for r in (resolve(root) for root in roots.get(arch, ())) if r]
         seen = set()
         while todo:
             name = todo.pop()
             if name in seen:
                 continue
             seen.add(name)
-            keep.add(index[name])
+            keep[arch].add(index[name])
             for alternatives in dependency_names(selected[index[name]]):
                 found = next((r for r in (resolve(a) for a in alternatives) if r), None)
                 if found:
                     todo.append(found)
     return keep
+
+
+def read_package_list(path):
+    """Reads apt-repo/packages.txt: package names, in sections that start with a line like
+    "[aarch64 arm]" naming the architectures they are for. Returns {arch: set(names)}."""
+    roots = {arch: set() for arch in ARCHITECTURES}
+    architectures = list(ARCHITECTURES)
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = re.sub(r"#.*", "", line).strip()
+            header = re.fullmatch(r"\[([a-z0-9_ ]+)\]", line)
+            if header:
+                architectures = header.group(1).split()
+                unknown = set(architectures) - set(ARCHITECTURES)
+                if unknown:
+                    fail("Unknown architectures in %s: %s" % (path, " ".join(sorted(unknown))))
+                continue
+            for name in line.split():
+                for arch in architectures:
+                    roots[arch].add(name)
+    return roots
+
+
+def read_roots(text):
+    """Reads "<package> <arch>..." lines into {arch: set(names)}. Lines without architectures,
+    from before packages were kept per architecture, are ignored."""
+    roots = {arch: set() for arch in ARCHITECTURES}
+    for line in text.splitlines():
+        parts = re.sub(r"#.*", "", line).split()
+        for arch in parts[1:]:
+            if arch in roots:
+                roots[arch].add(parts[0])
+    return roots
 
 
 def write_compressed(path, data):
@@ -348,7 +385,7 @@ def write_release(dist_dir, origin):
         f.write("\n".join(lines) + "\n")
 
 
-def write_index_page(debs, path, url, keyring, package_name, app_repo_url):
+def write_index_page(debs, path, url, keyring, package_name, app_repo_url, available):
     """Writes the web page of the repository from files/index.html."""
     result = subprocess.run(["gpg", "--show-keys", "--with-colons", keyring], capture_output=True, text=True)
     fingerprints = [line.split(":")[9] for line in result.stdout.splitlines() if line.startswith("fpr:")]
@@ -362,7 +399,8 @@ def write_index_page(debs, path, url, keyring, package_name, app_repo_url):
     rows = []
     for name in sorted(packages):
         for version, same in sorted(packages[name].items()):
-            architectures = sorted(d.architecture for d in same)
+            built_for = {deb.architecture for deb in same}
+            architectures = [a for a in ARCHITECTURES if a in available.get(name, ()) and (a in built_for or "all" in built_for)]
             description = (field(same[0].control, "Description") or "").split("\n")[0]
             rows.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (
                 html.escape(name), html.escape(version), html.escape(", ".join(architectures)), html.escape(description)))
@@ -372,6 +410,8 @@ def write_index_page(debs, path, url, keyring, package_name, app_repo_url):
     for placeholder, value in [
         ("@PACKAGES@", "\n".join(rows)),
         ("@COUNT@", str(len(packages))),
+        ("@ARCH_COUNTS@", html.escape(", ".join(
+            "%d for %s" % (sum(1 for archs in available.values() if arch in archs), arch) for arch in ARCHITECTURES))),
         ("@DATE@", html.escape(email.utils.formatdate(usegmt=True))),
         ("@FINGERPRINT@", html.escape(fingerprint)),
         ("@REPO_URL@", html.escape(url)),
@@ -390,9 +430,10 @@ def main():
     parser.add_argument("--out", required=True, help="directory to write the repository to, must not exist")
     parser.add_argument("--new", action="append", default=[], help="directory with newly built .deb files")
     parser.add_argument("--remove", action="append", default=[], help="package to remove from the repository")
-    parser.add_argument("--root", action="append", default=[], help="package to keep with its runtime dependencies")
-    parser.add_argument("--root-file", action="append", default=[],
-                        help="file with packages to keep with their runtime dependencies, # starts a comment")
+    parser.add_argument("--package-list", help="apt-repo/packages.txt, the packages to keep on each architecture")
+    parser.add_argument("--roots", action="append", default=[],
+                        help='file with "<package> <arch>..." lines, more packages to keep with their dependencies')
+    parser.add_argument("--size-report", help="write the size of the repository per architecture to this file")
     parser.add_argument("--expect-existing", action="store_true",
                         help="fail if no repository is published at --url")
     parser.add_argument("--origin", default="Termux RE")
@@ -424,19 +465,31 @@ def main():
         current = selected.get(key)
         if current is None or version_compare(deb.version, current.version) > 0:
             selected[key] = deb
-    roots = set(args.root)
-    for path in args.root_file:
-        with open(path, encoding="utf-8") as f:
-            roots.update(re.sub(r"#.*", "", f.read()).split())
+    # Packages asked for in builds and requests, kept in roots.txt, and the default packages.
+    requested = {arch: set() for arch in ARCHITECTURES}
     published_roots = fetch(url + "/roots.txt")
-    if published_roots is not None:
-        roots.update(published_roots.decode("utf-8").split())
-    roots.difference_update(args.remove)
+    sources = [published_roots.decode("utf-8")] if published_roots is not None else []
+    for path in args.roots:
+        with open(path, encoding="utf-8") as f:
+            sources.append(f.read())
+    for text in sources:
+        for arch, names in read_roots(text).items():
+            requested[arch] |= names
+    was_requested = set().union(*requested.values())
+    for arch in ARCHITECTURES:
+        requested[arch].difference_update(args.remove)
+    listed = read_package_list(args.package_list) if args.package_list else {arch: set() for arch in ARCHITECTURES}
+    # packages.txt keeps its packages itself, roots.txt only needs the others.
+    for arch in ARCHITECTURES:
+        requested[arch] -= listed[arch]
+    roots = {arch: requested[arch] | listed[arch] for arch in ARCHITECTURES}
 
     for name in args.remove:
         removed = [key for key in selected if key[0] == name]
-        if not removed:
+        if not removed and name not in was_requested:
             fail("Package '%s' is not in the repository" % name)
+        if any(name in names for names in listed.values()):
+            fail("Package '%s' is in %s, remove it there" % (name, args.package_list))
         for key in removed:
             log("Removing %s %s (%s)" % (name, selected[key].version, key[1]))
             del selected[key]
@@ -455,16 +508,23 @@ def main():
         else:
             del selected[(package, "all")]
 
-    needed = runtime_closure(selected, roots)
+    needed_by_arch = runtime_closure(selected, roots)
+    needed = set().union(*needed_by_arch.values())
+    for name in args.remove:
+        users = sorted({key[0] for key in needed for alternatives in dependency_names(selected[key])
+                        if name in alternatives})
+        if users:
+            fail("Package '%s' can't be removed, these packages depend on it: %s" % (name, " ".join(users)))
     for key in sorted(set(selected) - needed):
         if selected[key].source == "published":
             log("Removing %s %s (%s), no package in the repository needs it" % (key[0], selected[key].version, key[1]))
         else:
             log("Not adding %s %s (%s), no package in the repository needs it" % (key[0], selected[key].version, key[1]))
         del selected[key]
-    missing = sorted(r for r in roots if not any(key[0] == r for key in selected))
-    if missing:
-        log("Packages asked for that are not in the repository: " + " ".join(missing))
+    for arch in ARCHITECTURES:
+        missing = sorted(r for r in roots[arch] if not any(key[0] == r for key in needed_by_arch[arch]))
+        if missing:
+            log("Packages asked for on %s that are not in the repository: %s" % (arch, " ".join(missing)))
 
     keep = list(selected.values())
     download_published(url, [d for d in keep if d.source == "published"], workdir)
@@ -486,8 +546,13 @@ def main():
     dist_dir = os.path.join(args.out, "dists", DISTRIBUTION)
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         file_lists = dict(zip((d.filename for d in keep), executor.map(file_list, keep)))
+    available = {}
+    sizes = {}
     for arch in ARCHITECTURES:
-        debs = sorted((d for d in keep if d.architecture in (arch, "all")), key=lambda d: d.package)
+        debs = sorted((selected[key] for key in needed_by_arch[arch]), key=lambda d: d.package)
+        for deb in debs:
+            available.setdefault(deb.package, []).append(arch)
+        sizes[arch] = (sum(d.size for d in debs if d.architecture != "all"), len(debs))
         index_dir = os.path.join(dist_dir, COMPONENT, "binary-" + arch)
         os.makedirs(index_dir)
         write_compressed(os.path.join(index_dir, "Packages"), "\n".join(d.stanza() for d in debs).encode("utf-8"))
@@ -496,10 +561,23 @@ def main():
     write_release(dist_dir, args.origin)
 
     with open(os.path.join(args.out, "roots.txt"), "w", encoding="utf-8") as f:
-        f.write("".join(root + "\n" for root in sorted(roots)))
+        names = sorted(set().union(*requested.values()))
+        f.write("".join("%s %s\n" % (n, " ".join(a for a in ARCHITECTURES if n in requested[a])) for n in names))
+    with open(os.path.join(args.out, "available.txt"), "w", encoding="utf-8") as f:
+        f.write("".join("%s %s\n" % (name, " ".join(archs)) for name, archs in sorted(available.items())))
+
+    shared = sum(d.size for d in keep if d.architecture == "all")
+    report = ["| Architecture | Packages | Size |", "| --- | --- | --- |"]
+    for arch in ARCHITECTURES:
+        report.append("| %s | %d | %.1f MB |" % (arch, sizes[arch][1], sizes[arch][0] / 1e6))
+    report.append("| all (shared) | %d | %.1f MB |" % (sum(1 for d in keep if d.architecture == "all"), shared / 1e6))
+    log("\n".join(report))
+    if args.size_report:
+        with open(args.size_report, "w", encoding="utf-8") as f:
+            f.write("\n".join(report) + "\n")
 
     if args.index_page:
-        write_index_page(keep, args.index_page, url, args.keyring, args.package_name, args.app_repo_url)
+        write_index_page(keep, args.index_page, url, args.keyring, args.package_name, args.app_repo_url, available)
     shutil.rmtree(workdir)
 
 

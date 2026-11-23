@@ -8,7 +8,11 @@ name: Publish packages
 #   dependencies is kept (see apt-repo/apt-repo.py). It is signed with the APT_SIGNING_KEY secret.
 # - bootstrap/<id>: the bootstrap archives that app builds embed, with a SHA256SUMS file signed
 #   with the same key, and bootstrap/latest, the id of the newest. Build bootstraps adds them, the
-#   Build workflow uses the newest. Only the newest two are kept (see apt-repo/site-bootstraps.py).
+#   Build workflow uses the newest. Only the newest is kept (see apt-repo/site-bootstraps.py).
+#
+# GitHub Pages sites may be at most 1 GB. The deploy fails, with the size of every architecture
+# and its largest packages, if the site would be larger than 900 MB, so packages are never
+# dropped silently; apt-repo/packages.txt sets how many packages each architecture gets.
 #
 # Every deploy replaces the whole site, so the published repository and bootstraps are copied
 # over after checking their signatures and checksums.
@@ -60,7 +64,7 @@ jobs:
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy-again.outputs.page_url }}
     steps:
       - name: Clone repository
         uses: actions/checkout@v7
@@ -101,7 +105,7 @@ jobs:
           # Once the site is live, a missing repository means the site could not be read, not
           # that there is nothing to keep.
           ARGS=(--url "$REPO_URL" --keyring apt-repo/termux-re.gpg --out site/apt/termux-main
-            --root-file apt-repo/packages.txt
+            --package-list apt-repo/packages.txt --size-report "$RUNNER_TEMP/sizes.md"
             --index-page site/index.html --package-name "$PACKAGE_NAME" --app-repo-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY")
           if curl -fsSL -o /dev/null "$SITE_URL/termux-re.gpg"; then
             ARGS+=(--expect-existing)
@@ -110,7 +114,7 @@ jobs:
             echo "New packages:"; find new-debs -name '*.deb' -printf '%P\n' | sort
             ARGS+=(--new new-debs)
             while read -r roots; do
-              ARGS+=(--root-file "$roots")
+              ARGS+=(--roots "$roots")
             done < <(find new-debs -name roots.txt)
           fi
           for package in ${REMOVE//,/ }; do
@@ -118,7 +122,7 @@ jobs:
           done
           python3 -I apt-repo/apt-repo.py "${ARGS[@]}"
 
-          ARGS=(--site-url "$SITE_URL" --keyring apt-repo/termux-re.gpg --out site/bootstrap --keep 2)
+          ARGS=(--site-url "$SITE_URL" --keyring apt-repo/termux-re.gpg --out site/bootstrap --keep 1)
           if [ -n "$BOOTSTRAP_ID" ]; then
             ARGS+=(--new-id "$BOOTSTRAP_ID" --new-dir new-bootstrap)
           fi
@@ -163,28 +167,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SIZE_MB="$(( $(du -sb site | cut -f1) / 1024 / 1024 ))"
-          echo "Site size: $SIZE_MB MiB"
+          SIZE="$(du -sb site | cut -f1)"
+          SIZE_MB="$(( SIZE / 1000000 ))"
+          BUDGET_MB=900
+          echo "Site size: $SIZE_MB MB of $BUDGET_MB MB"
           {
             echo "### Termux RE package repository"
             echo
-            echo "\`deb $REPO_URL stable main\`, site size $SIZE_MB MiB"
+            echo "\`deb $REPO_URL stable main\`, site size $SIZE_MB MB of $BUDGET_MB MB"
             echo
-            for packages in site/apt/termux-main/dists/stable/main/binary-*/Packages; do
-              arch="${packages%/Packages}"; arch="${arch##*binary-}"
-              echo "- $arch: $(grep -c '^Package:' "$packages" || true) packages"
-            done
+            cat "$RUNNER_TEMP/sizes.md"
             if [ -f site/bootstrap/latest ]; then
               echo
-              echo "Bootstrap: \`$SITE_URL/bootstrap/$(cat site/bootstrap/latest)\` (kept: $(tr '\n' ' ' < site/bootstrap/ids))"
+              echo "Bootstrap: \`$SITE_URL/bootstrap/$(cat site/bootstrap/latest)\` ($(( $(du -sb site/bootstrap | cut -f1) / 1000000 )) MB)"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          # GitHub Pages sites can be at most 1 GB.
-          if [ "$SIZE_MB" -gt 950 ]; then
-            echo "::error::The site is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB. Remove packages with the remove input."
+          # GitHub Pages sites can be at most 1 GB. Keep about 10% free, and never drop packages
+          # to make it fit: change apt-repo/packages.txt instead.
+          if [ "$SIZE_MB" -gt "$BUDGET_MB" ]; then
+            {
+              echo "::error::The site would be $SIZE_MB MB, more than the budget of $BUDGET_MB MB (GitHub Pages allows 1 GB). Nothing was deployed. Remove packages from apt-repo/packages.txt or with the remove input."
+              cat "$RUNNER_TEMP/sizes.md"
+              echo "Largest packages:"
+              find site/apt/termux-main/pool -name '*.deb' -printf '%s %P\n' | sort -rn | head -n 25 | awk '{ printf "  %6.1f MB  %s\n", $1 / 1000000, $2 }'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
-          elif [ "$SIZE_MB" -gt 800 ]; then
-            echo "::warning::The site is $SIZE_MB MiB, GitHub Pages sites are limited to 1 GB."
+          elif [ "$SIZE_MB" -gt $(( BUDGET_MB * 9 / 10 )) ]; then
+            echo "::warning::The site is $SIZE_MB MB, close to the budget of $BUDGET_MB MB."
           fi
 
       - name: Upload site
@@ -194,4 +203,15 @@ jobs:
 
       - name: Deploy site
         id: deploy
+        # Right after the upload, GitHub sometimes doesn't list the site's artifact yet.
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+
+      - name: Wait before deploying again
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 90
+
+      - name: Deploy site again
+        id: deploy-again
+        if: steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@v5

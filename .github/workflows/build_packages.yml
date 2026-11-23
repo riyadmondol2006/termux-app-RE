@@ -5,9 +5,12 @@ name: Build packages
 # with the Publish packages workflow. Termux binaries hardcode /data/data/<package name>/files/usr,
 # so packages from the official repositories don't work in Termux RE.
 #
-# - Without a package list, the packages in apt-repo/packages.txt are built.
-# - The repository keeps the packages asked for and their runtime dependencies, not the
-#   dependencies that were only needed to build them.
+# - Without a package list, the packages that apt-repo/packages.txt lists for each architecture
+#   are built. That happens every week too, so the repository follows termux-packages, and
+#   command-not-found is rebuilt with the current package list.
+# - The repository keeps the packages asked for and their runtime dependencies on the
+#   architectures they were built for, not the dependencies that were only needed to build them.
+# - The Package request workflow calls it for packages requested in issues.
 # - Dependencies are built and published too. Once the repository exists, those it already has
 #   at the version termux-packages wants are downloaded from it instead of built again, and
 #   requested packages it already has at their current version are skipped.
@@ -17,6 +20,30 @@ name: Build packages
 # See apt-repo/ and the "Packages and the bootstrap" section of README.md.
 
 on:
+  schedule:
+    - cron: '17 2 * * 1'
+  workflow_call:
+    inputs:
+      packages:
+        type: string
+        required: false
+        default: ''
+      architectures:
+        type: string
+        required: false
+        default: 'aarch64,arm,i686,x86_64'
+      termux_packages_ref:
+        type: string
+        required: false
+        default: 'master'
+      force:
+        type: boolean
+        required: false
+        default: false
+      publish:
+        type: boolean
+        required: false
+        default: true
   workflow_dispatch:
     inputs:
       packages:
@@ -63,16 +90,14 @@ jobs:
         id: inputs
         shell: bash
         env:
-          ARCHITECTURES: ${{ inputs.architectures }}
+          ARCHITECTURES: ${{ inputs.architectures || 'aarch64,arm,i686,x86_64' }}
           PACKAGES: ${{ inputs.packages }}
         run: |
           set -euo pipefail -o noglob
           for arch in ${ARCHITECTURES//,/ }; do
             case "$arch" in aarch64|arm|i686|x86_64) ;; *) echo "Invalid architecture '$arch'"; exit 1 ;; esac
           done
-          if [ -z "${PACKAGES// /}" ]; then
-            PACKAGES="$(grep -v '^\s*#' apt-repo/packages.txt)"
-          fi
+          # Empty: each architecture builds what apt-repo/packages.txt lists for it.
           PACKAGES="$(echo $PACKAGES)"
           for package in $PACKAGES; do
             [[ "$package" =~ ^[a-z0-9][a-z0-9+._-]*$ ]] || { echo "Invalid package name '$package'"; exit 1; }
@@ -121,7 +146,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: termux/termux-packages
-          ref: ${{ inputs.termux_packages_ref }}
+          ref: ${{ inputs.termux_packages_ref || 'master' }}
           path: termux-packages
           persist-credentials: false
 
@@ -150,9 +175,16 @@ jobs:
         env:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
           PACKAGES: ${{ needs.setup.outputs.packages }}
-          FORCE: ${{ inputs.force }}
+          FORCE: ${{ inputs.force && 'true' || 'false' }}
         run: |
-          SUMMARY_FILE="$GITHUB_STEP_SUMMARY" ROOTS_FILE="$RUNNER_TEMP/roots.txt" \
+          # Packages named explicitly are kept as requested packages (roots.txt of the repository),
+          # those of apt-repo/packages.txt through that file.
+          export ROOTS_FILE="$RUNNER_TEMP/roots.txt"
+          if [ -z "$PACKAGES" ]; then
+            PACKAGES="$(python3 -I ../termux-app-re/apt-repo/package-list.py ../termux-app-re/apt-repo/packages.txt "${{ matrix.arch }}")"
+            ROOTS_FILE=/dev/null
+          fi
+          SUMMARY_FILE="$GITHUB_STEP_SUMMARY" \
             ../termux-app-re/apt-repo/build-packages.sh "${{ matrix.arch }}" "$REPO_URL" "$DEADLINE" "$FORCE" $PACKAGES
 
       - name: Check packages
@@ -202,7 +234,7 @@ jobs:
   publish:
     needs: [setup, build]
     # Publish what was built even if some packages failed.
-    if: ${{ !cancelled() && inputs.publish && needs.setup.result == 'success' }}
+    if: ${{ !cancelled() && inputs.publish != false && needs.setup.result == 'success' }}
     permissions:
       contents: read
       pages: write

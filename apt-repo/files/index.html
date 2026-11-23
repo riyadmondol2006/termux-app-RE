@@ -30,7 +30,7 @@
 <body>
 <main>
 <h1>Termux RE packages</h1>
-<p class="muted">@COUNT@ packages built for <code>@PACKAGE_NAME@</code> from <a href="https://github.com/termux/termux-packages">termux-packages</a>. Updated @DATE@.</p>
+<p class="muted">@COUNT@ packages built for <code>@PACKAGE_NAME@</code> from <a href="https://github.com/termux/termux-packages">termux-packages</a> (@ARCH_COUNTS@). Updated @DATE@.</p>
 
 <p>Termux packages only work in the app they were built for, because their install prefix
 <code>/data/data/&lt;app package name&gt;/files/usr</code> is compiled in. This is the package
@@ -46,9 +46,13 @@ official Termux repositories don't work in Termux RE, and these don't work in Te
 <p>Download it as <a href="termux-re.asc">termux-re.asc</a> or <a href="termux-re.gpg">termux-re.gpg</a>.</p>
 
 <h2>Missing a package?</h2>
-<p>Packages are built by the <a href="@APP_REPO_URL@/actions/workflows/build_packages.yml">Build packages</a>
-workflow, which takes a list of termux-packages package names. See
-<a href="@APP_REPO_URL@#packages-and-the-bootstrap">Packages and the bootstrap</a> for its limits.</p>
+<p>This repository is hosted for free on GitHub Pages, which allows 1 GB for everything, so it
+can't have every Termux package for every device. Nearly all phones are <code>aarch64</code>, which
+gets the most packages, including clang; <code>arm</code> gets the command line tools, and
+<code>x86_64</code> and <code>i686</code> the basics.
+<a href="@APP_REPO_URL@/issues/new?template=03-package-request.yml">Request a package</a> and it is
+built when it fits. See <a href="@APP_REPO_URL@#packages-and-the-bootstrap">Packages and the bootstrap</a>
+for the details.</p>
 
 <h2>Packages</h2>
 <div class="table">
