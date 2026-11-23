@@ -8,6 +8,16 @@
         layout="@layout/partial_primary_toolbar"
         android:id="@+id/partial_primary_toolbar"/>
 
+    <EditText
+        android:id="@+id/settings_search"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="12dp"
+        android:hint="@string/feature_theme_settings_search_hint"
+        android:importantForAutofill="no"
+        android:inputType="text"
+        android:singleLine="true" />
+
     <FrameLayout
         android:id="@+id/settings"
         android:layout_width="match_parent"

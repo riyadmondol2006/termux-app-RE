@@ -48,6 +48,19 @@ public class SettingsActivity extends AppCompatActivity {
 
         AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);
         AppCompatActivityUtils.setShowBackButtonInActionBar(this, true);
+
+        android.widget.EditText search = findViewById(R.id.settings_search);
+        if (search != null) {
+            search.addTextChangedListener(new android.text.TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+                @Override public void onTextChanged(CharSequence s, int a, int b, int c) {
+                    androidx.fragment.app.Fragment f = getSupportFragmentManager().findFragmentById(R.id.settings);
+                    if (f instanceof RootPreferencesFragment)
+                        ((RootPreferencesFragment) f).filterSettings(s.toString());
+                }
+                @Override public void afterTextChanged(android.text.Editable s) {}
+            });
+        }
     }
 
     @Override
@@ -57,6 +70,64 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     public static class RootPreferencesFragment extends PreferenceFragmentCompat {
+
+        private final java.util.Map<String, Boolean> mVisibilitySnapshot = new java.util.HashMap<>();
+
+        /** Root-level search: show only preferences (and categories) whose title/summary matches. */
+        public void filterSettings(@NonNull String rawQuery) {
+            androidx.preference.PreferenceScreen screen = getPreferenceScreen();
+            if (screen == null) return;
+            String query = rawQuery.trim().toLowerCase(java.util.Locale.US);
+            if (mVisibilitySnapshot.isEmpty()) snapshotVisibility(screen);
+            if (query.isEmpty()) {
+                restoreVisibility(screen);
+                return;
+            }
+            filterGroup(screen, query);
+        }
+
+        private void snapshotVisibility(androidx.preference.PreferenceGroup group) {
+            for (int i = 0; i < group.getPreferenceCount(); i++) {
+                Preference p = group.getPreference(i);
+                if (p.getKey() != null) mVisibilitySnapshot.put(p.getKey(), p.isVisible());
+                if (p instanceof androidx.preference.PreferenceGroup) snapshotVisibility((androidx.preference.PreferenceGroup) p);
+            }
+        }
+
+        private void restoreVisibility(androidx.preference.PreferenceGroup group) {
+            for (int i = 0; i < group.getPreferenceCount(); i++) {
+                Preference p = group.getPreference(i);
+                Boolean v = p.getKey() == null ? null : mVisibilitySnapshot.get(p.getKey());
+                p.setVisible(v == null || v);
+                if (p instanceof androidx.preference.PreferenceGroup) restoreVisibility((androidx.preference.PreferenceGroup) p);
+            }
+        }
+
+        private boolean filterGroup(androidx.preference.PreferenceGroup group, String query) {
+            boolean anyMatch = false;
+            for (int i = 0; i < group.getPreferenceCount(); i++) {
+                Preference p = group.getPreference(i);
+                boolean match;
+                if (p instanceof androidx.preference.PreferenceGroup) {
+                    match = filterGroup((androidx.preference.PreferenceGroup) p, query) || matches(p, query);
+                } else {
+                    // Never surface preferences hidden for other reasons (e.g. uninstalled plugins).
+                    Boolean snap = p.getKey() == null ? null : mVisibilitySnapshot.get(p.getKey());
+                    match = (snap == null || snap) && matches(p, query);
+                }
+                p.setVisible(match);
+                anyMatch = anyMatch || match;
+            }
+            return anyMatch;
+        }
+
+        private boolean matches(Preference p, String query) {
+            CharSequence title = p.getTitle();
+            CharSequence summary = p.getSummary();
+            return (title != null && title.toString().toLowerCase(java.util.Locale.US).contains(query))
+                || (summary != null && summary.toString().toLowerCase(java.util.Locale.US).contains(query));
+        }
+
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             Context context = getContext();
@@ -64,6 +135,7 @@ public class SettingsActivity extends AppCompatActivity {
 
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
 
+            configureThemeStudioPreference(context);
             configureUpdatePreferences(context);
 
             new Thread() {
@@ -77,6 +149,20 @@ public class SettingsActivity extends AppCompatActivity {
                     configureDonatePreference(context);
                 }
             }.start();
+        }
+
+        private void configureThemeStudioPreference(@NonNull Context context) {
+            Preference themeStudioPreference = findPreference("theme_studio");
+            if (themeStudioPreference != null) {
+                TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(context, false);
+                int fontSize = prefs != null ? prefs.getFontSize() : 14;
+                String themeName = com.termux.app.features.theme.TermuxThemeManager.getCurrentTheme(context).name;
+                themeStudioPreference.setSummary(context.getString(R.string.feature_theme_settings_appearance_summary, themeName, fontSize));
+                themeStudioPreference.setOnPreferenceClickListener(preference -> {
+                    startActivity(new android.content.Intent(context, com.termux.app.features.theme.ThemeStudioActivity.class));
+                    return true;
+                });
+            }
         }
 
         private void configureTermuxAPIPreference(@NonNull Context context) {

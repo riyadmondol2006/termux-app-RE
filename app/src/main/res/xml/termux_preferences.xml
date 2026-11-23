@@ -1,23 +1,32 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <Preference
-        app:title="@string/termux_debugging_preferences_title"
-        app:summary="@string/termux_debugging_preferences_summary"
-        app:fragment="com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_termux_terminal" app:title="@string/feature_theme_settings_terminal">
+        <Preference
+            app:title="@string/termux_terminal_view_preferences_title"
+            app:summary="@string/termux_terminal_view_preferences_summary"
+            app:icon="@drawable/feature_theme_ic_terminal"
+            app:fragment="com.termux.app.fragments.settings.termux.TerminalViewPreferencesFragment"/>
+        <Preference
+            app:title="@string/feature_theme_settings_keyboard"
+            app:summary="@string/feature_theme_settings_keyboard_summary"
+            app:icon="@drawable/feature_theme_ic_keyboard"
+            app:fragment="com.termux.app.fragments.settings.termux.TerminalIOPreferencesFragment"/>
+    </PreferenceCategory>
 
-    <Preference
-        app:title="@string/termux_terminal_io_preferences_title"
-        app:summary="@string/termux_terminal_io_preferences_summary"
-        app:fragment="com.termux.app.fragments.settings.termux.TerminalIOPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_termux_permissions" app:title="@string/feature_theme_settings_permissions">
+        <Preference
+            app:title="@string/termux_permissions_preferences_title"
+            app:summary="@string/termux_permissions_preferences_summary"
+            app:icon="@drawable/feature_theme_ic_shield"
+            app:fragment="com.termux.app.fragments.settings.termux.PermissionsPreferencesFragment"/>
+    </PreferenceCategory>
 
-    <Preference
-        app:title="@string/termux_terminal_view_preferences_title"
-        app:summary="@string/termux_terminal_view_preferences_summary"
-        app:fragment="com.termux.app.fragments.settings.termux.TerminalViewPreferencesFragment"/>
-
-    <Preference
-        app:title="@string/termux_permissions_preferences_title"
-        app:summary="@string/termux_permissions_preferences_summary"
-        app:fragment="com.termux.app.fragments.settings.termux.PermissionsPreferencesFragment"/>
+    <PreferenceCategory app:key="cat_termux_advanced" app:title="@string/feature_theme_settings_advanced">
+        <Preference
+            app:title="@string/termux_debugging_preferences_title"
+            app:summary="@string/termux_debugging_preferences_summary"
+            app:icon="@drawable/feature_theme_ic_bug"
+            app:fragment="com.termux.app.fragments.settings.termux.DebuggingPreferencesFragment"/>
+    </PreferenceCategory>
 
 </PreferenceScreen>
