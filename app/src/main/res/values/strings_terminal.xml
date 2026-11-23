@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of the terminal view features: search, split screen, copy and paste. -->
+<resources>
+
+    <!-- Terminal search -->
+    <string name="feature_terminal_search_title">Search terminal</string>
+    <string name="feature_terminal_search_summary">Find text in the output and scrollback of the session</string>
+    <string name="feature_terminal_search_action">Search…</string>
+    <string name="feature_terminal_search_hint">Search</string>
+    <string name="feature_terminal_search_case_sensitive">Match case</string>
+    <string name="feature_terminal_search_case_sensitive_label" translatable="false">Aa</string>
+    <string name="feature_terminal_search_regex">Regular expression</string>
+    <string name="feature_terminal_search_regex_label" translatable="false">.*</string>
+    <string name="feature_terminal_search_previous">Previous match</string>
+    <string name="feature_terminal_search_next">Next match</string>
+    <string name="feature_terminal_search_close">Close search</string>
+    <string name="feature_terminal_search_count">%1$d/%2$d</string>
+    <string name="feature_terminal_search_count_truncated">%1$d/%2$d+</string>
+    <string name="feature_terminal_search_no_matches">No results</string>
+    <string name="feature_terminal_search_searching" translatable="false">…</string>
+    <string name="feature_terminal_search_invalid_regex">Invalid</string>
+    <string name="feature_terminal_search_invalid_regex_message">Invalid regular expression: %1$s</string>
+    <string name="feature_terminal_search_count_description">Match %1$d of %2$d</string>
+
+</resources>

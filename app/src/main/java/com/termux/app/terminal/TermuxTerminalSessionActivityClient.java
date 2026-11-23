@@ -132,6 +132,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (!mActivity.isVisible()) return;
 
         if (mActivity.getCurrentSession() == changedSession) mActivity.getTerminalView().onScreenUpdated();
+
+        // Terminal view features, like the terminal search, follow the output too.
+        if (mActivity.getTerminalFeaturesController() != null)
+            mActivity.getTerminalFeaturesController().onTextChanged(changedSession);
     }
 
     @Override

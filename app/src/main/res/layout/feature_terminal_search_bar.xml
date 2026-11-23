@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The terminal search bar, shown over the top of the terminal. See TerminalSearchController. -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="?attr/materialCardViewElevatedStyle"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="top"
+    android:layout_margin="8dp"
+    app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+    app:cardCornerRadius="28dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="56dp"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="4dp">
+
+        <EditText
+            android:id="@+id/feature_terminal_search_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@null"
+            android:hint="@string/feature_terminal_search_hint"
+            android:imeOptions="actionSearch|flagNoExtractUi|flagNoFullscreen"
+            android:importantForAutofill="no"
+            android:inputType="text|textNoSuggestions"
+            android:minHeight="48dp"
+            android:singleLine="true"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textColor="?attr/colorOnSurface"
+            android:textColorHint="?attr/colorOnSurfaceVariant" />
+
+        <TextView
+            android:id="@+id/feature_terminal_search_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="4dp"
+            android:maxLines="1"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            tools:text="3/15" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/feature_terminal_search_case"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:checkable="true"
+            android:contentDescription="@string/feature_terminal_search_case_sensitive"
+            android:fontFamily="monospace"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            android:text="@string/feature_terminal_search_case_sensitive_label"
+            android:textColor="@color/feature_terminal_toggle_text"
+            android:tooltipText="@string/feature_terminal_search_case_sensitive"
+            app:backgroundTint="@color/feature_terminal_toggle_background"
+            tools:targetApi="o" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/feature_terminal_search_regex"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:checkable="true"
+            android:contentDescription="@string/feature_terminal_search_regex"
+            android:fontFamily="monospace"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            android:text="@string/feature_terminal_search_regex_label"
+            android:textColor="@color/feature_terminal_toggle_text"
+            android:tooltipText="@string/feature_terminal_search_regex"
+            app:backgroundTint="@color/feature_terminal_toggle_background"
+            tools:targetApi="o" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/feature_terminal_search_previous"
+            style="?attr/materialIconButtonStyle"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/feature_terminal_search_previous"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:tooltipText="@string/feature_terminal_search_previous"
+            app:icon="@drawable/feature_terminal_ic_arrow_up"
+            tools:targetApi="o" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/feature_terminal_search_next"
+            style="?attr/materialIconButtonStyle"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/feature_terminal_search_next"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:tooltipText="@string/feature_terminal_search_next"
+            app:icon="@drawable/feature_terminal_ic_arrow_down"
+            tools:targetApi="o" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/feature_terminal_search_close"
+            style="?attr/materialIconButtonStyle"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/feature_terminal_search_close"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:tooltipText="@string/feature_terminal_search_close"
+            app:icon="@drawable/feature_terminal_ic_close"
+            tools:targetApi="o" />
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>
