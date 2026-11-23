@@ -29,4 +29,15 @@ public abstract class TerminalOutput {
 
     public abstract void onColorsChanged();
 
+    /**
+     * Notify the terminal client that a program asked to show a notification with an `OSC 9` or
+     * `OSC 777;notify` escape sequence. The text is passed as received, so it may contain control
+     * characters and must be sanitized before it is shown.
+     *
+     * @param title The title, or {@code null} if only a body was sent, like for `OSC 9`.
+     * @param body The body, which may be empty.
+     */
+    public void onTerminalNotification(String title, String body) {
+    }
+
 }

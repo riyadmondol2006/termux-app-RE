@@ -330,6 +330,11 @@ public final class TerminalSession extends TerminalOutput {
         mClient.onColorsChanged(this);
     }
 
+    @Override
+    public void onTerminalNotification(String title, String body) {
+        mClient.onTerminalNotification(this, title, body);
+    }
+
     public int getPid() {
         return mShellPid;
     }
