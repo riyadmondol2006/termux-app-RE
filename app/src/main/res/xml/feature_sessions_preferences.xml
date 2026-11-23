@@ -56,4 +56,33 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        app:key="category_notifications"
+        app:title="@string/feature_sessions_notifications_title">
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="terminal_notifications"
+            app:summary="@string/feature_sessions_terminal_notifications_summary"
+            app:title="@string/feature_sessions_terminal_notifications_title" />
+
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:dependency="terminal_notifications"
+            app:key="notify_long_commands"
+            app:summary="@string/feature_sessions_notify_long_commands_summary"
+            app:title="@string/feature_sessions_notify_long_commands_title" />
+
+        <EditTextPreference
+            app:defaultValue="10"
+            app:dependency="notify_long_commands"
+            app:key="notify_long_commands_seconds"
+            app:title="@string/feature_sessions_notify_long_commands_seconds_title" />
+
+        <Preference
+            app:key="notification_settings"
+            app:title="@string/feature_sessions_notification_settings_title" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

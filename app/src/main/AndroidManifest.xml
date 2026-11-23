@@ -123,7 +123,7 @@
             android:label="@string/title_activity_termux_settings"
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
 
-        <!-- Session features: terminal profiles and session settings. -->
+        <!-- Session features: terminal profiles, session settings and opening terminal notifications. -->
         <activity
             android:name=".app.features.sessions.ProfilesActivity"
             android:exported="false"
@@ -134,6 +134,13 @@
             android:exported="false"
             android:label="@string/feature_sessions_title_settings"
             android:theme="@style/Theme.TermuxApp.DayNight.NoActionBar" />
+        <activity
+            android:name=".app.features.sessions.SessionNotificationActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity="${TERMUX_PACKAGE_NAME}.sessionnotification"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <activity
             android:name=".shared.activities.ReportActivity"

@@ -38,4 +38,13 @@ public final class SessionFeatureEntries {
         @Override public void open(@NonNull TermuxActivity activity) { SessionSettingsActivity.start(activity, "category_persistence"); }
     }
 
+    /** Opens the terminal notifications settings. */
+    public static final class Notifications extends TermuxFeature {
+        @NonNull @Override public String getId() { return "terminal_notifications"; }
+        @Override public int getTitle() { return R.string.feature_sessions_notifications_title; }
+        @Override public int getSummary() { return R.string.feature_sessions_notifications_summary; }
+        @Override public int getIcon() { return R.drawable.feature_sessions_ic_notifications; }
+        @Override public void open(@NonNull TermuxActivity activity) { SessionSettingsActivity.start(activity, "category_notifications"); }
+    }
+
 }

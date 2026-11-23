@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 
 import com.termux.R;
 import com.termux.app.event.SystemEventReceiver;
+import com.termux.app.features.sessions.SessionNotifications;
 import com.termux.app.features.sessions.SessionPersistence;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
@@ -712,6 +713,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
                 mTermuxTerminalSessionActivityClient.termuxSessionListNotifyUpdated();
 
             SessionPersistence.scheduleSave(this);
+            SessionNotifications.cancel(this, termuxSession.getTerminalSession().mHandle);
         }
 
         updateNotification();

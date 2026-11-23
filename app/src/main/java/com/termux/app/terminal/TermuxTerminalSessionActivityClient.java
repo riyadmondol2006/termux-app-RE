@@ -24,6 +24,7 @@ import com.termux.app.features.sessions.ProfileStore;
 import com.termux.app.features.sessions.ProfilesActivity;
 import com.termux.app.features.sessions.SessionInfo;
 import com.termux.app.features.sessions.SessionListModel;
+import com.termux.app.features.sessions.SessionNotifications;
 import com.termux.app.features.sessions.SessionPersistence;
 import com.termux.app.features.sessions.SessionRegistry;
 import com.termux.app.features.sessions.SessionStartup;
@@ -94,6 +95,8 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
      * Should be called when mActivity.onStart() is called
      */
     public void onStart() {
+        SessionNotifications.setVisibleActivity(mActivity);
+
         // The service has connected, but data may have changed since we were last in the foreground.
         // Get the session stored in shared preferences stored by {@link #onStop} if its valid,
         // otherwise get the last session currently running.
@@ -125,6 +128,8 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
      * Should be called when mActivity.onStop() is called
      */
     public void onStop() {
+        SessionNotifications.setVisibleActivity(null);
+
         // Store current session in shared preferences so that it can be restored later in
         // {@link #onStart} if needed.
         setCurrentStoredSession();
@@ -236,6 +241,13 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                 removeFinishedSession(finishedSession);
             }
         }
+    }
+
+    @Override
+    public void onTerminalNotification(@NonNull TerminalSession session, @Nullable String title, @NonNull String body) {
+        // Programs asked for a notification with OSC 9 or OSC 777, only shown if the session is not in view.
+        SessionNotifications.onTerminalNotification(mActivity, session, title, body,
+            mActivity.isVisible() && mActivity.getCurrentSession() == session);
     }
 
     @Override
@@ -361,6 +373,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
         SessionRegistry.setLastActiveSession(SessionWorkspaces.getWorkspaceId(mActivity, session), session.mHandle);
         SessionRegistry.setCurrentSession(session.mHandle);
+        SessionNotifications.cancel(mActivity, session.mHandle);
         updateFontSizeForSession(session);
 
         // We call the following even when the session is already being displayed since config may

@@ -124,4 +124,24 @@
     <string name="feature_sessions_action_copy">Copy</string>
     <string name="feature_sessions_action_share">Share</string>
 
+    <!-- Terminal notifications -->
+    <string name="feature_sessions_notifications_title">Terminal notifications</string>
+    <string name="feature_sessions_notifications_summary">Notifications from programs and when long commands finish</string>
+    <string name="feature_sessions_terminal_notifications_title">Notifications from programs</string>
+    <string name="feature_sessions_terminal_notifications_summary">Programs can show a notification with the OSC 9 and OSC 777 escape sequences, like printf \'\\e]777;notify;Title;Body\\a\'. It is shown when the session is not in view.</string>
+    <string name="feature_sessions_notify_long_commands_title">Notify when long commands finish</string>
+    <string name="feature_sessions_notify_long_commands_summary">For bash, zsh and fish in new sessions: show a notification when a command that ran for at least the minimum duration finishes while its session is not in view. Your dotfiles are not changed.</string>
+    <string name="feature_sessions_notify_long_commands_seconds_title">Minimum duration</string>
+    <plurals name="feature_sessions_notify_long_commands_seconds_summary">
+        <item quantity="one">%d second</item>
+        <item quantity="other">%d seconds</item>
+    </plurals>
+    <string name="feature_sessions_notification_settings_title">Notification settings</string>
+    <string name="feature_sessions_notification_settings_allowed">Allowed. Tap to change the sound or importance.</string>
+    <string name="feature_sessions_notification_settings_blocked">Notifications are blocked, so none are shown. Tap to allow them.</string>
+    <string name="feature_sessions_msg_open_settings_failed">Failed to open the notification settings</string>
+    <string name="feature_sessions_notification_channel_name">Terminal notifications</string>
+    <string name="feature_sessions_notification_channel_description">Notifications from programs in terminal sessions, like when a long command finishes</string>
+    <string name="feature_sessions_notification_default_title">Terminal session</string>
+
 </resources>

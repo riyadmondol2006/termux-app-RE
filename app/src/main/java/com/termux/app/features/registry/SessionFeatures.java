@@ -19,6 +19,7 @@ public final class SessionFeatures {
         features.add(new SessionFeatureEntries.Profiles());
         features.add(new SessionFeatureEntries.StartupAutomation());
         features.add(new SessionFeatureEntries.Persistence());
+        features.add(new SessionFeatureEntries.Notifications());
     }
 
 }

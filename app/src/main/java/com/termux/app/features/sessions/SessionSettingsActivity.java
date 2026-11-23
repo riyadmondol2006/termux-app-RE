@@ -4,12 +4,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
 import android.text.InputType;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -100,8 +104,57 @@ public class SessionSettingsActivity extends AppCompatActivity {
                 });
             }
 
+            EditTextPreference notifySeconds = findPreference(SessionsPreferences.KEY_NOTIFY_COMMANDS_SECONDS);
+            if (notifySeconds != null) {
+                notifySeconds.setOnBindEditTextListener(editText -> {
+                    editText.setInputType(InputType.TYPE_CLASS_NUMBER);
+                    editText.setSingleLine(true);
+                });
+                notifySeconds.setSummaryProvider(preference -> {
+                    int seconds = SessionsPreferences.getNotifyCommandsSeconds(context);
+                    return context.getResources().getQuantityString(R.plurals.feature_sessions_notify_long_commands_seconds_summary, seconds, seconds);
+                });
+            }
+
+            Preference notificationSettings = findPreference(SessionsPreferences.KEY_NOTIFICATION_SETTINGS);
+            if (notificationSettings != null) {
+                notificationSettings.setOnPreferenceClickListener(preference -> {
+                    openNotificationSettings(context);
+                    return true;
+                });
+            }
+
             String scrollTo = getArguments() != null ? getArguments().getString(EXTRA_SCROLL_TO) : null;
             if (scrollTo != null && savedInstanceState == null) scrollToPreference(scrollTo);
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            // The user may have changed the notification permission in the system settings.
+            Preference notificationSettings = findPreference(SessionsPreferences.KEY_NOTIFICATION_SETTINGS);
+            if (notificationSettings != null) {
+                notificationSettings.setSummary(SessionNotifications.canShowNotifications(requireContext()) ?
+                    R.string.feature_sessions_notification_settings_allowed : R.string.feature_sessions_notification_settings_blocked);
+            }
+        }
+
+        private static void openNotificationSettings(@NonNull Context context) {
+            SessionNotifications.setupNotificationChannel(context);
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                boolean appNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled();
+                intent = new Intent(appNotificationsEnabled ? Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS : Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName())
+                    .putExtra(Settings.EXTRA_CHANNEL_ID, SessionNotifications.CHANNEL_ID);
+            } else {
+                intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.getPackageName(), null));
+            }
+            try {
+                context.startActivity(intent);
+            } catch (Exception e) {
+                Toast.makeText(context, R.string.feature_sessions_msg_open_settings_failed, Toast.LENGTH_SHORT).show();
+            }
         }
 
     }
