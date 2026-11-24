@@ -44,6 +44,10 @@ on:
         type: boolean
         required: false
         default: true
+      jobs:
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
     inputs:
       packages:
@@ -66,6 +70,10 @@ on:
         description: 'Publish the built packages in the repository'
         type: boolean
         default: true
+      jobs:
+        description: 'Parallel jobs per build, fewer for builds that run out of memory. Empty for one per CPU'
+        required: false
+        default: ''
 
 permissions: {}
 
@@ -185,6 +193,7 @@ jobs:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
           PACKAGES: ${{ needs.setup.outputs.packages }}
           FORCE: ${{ inputs.force && 'true' || 'false' }}
+          BUILD_JOBS: ${{ inputs.jobs }}
         run: |
           # Packages named explicitly are kept as requested packages (roots.txt of the repository),
           # those of apt-repo/packages.txt through that file.
