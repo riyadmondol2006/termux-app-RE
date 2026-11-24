@@ -20,7 +20,8 @@
 # packages that were asked for to $ROOTS_FILE if set, as "<package> <arch>" lines, which the
 # repository keeps with their runtime dependencies on that architecture. Name subpackages, like
 # python-ensurepip-wheels, to have them kept too.
-# Exits with 1 if a package failed or was not built in time.
+# Exits with 1 if a package failed or was not built in time. $BUILD_JOBS, if set, is the number of
+# parallel jobs per build (build-package.sh -j), for builds that run out of memory.
 #
 # Usage: build-packages.sh <arch> <repository url> <deadline as unix time> <force: true|false> <package>...
 
@@ -40,6 +41,10 @@ trap 'rm -rf "$RUNNER_TEMP_DIR"' EXIT
 [ -f build-package.sh ] || { echo "Run this in a termux-packages checkout" >&2; exit 1; }
 
 declare -a BUILD_ARGS=(-C -a "$ARCH")
+if [ -n "${BUILD_JOBS:-}" ]; then
+	[[ "$BUILD_JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid BUILD_JOBS '$BUILD_JOBS'" >&2; exit 1; }
+	BUILD_ARGS+=(-j "$BUILD_JOBS")
+fi
 if curl -fsSL --retry 3 -o /dev/null "$REPO_URL/dists/stable/InRelease?nocache=$RANDOM$RANDOM"; then
 	echo "Downloading dependencies from $REPO_URL where possible"
 	BUILD_ARGS=(-I "${BUILD_ARGS[@]}")

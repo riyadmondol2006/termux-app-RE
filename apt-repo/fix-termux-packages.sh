@@ -18,6 +18,8 @@
 #     for example apr-util 1.6.5, a build dependency of git.
 #   - invisible-mirror.net returns a small web page instead of the file, for example for the
 #     dialog sources that termux-tools needs. invisible-island.net is the site it mirrors.
+#   - xorg.freedesktop.org sometimes can't be reached from GitHub Actions runners, for example
+#     for util-macros. www.x.org has the same files on another host.
 # - termux-tools' configure takes the app package name and paths from environment variables
 #   that termux-packages doesn't export, and falls back to com.termux, so pkg, login and other
 #   scripts used /data/data/com.termux paths (only their shebangs were fixed). They are exported
@@ -78,6 +80,8 @@ termux_download() {
 		alternative="https://archive.apache.org/dist/${BASH_REMATCH[3]}"
 	elif [[ "$url" =~ ^https://invisible-mirror\.net/archives/(.+)$ ]]; then
 		alternative="https://invisible-island.net/archives/${BASH_REMATCH[1]}"
+	elif [[ "$url" =~ ^https://xorg\.freedesktop\.org/(releases|archive)/(.+)$ ]]; then
+		alternative="https://www.x.org/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
 	fi
 	if [[ -n "$alternative" && "$checksum" =~ ^[0-9a-f]{64}$ ]]; then
 		echo "Trying $alternative instead"
@@ -115,7 +119,7 @@ termux_download() {
 	return $status
 }
 EOF
-echo "termux_download falls back to kernel.googlesource.com, archive.apache.org and invisible-island.net"
+echo "termux_download falls back to kernel.googlesource.com, archive.apache.org, invisible-island.net and www.x.org"
 
 ### command-not-found database
 CNF=packages/command-not-found/build.sh

@@ -44,6 +44,10 @@ on:
         type: boolean
         required: false
         default: true
+      jobs:
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
     inputs:
       packages:
@@ -66,6 +70,10 @@ on:
         description: 'Publish the built packages in the repository'
         type: boolean
         default: true
+      jobs:
+        description: 'Parallel jobs per build, fewer for builds that run out of memory. Empty for one per CPU'
+        required: false
+        default: ''
 
 permissions: {}
 
@@ -133,7 +141,16 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           sudo docker image prune --all --force
+          # Some builds, like V8 for codex, need more memory than the runner has: without swap
+          # the runner is killed and the job fails without a log.
+          if sudo fallocate -l 16G /termux-re-swap && sudo chmod 600 /termux-re-swap && \
+              sudo mkswap /termux-re-swap > /dev/null && sudo swapon /termux-re-swap; then
+            echo "Added 16 GB of swap"
+          else
+            echo "::warning::Failed to add swap, builds that need a lot of memory may fail"
+          fi
           df -h /
+          free -h
 
       - name: Clone repository
         uses: actions/checkout@v7
@@ -176,6 +193,7 @@ jobs:
           REPO_URL: ${{ needs.setup.outputs.repo_url }}
           PACKAGES: ${{ needs.setup.outputs.packages }}
           FORCE: ${{ inputs.force && 'true' || 'false' }}
+          BUILD_JOBS: ${{ inputs.jobs }}
         run: |
           # Packages named explicitly are kept as requested packages (roots.txt of the repository),
           # those of apt-repo/packages.txt through that file.

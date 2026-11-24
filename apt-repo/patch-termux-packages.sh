@@ -20,9 +20,9 @@
 #   `termux-change-repo` choose from points at the Termux RE repository, and `pkg` uses the
 #   default one, so mirror selection can't switch back to the official repositories. Mirror
 #   files of other repositories left over from an earlier termux-tools version are deleted when
-#   it is upgraded. And when `pkg install` fails, files/package-not-found explains for every
-#   package that the repository doesn't have why official Termux packages can't be used, and
-#   links to the package request form of the app repository.
+#   it is upgraded. And when `pkg install` fails, files/package-not-found links to the package
+#   request form for every package that the repository doesn't have, and explains that official
+#   Termux packages only work through the app's compatibility layer.
 #
 # - Packages are compressed with xz's strongest preset, -9e, so more of them fit in the 1 GB of
 #   GitHub Pages.
@@ -179,7 +179,7 @@ EOF
 
 # Raise the revision by one more whenever the changes above change, so a termux-tools package
 # with them replaces one without them, in the repository and on devices.
-TOOLS_REVISION_INCREASE=3
+TOOLS_REVISION_INCREASE=4
 TOOLS_BUILD=packages/termux-tools/build.sh
 revision="$(sed -n -E 's/^TERMUX_PKG_REVISION="?([0-9]+)"?( #.*)?$/\1/p' "$TOOLS_BUILD")"
 [ -n "$revision" ] || fail "No TERMUX_PKG_REVISION in $TOOLS_BUILD"
