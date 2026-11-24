@@ -50,8 +50,8 @@ clang cmake pkg-config
 python-pillow python-numpy
 # Servers: postgresql 6 MB, mariadb 15 MB, apache2 with PHP 10 MB.
 postgresql mariadb apache2 php-apache
-# More tools: gh 10 MB, lazygit 5 MB, helix 7 MB, mosh 3 MB, tor 3 MB, hyperfine 1 MB.
-gh lazygit helix mosh tor hyperfine
+# More tools: gh 10 MB, lazygit 5 MB, helix 7 MB, mosh 3 MB, tor 3 MB.
+gh lazygit helix mosh tor
 
 # Not included, with the size they would add on aarch64: rust (132 MB), openjdk-17 (98 MB),
 # emacs (46 MB), imagemagick (33 MB), rclone (20 MB), zellij (11 MB), nushell (11 MB). btop and
@@ -63,5 +63,7 @@ gh lazygit helix mosh tor hyperfine
 # Not building from termux-packages at the moment (November 2026), add them back when they do:
 # fish (CMake error in its host build: "install SCRIPT given invalid argument"), ffmpeg (45 MB;
 # the source archive of its dependency libsrt 1.5.7 no longer has the checksum that
-# termux-packages expects), hyperfine for arm (its shell completions are missing), and fastfetch
-# (its build needs dozens of graphics and audio libraries and doesn't finish in a 6 hour job).
+# termux-packages expects), hyperfine (its shell completions are missing), fastfetch (its build
+# needs dozens of graphics and audio libraries and doesn't finish in a 6 hour job) and codex
+# (91 MB, aarch64 only, it fits: GitHub's runner stops responding about 100 minutes into
+# building the V8 engine it includes, also with 16 GB of swap and 2 parallel jobs).
