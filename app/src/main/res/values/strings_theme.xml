@@ -74,4 +74,15 @@
     <string name="feature_theme_delete_confirm">Delete the theme “%1$s”?</string>
     <string name="feature_theme_deleted">Theme deleted</string>
     <string name="feature_theme_copy_name">%1$s (custom)</string>
+    <string name="settings_sessions_title">Sessions</string>
+    <string name="settings_sessions_summary">Startup commands, restoring sessions and terminal notifications</string>
+    <string name="settings_profiles_summary">Shell, folder, startup commands and font size for new sessions</string>
+    <string name="settings_package_manager_title">Package manager</string>
+    <string name="settings_package_manager_summary">Search, install, remove and update packages</string>
+    <string name="settings_package_repositories_title">Package repositories</string>
+    <string name="settings_package_repositories_summary">Package sources, mirrors and official Termux packages</string>
+    <string name="settings_all_tools_title">All tools</string>
+    <string name="settings_all_tools_summary">Search, split screen, keyboard and toolbar editors, file manager, SSH, Git, system monitor and more</string>
+    <string name="settings_general_title">General</string>
+    <string name="settings_general_summary">App behavior, update checks and other general settings</string>
 </resources>

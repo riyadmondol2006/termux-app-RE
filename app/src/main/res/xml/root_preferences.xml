@@ -27,18 +27,51 @@
             app:fragment="com.termux.app.fragments.settings.termux.TerminalIOPreferencesFragment"/>
     </PreferenceCategory>
 
-    <PreferenceCategory app:key="cat_sessions_packages" app:title="@string/feature_theme_settings_sessions">
+    <PreferenceCategory app:key="cat_sessions" app:title="@string/feature_theme_settings_sessions">
         <Preference
-            app:key="settings_sessions"
-            app:title="@string/feature_theme_settings_sessions"
-            app:summary="@string/feature_theme_settings_sessions_summary"
+            app:key="open_session_settings"
+            app:title="@string/settings_sessions_title"
+            app:summary="@string/settings_sessions_summary"
             app:icon="@drawable/feature_theme_ic_sessions"
-            app:fragment="com.termux.app.fragments.settings.TermuxPreferencesFragment"/>
+            app:persistent="false"/>
+        <Preference
+            app:key="open_terminal_profiles"
+            app:title="@string/feature_sessions_profiles_title"
+            app:summary="@string/settings_profiles_summary"
+            app:icon="@drawable/feature_theme_ic_terminal"
+            app:persistent="false"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory app:key="cat_packages" app:title="@string/feature_theme_settings_packages">
+        <Preference
+            app:key="open_package_manager"
+            app:title="@string/settings_package_manager_title"
+            app:summary="@string/settings_package_manager_summary"
+            app:icon="@drawable/feature_theme_ic_package"
+            app:persistent="false"/>
+        <Preference
+            app:key="open_package_repositories"
+            app:title="@string/settings_package_repositories_title"
+            app:summary="@string/settings_package_repositories_summary"
+            app:icon="@drawable/feature_theme_ic_package"
+            app:persistent="false"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory app:key="cat_tools" app:title="@string/action_open_tools">
+        <Preference
+            app:key="open_all_tools"
+            app:title="@string/settings_all_tools_title"
+            app:summary="@string/settings_all_tools_summary"
+            app:icon="@drawable/ic_tools"
+            app:persistent="false"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory app:key="cat_general" app:title="@string/settings_general_title">
         <Preference
             app:key="termux"
-            app:title="@string/feature_theme_settings_packages"
-            app:summary="@string/feature_theme_settings_packages_summary"
-            app:icon="@drawable/feature_theme_ic_package"
+            app:title="@string/settings_general_title"
+            app:summary="@string/settings_general_summary"
+            app:icon="@drawable/ic_settings"
             app:fragment="com.termux.app.fragments.settings.TermuxPreferencesFragment"/>
     </PreferenceCategory>
 

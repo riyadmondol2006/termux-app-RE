@@ -1,6 +1,8 @@
 # Termux RE feature guide
 
-Termux RE adds tools for appearance, sessions, terminal input, packages, files, development and system monitoring. Most of them are in **Tools**: open the terminal drawer and tap the grid icon next to **Settings**. You can also long-press the terminal and choose **Tools**.
+Termux RE adds tools for appearance, sessions, terminal input, packages, files, development and system monitoring.
+
+Open the terminal drawer (swipe from the middle of the left edge) to find shortcuts at the top: **Themes**, **Settings**, **Tools**, **Packages** and **Files**. **Tools** lists everything, grouped and searchable. You can also long-press the terminal and choose **Tools**, and **Settings** links to the settings of every feature.
 
 Hardware shortcuts need a hardware keyboard. Setting `disable-hardware-keyboard-shortcuts` in `~/.termux/termux.properties` disables them.
 

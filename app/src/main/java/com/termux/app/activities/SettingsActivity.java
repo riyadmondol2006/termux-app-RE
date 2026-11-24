@@ -137,6 +137,7 @@ public class SettingsActivity extends AppCompatActivity {
 
             configureThemeStudioPreference(context);
             configureUpdatePreferences(context);
+            configureFeatureLinks(context);
 
             new Thread() {
                 @Override
@@ -149,6 +150,30 @@ public class SettingsActivity extends AppCompatActivity {
                     configureDonatePreference(context);
                 }
             }.start();
+        }
+
+        /** Links to the settings and screens of the features, so all of them can be found here. */
+        private void configureFeatureLinks(@NonNull Context context) {
+            setPreferenceClick("open_session_settings", () ->
+                com.termux.app.features.sessions.SessionSettingsActivity.start(context, null));
+            setPreferenceClick("open_terminal_profiles", () ->
+                com.termux.app.features.sessions.ProfilesActivity.start(context));
+            // These need the terminal, which opens them when it is shown.
+            setPreferenceClick("open_package_manager", () ->
+                startActivity(com.termux.app.TermuxActivity.newOpenFeatureIntent(context, "package_manager")));
+            setPreferenceClick("open_package_repositories", () ->
+                startActivity(com.termux.app.TermuxActivity.newOpenFeatureIntent(context, "package_repositories")));
+            setPreferenceClick("open_all_tools", () ->
+                startActivity(com.termux.app.TermuxActivity.newOpenFeatureIntent(context, com.termux.app.TermuxActivity.OPEN_FEATURE_TOOLS)));
+        }
+
+        private void setPreferenceClick(@NonNull String key, @NonNull Runnable action) {
+            Preference preference = findPreference(key);
+            if (preference == null) return;
+            preference.setOnPreferenceClickListener(p -> {
+                action.run();
+                return true;
+            });
         }
 
         private void configureThemeStudioPreference(@NonNull Context context) {

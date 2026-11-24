@@ -22,7 +22,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
-import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
@@ -233,6 +233,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setContentView(R.layout.activity_termux);
 
+        if (savedInstanceState == null && getIntent() != null)
+            mPendingFeature = getIntent().getStringExtra(EXTRA_OPEN_FEATURE);
+
         // Load termux shared preferences
         // This will also fail if TermuxConstants.TERMUX_PACKAGE_NAME does not equal applicationId
         mPreferences = TermuxAppSharedPreferences.build(this, true);
@@ -263,11 +266,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setTerminalToolbarView(savedInstanceState);
 
-        setToolsButtonView();
+        setDrawerShortcuts();
 
         setDrawerGestureExclusion();
 
-        setSettingsButtonView();
 
         setNewSessionButtonView();
 
@@ -342,6 +344,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onResume();
+
+        openPendingFeature();
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onResume();
@@ -476,6 +480,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTerminalFeaturesController != null) mTerminalFeaturesController.onServiceConnected();
 
         requestNotificationsPermissionIfNeeded();
+
+        // A feature to open, from the settings.
+        openPendingFeature();
     }
 
     @Override
@@ -614,18 +621,71 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
-    private void setToolsButtonView() {
-        findViewById(R.id.tools_button).setOnClickListener(v -> {
+    /** The labeled shortcuts at the top of the drawer, so themes, settings and the tools are easy to find. */
+    private void setDrawerShortcuts() {
+        setDrawerShortcut(R.id.drawer_shortcut_themes, R.drawable.feature_theme_ic_palette, R.string.action_drawer_themes,
+            () -> openFeature("theme_studio"));
+        setDrawerShortcut(R.id.settings_button, R.drawable.ic_settings, R.string.action_drawer_settings,
+            () -> ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class)));
+        setDrawerShortcut(R.id.tools_button, R.drawable.ic_tools, R.string.action_open_tools,
+            () -> FeaturesDialog.show(this));
+        setDrawerShortcut(R.id.drawer_shortcut_packages, R.drawable.feature_packages_manager, R.string.action_drawer_packages,
+            () -> openFeature("package_manager"));
+        setDrawerShortcut(R.id.drawer_shortcut_files, R.drawable.feature_files_ic_folder, R.string.action_drawer_files,
+            () -> openFeature("files_manager"));
+    }
+
+    private void setDrawerShortcut(int id, int icon, int label, @NonNull Runnable action) {
+        View shortcut = findViewById(id);
+        if (shortcut == null) return;
+        ((android.widget.ImageView) shortcut.findViewById(R.id.drawer_shortcut_icon)).setImageResource(icon);
+        ((TextView) shortcut.findViewById(R.id.drawer_shortcut_label)).setText(label);
+        shortcut.setContentDescription(getString(label));
+        shortcut.setOnClickListener(v -> {
             getDrawer().closeDrawers();
-            FeaturesDialog.show(this);
+            action.run();
         });
     }
 
-    private void setSettingsButtonView() {
-        ImageButton settingsButton = findViewById(R.id.settings_button);
-        settingsButton.setOnClickListener(v -> {
-            ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
-        });
+    /**
+     * An intent extra with the id of a feature (see {@link com.termux.app.features.FeatureRegistry})
+     * to open when the activity is shown, or {@link #OPEN_FEATURE_TOOLS} for the Tools list. Used by
+     * the settings to open features that need the terminal.
+     */
+    public static final String EXTRA_OPEN_FEATURE = "com.termux.app.EXTRA_OPEN_FEATURE";
+    public static final String OPEN_FEATURE_TOOLS = "tools";
+
+    /** The feature to open once the activity is connected to the service, see {@link #EXTRA_OPEN_FEATURE}. */
+    @Nullable private String mPendingFeature;
+
+    /** An intent that shows the terminal and opens the feature with {@code featureId} in it. */
+    @NonNull
+    public static Intent newOpenFeatureIntent(@NonNull Context context, @NonNull String featureId) {
+        return new Intent(context, TermuxActivity.class).putExtra(EXTRA_OPEN_FEATURE, featureId);
+    }
+
+    /** Open the feature with {@code id}, or the Tools list for {@link #OPEN_FEATURE_TOOLS}. */
+    public void openFeature(@NonNull String id) {
+        if (OPEN_FEATURE_TOOLS.equals(id)) {
+            FeaturesDialog.show(this);
+            return;
+        }
+        com.termux.app.features.TermuxFeature feature = com.termux.app.features.FeatureRegistry.getFeature(id);
+        if (feature != null && feature.isAvailable(this)) feature.open(this);
+    }
+
+    private void openPendingFeature() {
+        if (mPendingFeature == null || mTermuxService == null || !mIsVisible) return;
+        String id = mPendingFeature;
+        mPendingFeature = null;
+        openFeature(id);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent != null && intent.getStringExtra(EXTRA_OPEN_FEATURE) != null)
+            mPendingFeature = intent.getStringExtra(EXTRA_OPEN_FEATURE);
     }
 
     private void setNewSessionButtonView() {

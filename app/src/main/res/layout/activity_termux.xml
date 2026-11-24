@@ -60,47 +60,71 @@
                 android:paddingBottom="16dp"
                 android:background="@drawable/drawer_background">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:minHeight="48dp"
                     android:gravity="center_vertical"
-                    android:minHeight="64dp"
-                    android:orientation="horizontal"
                     android:paddingStart="28dp"
-                    android:paddingEnd="12dp">
+                    android:paddingEnd="12dp"
+                    android:paddingTop="8dp"
+                    android:singleLine="true"
+                    android:text="@string/application_name"
+                    android:textAppearance="?attr/textAppearanceTitleSmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
-                    <TextView
+                <!-- Labeled shortcuts, so themes, settings and the tools are easy to find. -->
+                <LinearLayout
+                    android:id="@+id/drawer_shortcuts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
+
+                    <include
+                        android:id="@+id/drawer_shortcut_themes"
+                        layout="@layout/drawer_shortcut"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:singleLine="true"
-                        android:text="@string/application_name"
-                        android:textAppearance="?attr/textAppearanceTitleSmall"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
+                        android:layout_weight="1" />
 
-                    <ImageButton
-                        android:id="@+id/tools_button"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:src="@drawable/ic_tools"
-                        android:background="?attr/actionBarItemBackground"
-                        android:contentDescription="@string/action_open_tools"
-                        android:tooltipText="@string/action_open_tools"
-                        app:tint="?attr/termuxActivityDrawerImageTint"
-                        tools:targetApi="o" />
-
-                    <ImageButton
+                    <include
                         android:id="@+id/settings_button"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:src="@drawable/ic_settings"
-                        android:background="?attr/actionBarItemBackground"
-                        android:contentDescription="@string/action_open_settings"
-                        android:tooltipText="@string/action_open_settings"
-                        app:tint="?attr/termuxActivityDrawerImageTint"
-                        tools:targetApi="o" />
+                        layout="@layout/drawer_shortcut"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
+
+                    <include
+                        android:id="@+id/tools_button"
+                        layout="@layout/drawer_shortcut"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
+
+                    <include
+                        android:id="@+id/drawer_shortcut_packages"
+                        layout="@layout/drawer_shortcut"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
+
+                    <include
+                        android:id="@+id/drawer_shortcut_files"
+                        layout="@layout/drawer_shortcut"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
                 </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginHorizontal="28dp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="?attr/colorOutlineVariant" />
 
                 <ListView
                     android:id="@+id/terminal_sessions_list"
