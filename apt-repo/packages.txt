@@ -27,15 +27,15 @@ micro fzf ripgrep fd ncdu termux-services sqlite bc nnn netcat-openbsd
 [aarch64 arm]
 # Node.js (nodejs-lts 20 MB with libicu, npm 2 MB).
 nodejs-lts npm
-# Editors and shells: neovim 9 MB, fish 4-8 MB, kakoune 1 MB.
-neovim fish kakoune
+# Editors: neovim 9 MB, kakoune 1 MB.
+neovim kakoune
 # Command line tools, about 1 MB each.
-bat eza lsd fastfetch neofetch zoxide tealdeer starship hyperfine git-delta duf dust procs
+bat eza lsd neofetch zoxide tealdeer starship git-delta duf dust procs
 mc ranger w3m lynx screen 7zip unrar lua54 gnupg cronie
 # Networking: nmap 6 MB, dnsutils 2 MB, the rest small.
 aria2 iproute2 nmap dnsutils proxychains-ng iperf3 traceroute whois wireguard-tools nginx redis
-# Downloads and git: yt-dlp 3 MB, git-lfs 4 MB, adb and fastboot 3 MB.
-yt-dlp git-lfs android-tools
+# git-lfs 4 MB, adb and fastboot 3 MB.
+git-lfs android-tools
 # Python modules that need compiled code.
 python-cryptography python-lxml
 # Binary tools.
@@ -46,14 +46,22 @@ binutils
 perl ruby php golang
 # Compilers and build tools, so native code builds on the device: clang/LLVM 84 MB, cmake 12 MB.
 clang cmake pkg-config
-# Media: ffmpeg 45 MB with its codecs, python-pillow, python-numpy.
-ffmpeg python-pillow python-numpy
+# Python modules for images and numbers: python-pillow, python-numpy.
+python-pillow python-numpy
 # Servers: postgresql 6 MB, mariadb 15 MB, apache2 with PHP 10 MB.
 postgresql mariadb apache2 php-apache
-# More tools: gh 10 MB, lazygit 5 MB, helix 7 MB, mosh 3 MB, tor 3 MB.
-gh lazygit helix mosh tor
+# More tools: gh 10 MB, lazygit 5 MB, helix 7 MB, mosh 3 MB, tor 3 MB, hyperfine 1 MB.
+gh lazygit helix mosh tor hyperfine
 
 # Not included, with the size they would add on aarch64: rust (132 MB), openjdk-17 (98 MB),
 # emacs (46 MB), imagemagick (33 MB), rclone (20 MB), zellij (11 MB), nushell (11 MB). btop and
 # openvpn are root-packages of termux-packages, which this repository doesn't build. termux-api
 # needs the Termux:API app, which only works with com.termux.
+#
+# yt-dlp is not a termux-packages package: `pip install yt-dlp` installs it.
+#
+# Not building from termux-packages at the moment (November 2026), add them back when they do:
+# fish (CMake error in its host build: "install SCRIPT given invalid argument"), ffmpeg (45 MB;
+# the source archive of its dependency libsrt 1.5.7 no longer has the checksum that
+# termux-packages expects), hyperfine for arm (its shell completions are missing), and fastfetch
+# (its build needs dozens of graphics and audio libraries and doesn't finish in a 6 hour job).
