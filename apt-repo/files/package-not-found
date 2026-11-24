@@ -1,8 +1,9 @@
 #!@TERMUX_PREFIX@/bin/bash
 # Termux RE: run by `pkg install` with its arguments when apt failed. For the packages that the
-# Termux RE package repository doesn't have, it explains why official Termux packages can't be
-# used instead and links to the package request form. Installed by termux-tools, see
-# apt-repo/patch-termux-packages.sh of https://github.com/riyadmondol2006/termux-app-RE.
+# Termux RE package repository doesn't have, it links to the package request form and explains
+# why official Termux packages only work through the compatibility layer. Installed by
+# termux-tools, see apt-repo/patch-termux-packages.sh of
+# https://github.com/riyadmondol2006/termux-app-RE.
 
 repo_url="@REPO_URL@"
 request_url="@REQUEST_URL@"
@@ -43,8 +44,10 @@ urlencode() {
 		echo "  $name${others:+ (only built for $others so far)}, request it at"
 		echo "    $request_url&title=$(urlencode "Package request: $name")&packages=$(urlencode "$name")&architecture=$(urlencode "$arch")"
 	done
-	echo "Packages from the official Termux repositories can't be used instead: they are built for the"
-	echo "/data/data/com.termux folder of the Termux app, and Termux RE (com.termux.re) keeps its files in"
-	echo "/data/data/com.termux.re, so its packages are built separately."
+	echo "Packages from the official Termux repositories don't work in Termux RE as they are: they are"
+	echo "built for the /data/data/com.termux folder of the Termux app, and Termux RE (com.termux.re)"
+	echo "keeps its files in /data/data/com.termux.re. To install them anyway, rewritten for Termux RE,"
+	echo "turn on the experimental official packages compatibility layer in Tools > Package repositories"
+	echo "(or run 'termux-re-official on' if it was on before), then run 'pkg install' again."
 } >&2
 exit 0

@@ -65,5 +65,7 @@ gh lazygit helix mosh tor
 # the source archive of its dependency libsrt 1.5.7 no longer has the checksum that
 # termux-packages expects), hyperfine (its shell completions are missing), fastfetch (its build
 # needs dozens of graphics and audio libraries and doesn't finish in a 6 hour job) and codex
-# (91 MB, aarch64 only, it fits: GitHub's runner stops responding about 100 minutes into
-# building the V8 engine it includes, also with 16 GB of swap and 2 parallel jobs).
+# (GitHub's runner stops responding about 100 minutes into building the V8 engine it includes).
+#
+# Packages that are not here can be installed from the official Termux repository through the
+# app's compatibility layer, see docs/official-packages.md; codex works that way.
