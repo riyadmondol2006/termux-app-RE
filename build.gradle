@@ -1,9 +1,10 @@
+// Security fixes for libraries that build tools use: the Gradle plugins and Android lint, see the
+// Dependabot alerts of the repository. These run only during the build and are not part of the
+// app. Bouncy Castle's modules must have the same version.
 buildscript {
     dependencies {
         constraints {
-            // Security fixes for libraries that the Gradle plugins use while building, see the
-            // Dependabot alerts of the repository. These run only during the build and are not
-            // part of the app. Bouncy Castle's modules must have the same version.
+            // The same list as buildToolSecurityFixes below, which can't be used in this block.
             classpath("org.bouncycastle:bcprov-jdk18on:1.85")
             classpath("org.bouncycastle:bcpkix-jdk18on:1.85")
             classpath("org.bouncycastle:bcutil-jdk18on:1.85")
@@ -19,4 +20,22 @@ buildscript {
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
+}
+
+def buildToolSecurityFixes = [
+    "org.bouncycastle:bcprov-jdk18on:1.85",
+    "org.bouncycastle:bcpkix-jdk18on:1.85",
+    "org.bouncycastle:bcutil-jdk18on:1.85",
+    "com.google.guava:guava:33.7.2-jre",
+    "org.bitbucket.b_c:jose4j:0.9.6",
+    "org.jdom:jdom2:2.0.6.1",
+    "org.apache.commons:commons-lang3:3.18.0",
+    "org.apache.httpcomponents:httpclient:4.5.14",
+]
+
+subprojects { project ->
+    // The class path of Android lint, which the Android plugins add to every module.
+    project.configurations.matching { it.name == "androidLintTool" }.configureEach { configuration ->
+        buildToolSecurityFixes.each { project.dependencies.constraints.add(configuration.name, it) }
+    }
 }
