@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- One file or folder. Activated means selected. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/feature_files_item_background"
@@ -52,6 +53,6 @@
         android:layout_marginStart="16dp"
         android:importantForAccessibility="no"
         android:src="@drawable/feature_files_ic_check_circle"
-        android:tint="?attr/colorPrimary"
+        app:tint="?attr/colorPrimary"
         android:visibility="gone" />
 </LinearLayout>

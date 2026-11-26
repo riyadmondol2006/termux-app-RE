@@ -69,7 +69,7 @@
                     android:layout_width="64dp"
                     android:layout_height="64dp"
                     android:importantForAccessibility="no"
-                    android:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="?attr/colorOnSurfaceVariant" />
 
                 <TextView
                     android:id="@+id/feature_files_empty_title"

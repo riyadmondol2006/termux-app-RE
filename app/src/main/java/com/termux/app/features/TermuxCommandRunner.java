@@ -154,7 +154,7 @@ public final class TermuxCommandRunner {
         int exitCode;
         try {
             if (timeoutMillis > 0) {
-                if (!process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
+                if (!ProcessWaiter.waitFor(process, timeoutMillis)) {
                     process.destroy();
                     error = "Timed out after " + timeoutMillis + " ms";
                 }

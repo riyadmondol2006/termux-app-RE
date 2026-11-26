@@ -90,14 +90,17 @@ public class InputFilesTest {
     @Test
     public void atomicReplaceMakesBackup() throws Exception {
         Path dir = Files.createTempDirectory("input-test");
-        Path file = dir.resolve("termux.properties");
+        java.io.File file = dir.resolve("termux.properties").toFile();
         try {
             InputFiles.replace(file, "original", true);
             InputFiles.replace(file, "updated", true);
-            assertEquals("original", InputFiles.read(dir.resolve("termux.properties.bak")));
+            assertEquals("original", InputFiles.read(dir.resolve("termux.properties.bak").toFile()));
             assertEquals("updated", InputFiles.read(file));
+            assertEquals("", InputFiles.read(dir.resolve("missing").toFile()));
+            // Only the file and its backup are left, no temporary files.
+            assertEquals(2, dir.toFile().list().length);
         } finally {
-            Files.deleteIfExists(file);
+            Files.deleteIfExists(file.toPath());
             Files.deleteIfExists(dir.resolve("termux.properties.bak"));
             Files.deleteIfExists(dir);
         }

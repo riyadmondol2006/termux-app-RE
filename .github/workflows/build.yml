@@ -173,8 +173,9 @@ jobs:
             echo "IS_SIGNED=true"
           } >> "$GITHUB_ENV"
 
-      - name: Run tests
-        run: ./gradlew test
+      - name: Run tests and lint
+        # Lint catches calls to APIs newer than minSdk, which crash on older Android versions.
+        run: ./gradlew test lintDebug
 
       - name: Build APKs
         env:

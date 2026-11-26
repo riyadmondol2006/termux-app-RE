@@ -11,8 +11,6 @@ import com.termux.shared.termux.extrakeys.*;
 import org.json.*;
 
 import java.io.StringReader;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Properties;
 
 /** Visual matrix editor. A preview uses the exact runtime parser and key view. */
@@ -20,8 +18,8 @@ public final class KeyboardEditor {
     private final TermuxActivity activity;
     private JSONArray matrix;
     private String original;
-    private final Path path =
-            Paths.get(TermuxConstants.TERMUX_HOME_DIR_PATH, ".termux", "termux.properties");
+    private final java.io.File path =
+            new java.io.File(TermuxConstants.TERMUX_HOME_DIR_PATH, ".termux/termux.properties");
     private String style;
     private LinearLayout rows;
     private ExtraKeysView preview;

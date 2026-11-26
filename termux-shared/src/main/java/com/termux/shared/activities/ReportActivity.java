@@ -2,6 +2,7 @@ package com.termux.shared.activities;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -72,6 +73,14 @@ public class ReportActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Remove activity from recents menu on back button press.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                finishAndRemoveTask();
+            }
+        });
         Logger.logVerbose(LOG_TAG, "onCreate");
 
         AppCompatActivityUtils.setNightMode(this, NightMode.getAppNightMode().getName(), true);
@@ -201,12 +210,6 @@ public class ReportActivity extends AppCompatActivity {
         }
 
         return true;
-    }
-
-    @Override
-    public void onBackPressed() {
-        // Remove activity from recents menu on back button press
-        finishAndRemoveTask();
     }
 
     @Override

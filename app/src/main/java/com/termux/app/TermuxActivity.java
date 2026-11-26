@@ -233,6 +233,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setContentView(R.layout.activity_termux);
 
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBack();
+            }
+        });
+
         if (savedInstanceState == null && getIntent() != null)
             mPendingFeature = getIntent().getStringExtra(EXTRA_OPEN_FEATURE);
 
@@ -714,9 +721,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
+    /** Back closes the drawer, then terminal view features like the search bar, then the activity. */
     @SuppressLint("RtlHardcoded")
-    @Override
-    public void onBackPressed() {
+    private void handleBack() {
         if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
             getDrawer().closeDrawers();
         } else if (mTerminalFeaturesController != null && mTerminalFeaturesController.onBackPressed()) {

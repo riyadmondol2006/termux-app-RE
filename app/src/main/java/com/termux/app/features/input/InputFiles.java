@@ -1,10 +1,12 @@
 package com.termux.app.features.input;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,30 +14,50 @@ import java.util.List;
 public final class InputFiles {
     private InputFiles() {}
 
-    public static String read(Path path) throws IOException {
-        return Files.exists(path)
-                ? new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-                : "";
+    // java.io instead of java.nio.file, which needs Android 8 while the app supports Android 7.
+
+    /** The text of {@code file}, or an empty string if it doesn't exist. */
+    public static String read(File file) throws IOException {
+        if (!file.exists()) return "";
+        try (InputStream in = new FileInputStream(file)) {
+            return new String(readAll(in), StandardCharsets.UTF_8);
+        }
     }
 
-    public static void replace(Path path, String text, boolean backup) throws IOException {
-        Files.createDirectories(path.getParent());
-        if (backup && Files.exists(path))
-            Files.copy(
-                    path,
-                    path.resolveSibling(path.getFileName() + ".bak"),
-                    StandardCopyOption.REPLACE_EXISTING);
-        Path temp = Files.createTempFile(path.getParent(), ".input-", ".tmp");
-        try {
-            Files.write(temp, text.getBytes(StandardCharsets.UTF_8));
-            Files.move(
-                    temp,
-                    path,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
-        } finally {
-            Files.deleteIfExists(temp);
+    /**
+     * Replace the contents of {@code file} atomically: write a temporary file next to it and rename
+     * it over the file. With {@code backup}, the old contents are first copied to "{@code name}.bak".
+     */
+    public static void replace(File file, String text, boolean backup) throws IOException {
+        File parent = file.getAbsoluteFile().getParentFile();
+        if (parent == null) throw new IOException("No parent folder for " + file);
+        if (!parent.isDirectory() && !parent.mkdirs()) throw new IOException("Cannot create " + parent);
+        if (backup && file.exists()) {
+            try (InputStream in = new FileInputStream(file);
+                 FileOutputStream out = new FileOutputStream(new File(parent, file.getName() + ".bak"))) {
+                out.write(readAll(in));
+                out.getFD().sync();
+            }
         }
+        File temp = File.createTempFile(".input-", ".tmp", parent);
+        try {
+            try (FileOutputStream out = new FileOutputStream(temp)) {
+                out.write(text.getBytes(StandardCharsets.UTF_8));
+                out.getFD().sync();
+            }
+            // rename(2) replaces the target atomically on the same file system.
+            if (!temp.renameTo(file)) throw new IOException("Cannot replace " + file);
+        } finally {
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+        }
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+        return out.toByteArray();
     }
 
     /** Replace active properties including their continuation lines, preserving all other bytes. */

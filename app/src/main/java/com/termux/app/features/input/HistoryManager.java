@@ -6,7 +6,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.termux.app.TermuxActivity;
 import com.termux.shared.termux.TermuxConstants;
 
-import java.nio.file.*;
+import java.io.File;
 import java.util.*;
 
 public final class HistoryManager {
@@ -19,11 +19,11 @@ public final class HistoryManager {
     private Set<String> bookmarks;
 
     private static final class Item {
-        final Path path;
+        final File path;
         final String snapshot;
         final InputFiles.Entry entry;
 
-        Item(Path p, String s, InputFiles.Entry e) {
+        Item(File p, String s, InputFiles.Entry e) {
             path = p;
             snapshot = s;
             entry = e;
@@ -95,11 +95,9 @@ public final class HistoryManager {
                             String[] shells = {"bash", "zsh", "fish"};
                             for (int i = 0; i < names.length; i++)
                                 try {
-                                    Path p =
-                                            Paths.get(
-                                                    TermuxConstants.TERMUX_HOME_DIR_PATH, names[i]);
-                                    if (Files.exists(p)) {
-                                        if (Files.size(p) > 8 * 1024 * 1024)
+                                    File p = new File(TermuxConstants.TERMUX_HOME_DIR_PATH, names[i]);
+                                    if (p.isFile()) {
+                                        if (p.length() > 8 * 1024 * 1024)
                                             throw new java.io.IOException(
                                                     names[i] + " exceeds the 8 MB history limit");
                                         String text = InputFiles.read(p);
@@ -198,7 +196,7 @@ public final class HistoryManager {
                 .setTitle(activity.getString(com.termux.R.string.feature_input_text_73))
                 .setMessage(
                         "Delete this occurrence from "
-                                + item.path.getFileName()
+                                + item.path.getName()
                                 + "? A .bak copy is saved first. A running shell may write it"
                                 + " again.")
                 .setNegativeButton(android.R.string.cancel, null)

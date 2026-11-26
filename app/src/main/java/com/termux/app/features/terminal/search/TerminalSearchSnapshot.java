@@ -147,8 +147,8 @@ public final class TerminalSearchSnapshot {
         public TerminalSearchSnapshot build() {
             int[] rowStarts = Arrays.copyOf(mRowStarts, mRowCount + 1);
             rowStarts[mRowCount] = mText.length();
-            char[] text = new char[mText.length()];
-            mText.getChars(0, mText.length(), text, 0);
+            // Not StringBuilder.getChars(), which lint flags as new in API 37.
+            char[] text = mText.toString().toCharArray();
             return new TerminalSearchSnapshot(text, rowStarts, Arrays.copyOf(mRowWrapped, mRowCount), mRowCount,
                 mFirstRow, mColumns, mScrolledRowsCount);
         }

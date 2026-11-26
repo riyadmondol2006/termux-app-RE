@@ -21,6 +21,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -61,6 +62,14 @@ public class TextIOActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Back confirms the text, like the confirm button.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                confirm();
+            }
+        });
         Logger.logVerbose(LOG_TAG, "onCreate");
 
         setContentView(R.layout.activity_text_io);
@@ -230,11 +239,6 @@ public class TextIOActivity extends AppCompatActivity {
         }
 
         return false;
-    }
-
-    @Override
-    public void onBackPressed() {
-        confirm();
     }
 
     /** Confirm current text and send it back to calling {@link Activity}. */
